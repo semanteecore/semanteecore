@@ -44,9 +44,9 @@ jobs:
       - image: rust:latest
     steps:
       - checkout
-      - run: git config --list --local
       - run: git config --list --global
-      - run: git config --list --system
+      - run: git config --global --unset url.ssh://git@github.com.insteadof
+      - run: git config --list --global
 
   build:
     <<: *defaults
