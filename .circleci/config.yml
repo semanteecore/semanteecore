@@ -38,16 +38,6 @@ defaults: &defaults
     RUST_BACKTRACE: 1
 
 jobs:
-  display-environment:
-    <<: *defaults
-    docker:
-      - image: rust:latest
-    steps:
-      - checkout
-      - run: git config --list --global
-      - run: git config --global --unset url.ssh://git@github.com.insteadof
-      - run: git config --list --global
-
   build:
     <<: *defaults
     docker:
@@ -108,6 +98,9 @@ jobs:
       - attach_workspace:
           at: /workspace
       - restore_cache: *restore-deps-cache-rust
+      # This unset is VERY important: without it --force-https cannot work
+      # For some reason CircleCI has a global override substituting git@ links instead of all https links
+      - run: git config --global --unset url.ssh://git@github.com.insteadof
       - run: /workspace/semantic-rs-linux --write=yes --release=yes --asset /workspace/semantic-rs-linux --asset Changelog.md --force-https
       - save_cache: *save-deps-cache-rust
 
@@ -115,8 +108,6 @@ workflows:
   version: 2
   analysis:
     jobs:
-      - display-environment:
-          filters: *filter-only-semantic-pr
       - test:
           filters: *filter-only-semantic-pr
       - build-linux-release:
