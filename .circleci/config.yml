@@ -38,6 +38,16 @@ defaults: &defaults
     RUST_BACKTRACE: 1
 
 jobs:
+  display-environment:
+    <<: *defaults
+    docker:
+      - image: rust:latest
+    steps:
+      - checkout
+      - run: git config --list --local
+      - run: git config --list --global
+      - run: git config --list --system
+
   build:
     <<: *defaults
     docker:
@@ -105,6 +115,8 @@ workflows:
   version: 2
   analysis:
     jobs:
+      - display-environment:
+          filters: *filter-only-semantic-pr
       - test:
           filters: *filter-only-semantic-pr
       - build-linux-release:
