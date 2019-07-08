@@ -73,11 +73,11 @@ jobs:
       - restore_cache: *restore-deps-cache-musl
       - run: cargo build --release
       - save_cache: *save-deps-cache-musl
-      - run: mv target/x86_64-unknown-linux-musl/release/semantic-rs ./semantic-rs-linux
+      - run: .circleci/move_binaries.sh target/x86_64-unknown-linux-musl/release/ __bin/ -linux
       - persist_to_workspace:
           root: .
           paths:
-            - semantic-rs-linux
+            - __bin/
 
   release-dry-run:
     <<: *defaults
@@ -87,7 +87,7 @@ jobs:
       - checkout
       - attach_workspace:
           at: /workspace
-      - run: /workspace/semantic-rs-linux --write=no --release=no --branch=$CIRCLE_BRANCH --asset /workspace/semantic-rs-linux --asset Changelog.md --force-https
+      - run: /workspace/__bin/semantic-rs-linux --write=no --release=no --branch=$CIRCLE_BRANCH --assets '/workspace/__bin/*' --asset Changelog.md --force-https
 
   release:
     <<: *defaults
@@ -101,7 +101,7 @@ jobs:
       # This unset is VERY important: without it --force-https cannot work
       # For some reason CircleCI has a global override substituting git@ links instead of all https links
       - run: git config --global --unset url.ssh://git@github.com.insteadof
-      - run: /workspace/semantic-rs-linux --write=yes --release=yes --asset /workspace/semantic-rs-linux --asset Changelog.md --force-https
+      - run: /workspace/__bin/semantic-rs-linux --write=yes --release=yes --assets /workspace/__bin/* --asset Changelog.md --force-https
       - save_cache: *save-deps-cache-rust
 
 workflows:
