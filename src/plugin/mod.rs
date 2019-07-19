@@ -9,8 +9,6 @@ pub use self::dispatcher::PluginDispatcher;
 pub use self::traits::PluginInterface;
 
 use serde::{Deserialize, Serialize};
-use std::cell::{Ref, RefCell, RefMut};
-use std::rc::Rc;
 
 pub struct RawPlugin {
     name: String,
@@ -41,28 +39,24 @@ pub enum RawPluginState {
     Started(Plugin),
 }
 
-#[derive(Clone)]
 pub struct Plugin {
     pub name: String,
-    call: Rc<RefCell<Box<dyn PluginInterface>>>,
+    call: Box<dyn PluginInterface>,
 }
 
 impl Plugin {
     pub fn new(plugin: Box<dyn PluginInterface>) -> Result<Self, failure::Error> {
         let name = plugin.name()?;
-        let plugin = Plugin {
-            name,
-            call: Rc::new(RefCell::new(plugin)),
-        };
+        let plugin = Plugin { name, call: plugin };
         Ok(plugin)
     }
 
-    pub fn as_interface(&self) -> Ref<Box<dyn PluginInterface>> {
-        RefCell::borrow(&self.call)
+    pub fn as_interface(&self) -> &dyn PluginInterface {
+        &*self.call
     }
 
-    pub fn as_interface_mut(&mut self) -> RefMut<Box<dyn PluginInterface>> {
-        RefCell::borrow_mut(&self.call)
+    pub fn as_interface_mut(&mut self) -> &mut dyn PluginInterface {
+        &mut *self.call
     }
 }
 
