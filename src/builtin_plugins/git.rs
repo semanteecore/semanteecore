@@ -5,13 +5,13 @@ use failure::Fail;
 use git2::{self, Cred, Oid, PushOptions, RemoteCallbacks, Repository, Signature};
 use serde::{Deserialize, Serialize};
 
-use crate::plugin::flow::KeyValue;
+use crate::plugin::flow::{FlowError, KeyValue, ProvisionCapability};
 use crate::plugin::proto::{
     request,
     response::{self, PluginResponse, PluginResponseBuilder},
 };
 use crate::plugin::proto::{GitRevision, Version};
-use crate::plugin::{PluginInterface, PluginStep};
+use crate::plugin::{PluginInterface, PluginStep, Scope};
 use std::path::Path;
 
 pub struct GitPlugin {
@@ -26,25 +26,37 @@ struct State {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Config {
-    user_name: Option<String>,
-    user_email: Option<String>,
-    #[serde(default = "default_branch")]
-    branch: String,
-    #[serde(default = "default_remote")]
-    remote: String,
-    #[serde(default)]
-    force_https: bool,
+    user_name: KeyValue<Option<String>>,
+    user_email: KeyValue<Option<String>>,
+    branch: KeyValue<String>,
+    remote: KeyValue<String>,
+    force_https: KeyValue<bool>,
     project_root: KeyValue<String>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
-            user_name: None,
-            user_email: None,
-            branch: default_branch(),
-            remote: default_remote(),
-            force_https: false,
+            user_name: KeyValue::builder("user_name")
+                .scope(Scope::Local)
+                .default_value()
+                .build(),
+            user_email: KeyValue::builder("user_email")
+                .scope(Scope::Local)
+                .default_value()
+                .build(),
+            branch: KeyValue::builder("branch")
+                .scope(Scope::Local)
+                .value(default_branch())
+                .build(),
+            remote: KeyValue::builder("remote")
+                .scope(Scope::Local)
+                .value(default_remote())
+                .build(),
+            force_https: KeyValue::builder("force_https")
+                .scope(Scope::Local)
+                .default_value()
+                .build(),
             project_root: KeyValue::builder("project_root").protected().build(),
         }
     }
@@ -69,7 +81,7 @@ impl State {
         repo: &Repository,
     ) -> Result<Signature<'static>, failure::Error> {
         let author = {
-            if let Some(author) = cfg.user_name.clone() {
+            if let Some(author) = cfg.user_name.as_value().clone() {
                 author
             } else {
                 let mut author = env::var("GIT_COMMITTER_NAME").map_err(failure::Error::from);
@@ -87,7 +99,7 @@ impl State {
         };
 
         let email = {
-            if let Some(email) = cfg.user_email.clone() {
+            if let Some(email) = cfg.user_email.as_value().clone() {
                 email
             } else {
                 let mut email = env::var("GIT_COMMITTER_EMAIL").map_err(failure::Error::from);
@@ -113,10 +125,10 @@ impl State {
         response: &mut PluginResponseBuilder<T>,
     ) {
         let result = || -> Result<(), failure::Error> {
-            let remote = self.repo.find_remote(&config.remote)?;
+            let remote = self.repo.find_remote(&config.remote.as_value())?;
             let remote_url = remote.url().ok_or(GitPluginError::GitRemoteUndefined)?;
 
-            if !config.force_https && is_https_remote(remote_url) {
+            if !config.force_https.as_value() && is_https_remote(remote_url) {
                 response.warnings(&[
                     "Git remote is not HTTPS and 'cfg.git.force_https' != true:",
                     "The publishing will fail if your environment doesn't hold your git ssh keys",
@@ -133,8 +145,8 @@ impl State {
     }
 
     fn perform_pre_flight_overrides(&mut self, config: &Config) -> Result<(), failure::Error> {
-        if config.force_https {
-            let remote_name = config.remote.clone();
+        if *config.force_https.as_value() {
+            let remote_name = config.remote.as_value().clone();
             let remote_url = self
                 .repo
                 .find_remote(&remote_name)?
@@ -170,8 +182,9 @@ impl State {
     }
 
     fn set_remote_url(&mut self, config: &Config, url: &str) -> Result<(), failure::Error> {
-        self.repo.remote_set_url(&config.remote, url)?;
-        self.repo.remote_set_pushurl(&config.remote, Some(url))?;
+        self.repo.remote_set_url(&config.remote.as_value(), url)?;
+        self.repo
+            .remote_set_pushurl(&config.remote.as_value(), Some(url))?;
         Ok(())
     }
 
@@ -207,7 +220,7 @@ impl State {
     }
 
     fn commit(&self, config: &Config, message: &str) -> Result<(), git2::Error> {
-        let update_ref = format!("refs/heads/{}", config.branch);
+        let update_ref = format!("refs/heads/{}", config.branch.as_value());
 
         let oid = self.repo.refname_to_id("HEAD")?;
         let parent_commit = self.repo.find_commit(oid)?;
@@ -235,7 +248,7 @@ impl State {
         tag_name: &str,
         message: &str,
     ) -> Result<(), git2::Error> {
-        let rev = format!("refs/heads/{}", config.branch);
+        let rev = format!("refs/heads/{}", config.branch.as_value());
         let obj = self.repo.revparse_single(&rev)?;
 
         self.repo
@@ -246,7 +259,8 @@ impl State {
     pub fn push(&self, config: &Config, tag_name: &str) -> Result<(), failure::Error> {
         let repo = &self.repo;
 
-        let branch = &config.branch;
+        let branch = config.branch.as_value();
+        let remote = config.remote.as_value();
         let token = std::env::var("GH_TOKEN").ok();
 
         // We need to push both the branch we just committed as well as the tag we created.
@@ -254,7 +268,7 @@ impl State {
         let tag_ref = format!("refs/tags/{}", tag_name);
         let refs = [&branch_ref[..], &tag_ref[..]];
 
-        let mut remote = repo.find_remote(&config.remote)?;
+        let mut remote = repo.find_remote(remote)?;
         let remote_url = remote.url().ok_or(GitPluginError::GitRemoteUndefined)?;
         let mut cbs = RemoteCallbacks::new();
         let mut opts = PushOptions::new();
@@ -317,12 +331,48 @@ impl PluginInterface for GitPlugin {
         PluginResponse::from_ok("git".into())
     }
 
-    fn get_default_config(&self) -> response::Config {
-        unimplemented!()
+    fn provision_capabilities(&self) -> response::ProvisionCapabilities {
+        PluginResponse::from_ok(vec![
+            ProvisionCapability::builder("branch")
+                .scope(Scope::VCS)
+                .after_step(PluginStep::PreFlight)
+                .build(),
+            ProvisionCapability::builder("remote")
+                .scope(Scope::VCS)
+                .after_step(PluginStep::PreFlight)
+                .build(),
+            ProvisionCapability::builder("github_repo_name")
+                .scope(Scope::VCS)
+                .after_step(PluginStep::PreFlight)
+                .build(),
+            ProvisionCapability::builder("current_version")
+                .scope(Scope::VCS)
+                .after_step(PluginStep::GetLastRelease)
+                .build(),
+        ])
     }
 
-    fn set_config(&mut self, _req: request::Config) -> response::Null {
-        unimplemented!()
+    fn provision(&self, req: request::Provision) -> response::Provision {
+        let value = match req.data.as_str() {
+            "branch" => serde_json::to_value(self.config.branch.as_value())?,
+            "remote" => serde_json::to_value(self.config.remote.as_value())?,
+            other => {
+                return PluginResponse::from_error(
+                    FlowError::KeyNotSupported(other.to_owned()).into(),
+                )
+            }
+        };
+
+        PluginResponse::from_ok(value)
+    }
+
+    fn get_default_config(&self) -> response::Config {
+        PluginResponse::from_ok(toml::Value::try_from(Config::default())?)
+    }
+
+    fn set_config(&mut self, req: request::Config) -> response::Null {
+        self.config = req.data.clone().try_into()?;
+        PluginResponse::from_ok(())
     }
 
     fn methods(&self, _req: request::Methods) -> response::Methods {

@@ -357,7 +357,7 @@ pub fn generate_changelog(
 
 #[derive(Fail, Debug)]
 enum ClogPluginError {
-    #[fail(display = "state is missing, forgor to run pre_flight step?")]
+    #[fail(display = "state is missing, forgot to run pre_flight step?")]
     MissingState,
 }
 
