@@ -1,8 +1,8 @@
 use std::mem;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use super::{Scope, ProvisionRequest};
+use super::{ProvisionRequest, Scope};
 use crate::plugin::PluginStep;
 
 pub type Key = String;
@@ -18,7 +18,7 @@ pub struct KeyValue<T> {
 pub enum KeyValueState<T> {
     NeedsProvision(ProvisionRequest),
     UserDefined(Key),
-    Ready(Key, T)
+    Ready(Key, T),
 }
 
 impl<T> KeyValue<T> {
@@ -56,7 +56,7 @@ impl<T> KeyValueBuilder<T> {
             scope: Scope::Global,
             key: key.to_owned(),
             value: None,
-            required_at: None
+            required_at: None,
         }
     }
 
@@ -97,12 +97,12 @@ impl<T> KeyValueBuilder<T> {
         if let Some(value) = self.value.take() {
             KeyValue {
                 protected: self.protected,
-                state: KeyValueState::Ready(key, value)
+                state: KeyValueState::Ready(key, value),
             }
         } else if self.user_defined {
             KeyValue {
                 protected: false,
-                state: KeyValueState::UserDefined(key)
+                state: KeyValueState::UserDefined(key),
             }
         } else {
             KeyValue {
@@ -110,8 +110,8 @@ impl<T> KeyValueBuilder<T> {
                 state: KeyValueState::NeedsProvision(ProvisionRequest {
                     scope: std::mem::replace(&mut self.scope, Scope::Global),
                     required_at: self.required_at.take(),
-                    key
-                })
+                    key,
+                }),
             }
         }
     }

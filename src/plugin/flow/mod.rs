@@ -1,13 +1,11 @@
 pub mod kv;
 pub use kv::KeyValue;
 
-use std::mem;
-use serde::{Serialize, Deserialize};
 use failure::Fail;
+use serde::{Deserialize, Serialize};
+use std::mem;
 
 use super::PluginStep;
-
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Scope {
@@ -96,7 +94,10 @@ pub struct ProvisionRequest {
 
 #[derive(Fail, Debug, Clone)]
 pub enum FlowError {
-    #[fail(display = "key {:?} is not available for querying yet, its availability is {:?}", _0, _1)]
+    #[fail(
+        display = "key {:?} is not available for querying yet, its availability is {:?}",
+        _0, _1
+    )]
     DataNotAvailableYet(String, Availability),
     #[fail(display = "key {:?} is supported for querying", _0)]
     KeyNotSupported(String),

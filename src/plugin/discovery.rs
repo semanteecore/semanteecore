@@ -8,13 +8,10 @@ impl CapabilitiesDiscovery {
         CapabilitiesDiscovery
     }
 
-    pub fn discover(
-        &self,
-        plugin: &Plugin,
-    ) -> Result<Vec<PluginStep>, failure::Error> {
-        let response = plugin.as_interface().methods(PluginRequest::new_null(
-            &std::env::vars().collect(),
-        ))?;
+    pub fn discover(&self, plugin: &Plugin) -> Result<Vec<PluginStep>, failure::Error> {
+        let response = plugin
+            .as_interface()
+            .methods(PluginRequest::new_null(&std::env::vars().collect()))?;
 
         Ok(response)
     }

@@ -6,11 +6,15 @@ use clog::fmt::MarkdownWriter;
 use clog::Clog;
 use failure::Fail;
 use git2::{Commit, Repository};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::plugin::proto::{request, response::{self, PluginResponse}, GitRevision, Version};
+use crate::plugin::flow::{Availability, FlowError, KeyValue, ProvisionCapability};
+use crate::plugin::proto::{
+    request,
+    response::{self, PluginResponse},
+    GitRevision, Version,
+};
 use crate::plugin::{PluginInterface, PluginStep, Scope};
-use crate::plugin::flow::{FlowError, KeyValue, ProvisionCapability, Availability};
 
 pub struct ClogPlugin {
     config: ClogPluginConfig,
@@ -76,12 +80,23 @@ struct ClogPluginConfig {
 impl Default for ClogPluginConfig {
     fn default() -> Self {
         ClogPluginConfig {
-            changelog: KeyValue::builder("changelog").scope(Scope::Local).value("Changelog.md".into()).build(),
-            ignore: KeyValue::builder("ignore").scope(Scope::Local).default_value().build(),
+            changelog: KeyValue::builder("changelog")
+                .scope(Scope::Local)
+                .value("Changelog.md".into())
+                .build(),
+            ignore: KeyValue::builder("ignore")
+                .scope(Scope::Local)
+                .default_value()
+                .build(),
             project_root: KeyValue::builder("project_root").protected().build(),
             is_dry_run: KeyValue::builder("is_dry_run").protected().build(),
-            current_version: KeyValue::builder("current_version").required_at(PluginStep::DeriveNextVersion).build(),
-            next_version: KeyValue::builder("next_version").required_at(PluginStep::GenerateNotes).protected().build(),
+            current_version: KeyValue::builder("current_version")
+                .required_at(PluginStep::DeriveNextVersion)
+                .build(),
+            next_version: KeyValue::builder("next_version")
+                .required_at(PluginStep::GenerateNotes)
+                .protected()
+                .build(),
         }
     }
 }
@@ -93,30 +108,42 @@ impl PluginInterface for ClogPlugin {
 
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
         PluginResponse::from_ok(vec![
-            ProvisionCapability::builder("release_notes").scope(Scope::Analysis).after_step(PluginStep::GenerateNotes).build(),
-            ProvisionCapability::builder("next_version").scope(Scope::Analysis).after_step(PluginStep::DeriveNextVersion).build(),
+            ProvisionCapability::builder("release_notes")
+                .scope(Scope::Analysis)
+                .after_step(PluginStep::GenerateNotes)
+                .build(),
+            ProvisionCapability::builder("next_version")
+                .scope(Scope::Analysis)
+                .after_step(PluginStep::DeriveNextVersion)
+                .build(),
         ])
     }
 
     fn provision(&self, req: request::Provision) -> response::Provision {
         match req.data.as_str() {
             "release_notes" => {
-                let notes = self.state.release_notes.as_ref().ok_or_else(|| FlowError::DataNotAvailableYet(
-                    req.data.clone(),
-                    Availability::AfterStep(PluginStep::GenerateNotes)
-                ))?;
+                let notes = self.state.release_notes.as_ref().ok_or_else(|| {
+                    FlowError::DataNotAvailableYet(
+                        req.data.clone(),
+                        Availability::AfterStep(PluginStep::GenerateNotes),
+                    )
+                })?;
 
                 PluginResponse::from_ok(serde_json::to_value(notes)?)
             }
             "next_version" => {
-                let next_version = self.state.next_version.as_ref().ok_or_else(|| FlowError::DataNotAvailableYet(
-                    req.data.clone(),
-                    Availability::AfterStep(PluginStep::DeriveNextVersion)
-                ))?;
+                let next_version = self.state.next_version.as_ref().ok_or_else(|| {
+                    FlowError::DataNotAvailableYet(
+                        req.data.clone(),
+                        Availability::AfterStep(PluginStep::DeriveNextVersion),
+                    )
+                })?;
 
                 PluginResponse::from_ok(serde_json::to_value(next_version)?)
             }
-            other => PluginResponse::from_error(FlowError::KeyNotSupported(other.to_owned()).into()),
+            other => {
+                PluginResponse::from_error(FlowError::KeyNotSupported(other.to_owned()).into())
+            }
         }
     }
 
@@ -155,9 +182,7 @@ impl PluginInterface for ClogPlugin {
 
         let bump = match &current_version.semver {
             None => CommitType::Major,
-            Some(_) => {
-                version_bump_since_rev(&project_root, &current_version.rev, &ignore)?
-            }
+            Some(_) => version_bump_since_rev(&project_root, &current_version.rev, &ignore)?,
         };
 
         let next_version = match current_version.semver.clone() {
@@ -195,8 +220,11 @@ impl PluginInterface for ClogPlugin {
     fn generate_notes(&mut self, params: request::GenerateNotes) -> response::GenerateNotes {
         let data = params.data;
 
-        let changelog =
-            generate_changelog(&self.config.project_root.as_value(), &data.start_rev, &data.new_version)?;
+        let changelog = generate_changelog(
+            &self.config.project_root.as_value(),
+            &data.start_rev,
+            &data.new_version,
+        )?;
 
         // Store this request as state
         self.state.release_notes.replace(changelog.clone());

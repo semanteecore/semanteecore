@@ -5,6 +5,7 @@ use failure::Fail;
 use git2::{self, Cred, Oid, PushOptions, RemoteCallbacks, Repository, Signature};
 use serde::{Deserialize, Serialize};
 
+use crate::plugin::flow::KeyValue;
 use crate::plugin::proto::{
     request,
     response::{self, PluginResponse, PluginResponseBuilder},
@@ -12,7 +13,6 @@ use crate::plugin::proto::{
 use crate::plugin::proto::{GitRevision, Version};
 use crate::plugin::{PluginInterface, PluginStep};
 use std::path::Path;
-use crate::plugin::flow::KeyValue;
 
 pub struct GitPlugin {
     config: Config,
@@ -61,10 +61,7 @@ fn default_remote() -> String {
 impl State {
     pub fn new(config: &Config, repo: Repository) -> Result<Self, failure::Error> {
         let signature = Self::get_signature(&config, &repo)?;
-        Ok(State {
-            repo,
-            signature,
-        })
+        Ok(State { repo, signature })
     }
 
     pub fn get_signature(
@@ -110,7 +107,11 @@ impl State {
         Ok(Signature::now(&author, &email)?)
     }
 
-    pub fn perform_pre_flight_checks<T>(&self, config: &Config, response: &mut PluginResponseBuilder<T>) {
+    pub fn perform_pre_flight_checks<T>(
+        &self,
+        config: &Config,
+        response: &mut PluginResponseBuilder<T>,
+    ) {
         let result = || -> Result<(), failure::Error> {
             let remote = self.repo.find_remote(&config.remote)?;
             let remote_url = remote.url().ok_or(GitPluginError::GitRemoteUndefined)?;
@@ -170,12 +171,16 @@ impl State {
 
     fn set_remote_url(&mut self, config: &Config, url: &str) -> Result<(), failure::Error> {
         self.repo.remote_set_url(&config.remote, url)?;
-        self.repo
-            .remote_set_pushurl(&config.remote, Some(url))?;
+        self.repo.remote_set_pushurl(&config.remote, Some(url))?;
         Ok(())
     }
 
-    fn commit_files(&self, config: &Config, files: &[String], commit_msg: &str) -> Result<(), failure::Error> {
+    fn commit_files(
+        &self,
+        config: &Config,
+        files: &[String],
+        commit_msg: &str,
+    ) -> Result<(), failure::Error> {
         let files = files.iter().filter(|filename| {
             let path = Path::new(filename);
             !self
@@ -186,7 +191,7 @@ impl State {
 
         self.add(files)?;
 
-        self.commit(config,&commit_msg)?;
+        self.commit(config, &commit_msg)?;
 
         Ok(())
     }
@@ -224,7 +229,12 @@ impl State {
             .map(|_| ())
     }
 
-    fn create_tag(&self, config: &Config, tag_name: &str, message: &str) -> Result<(), git2::Error> {
+    fn create_tag(
+        &self,
+        config: &Config,
+        tag_name: &str,
+        message: &str,
+    ) -> Result<(), git2::Error> {
         let rev = format!("refs/heads/{}", config.branch);
         let obj = self.repo.revparse_single(&rev)?;
 
@@ -295,7 +305,10 @@ impl State {
 
 impl GitPlugin {
     pub fn new() -> Self {
-        GitPlugin { config: Config::default(), state: None }
+        GitPlugin {
+            config: Config::default(),
+            state: None,
+        }
     }
 }
 

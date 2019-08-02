@@ -9,10 +9,7 @@ pub struct PluginRequest<'a, T> {
 
 impl<'a, T: 'a> PluginRequest<'a, T> {
     pub fn new(env: &'a HashMap<String, String>, data: &'a T) -> Self {
-        PluginRequest{
-            env,
-            data
-        }
+        PluginRequest { env, data }
     }
 }
 

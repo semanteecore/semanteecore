@@ -1,7 +1,7 @@
 pub mod request;
 pub mod response;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 pub type GitRevision = String;
 

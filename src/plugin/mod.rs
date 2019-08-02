@@ -1,15 +1,14 @@
 pub mod discovery;
 pub mod dispatcher;
+pub mod flow;
 pub mod proto;
 pub mod resolver;
 pub mod starter;
 pub mod traits;
-pub mod flow;
 
 pub use self::dispatcher::PluginDispatcher;
-pub use self::traits::PluginInterface;
 pub use self::flow::Scope;
-
+pub use self::traits::PluginInterface;
 
 use serde::{Deserialize, Serialize};
 use std::cell::{RefCell, RefMut};
