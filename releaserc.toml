@@ -3,9 +3,9 @@
 git = { location = "builtin" }
 # Short definition
 clog = "builtin"
-github = "builtin"
-rust = "builtin"
-docker = "builtin"
+#github = "builtin"
+#rust = "builtin"
+#docker = "builtin"
 
 [steps]
 # Shared step
