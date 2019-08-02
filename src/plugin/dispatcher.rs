@@ -96,13 +96,13 @@ pub type DispatchedSingletonResult<T> = Result<(String, T), failure::Error>;
 impl PluginDispatcher {
     pub fn pre_flight(&self) -> DispatchedMultiResult<response::PreFlight> {
         self.dispatch(PluginStep::PreFlight, |p| {
-            p.pre_flight(PluginRequest::new_null(&self.config, &self.env))
+            p.pre_flight(PluginRequest::new_null(&self.env))
         })
     }
 
     pub fn get_last_release(&self) -> DispatchedSingletonResult<response::GetLastRelease> {
         self.dispatch_singleton(PluginStep::GetLastRelease, move |p| {
-            p.get_last_release(PluginRequest::new_null(&self.config, &self.env))
+            p.get_last_release(PluginRequest::new_null(&self.env))
         })
     }
 
@@ -111,7 +111,7 @@ impl PluginDispatcher {
         current_version: &request::DeriveNextVersionData,
     ) -> DispatchedMultiResult<response::DeriveNextVersion> {
         self.dispatch(PluginStep::DeriveNextVersion, |p| {
-            p.derive_next_version(PluginRequest::new(&self.config, &self.env, current_version))
+            p.derive_next_version(PluginRequest::new(&self.env, current_version))
         })
     }
 
@@ -120,7 +120,7 @@ impl PluginDispatcher {
         params: &request::GenerateNotesData,
     ) -> DispatchedMultiResult<response::GenerateNotes> {
         self.dispatch(PluginStep::GenerateNotes, |p| {
-            p.generate_notes(PluginRequest::new(&self.config, &self.env, params))
+            p.generate_notes(PluginRequest::new(&self.env, params))
         })
     }
 
@@ -129,13 +129,13 @@ impl PluginDispatcher {
         params: &request::PrepareData,
     ) -> DispatchedMultiResult<response::Prepare> {
         self.dispatch(PluginStep::Prepare, |p| {
-            p.prepare(PluginRequest::new(&self.config, &self.env, params))
+            p.prepare(PluginRequest::new(&self.env, params))
         })
     }
 
     pub fn verify_release(&self) -> DispatchedMultiResult<response::VerifyRelease> {
         self.dispatch(PluginStep::VerifyRelease, |p| {
-            p.verify_release(PluginRequest::new_null(&self.config, &self.env))
+            p.verify_release(PluginRequest::new_null(&self.env))
         })
     }
 
@@ -144,7 +144,7 @@ impl PluginDispatcher {
         params: &request::CommitData,
     ) -> DispatchedSingletonResult<response::Commit> {
         self.dispatch_singleton(PluginStep::Commit, move |p| {
-            p.commit(PluginRequest::new(&self.config, &self.env, params))
+            p.commit(PluginRequest::new(&self.env, params))
         })
     }
 
@@ -153,13 +153,13 @@ impl PluginDispatcher {
         params: &request::PublishData,
     ) -> DispatchedMultiResult<response::Publish> {
         self.dispatch(PluginStep::Publish, |p| {
-            p.publish(PluginRequest::new(&self.config, &self.env, params))
+            p.publish(PluginRequest::new(&self.env, params))
         })
     }
 
     pub fn notify(&self, params: &request::NotifyData) -> DispatchedMultiResult<response::Notify> {
         self.dispatch(PluginStep::Notify, |p| {
-            p.notify(PluginRequest::new(&self.config, &self.env, params))
+            p.notify(PluginRequest::new(&self.env, params))
         })
     }
 }

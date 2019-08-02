@@ -2,8 +2,9 @@ use std::ops::Try;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Error, Null, ReleaseNotes, Version, Warning};
+use super::{Error, ReleaseNotes, Version, Warning};
 use crate::plugin::PluginStep;
+use crate::plugin::flow::ProvisionCapability;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PluginResponse<T> {
@@ -124,13 +125,21 @@ impl<T> PluginResponseBuilder<T> {
     }
 }
 
+pub type Null = PluginResponse<()>;
+
 pub type Name = PluginResponse<String>;
+
+pub type ProvisionCapabilities = PluginResponse<Vec<ProvisionCapability>>;
+
+pub type Provision = PluginResponse<serde_json::Value>;
+
+pub type Config = PluginResponse<toml::Value>;
 
 pub type Methods = PluginResponse<MethodsData>;
 pub type MethodsData = Vec<PluginStep>;
 
 pub type PreFlight = PluginResponse<PreFlightData>;
-pub type PreFlightData = Null;
+pub type PreFlightData = ();
 
 pub type GetLastRelease = PluginResponse<GetLastReleaseData>;
 pub type GetLastReleaseData = Version;
@@ -146,14 +155,14 @@ pub type Prepare = PluginResponse<PrepareData>;
 pub type PrepareData = Vec<String>;
 
 pub type VerifyRelease = PluginResponse<VerifyReleaseData>;
-pub type VerifyReleaseData = Null;
+pub type VerifyReleaseData = ();
 
 pub type Commit = PluginResponse<CommitData>;
 /// Name of the created git tag
 pub type CommitData = String;
 
 pub type Publish = PluginResponse<PublishData>;
-pub type PublishData = Null;
+pub type PublishData = ();
 
 pub type Notify = PluginResponse<NotifyData>;
-pub type NotifyData = Null;
+pub type NotifyData = ();

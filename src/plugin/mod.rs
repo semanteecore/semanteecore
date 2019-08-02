@@ -4,9 +4,12 @@ pub mod proto;
 pub mod resolver;
 pub mod starter;
 pub mod traits;
+pub mod flow;
 
 pub use self::dispatcher::PluginDispatcher;
 pub use self::traits::PluginInterface;
+pub use self::flow::Scope;
+
 
 use serde::{Deserialize, Serialize};
 use std::cell::{RefCell, RefMut};

@@ -102,7 +102,7 @@ impl KernelBuilder {
         log::info!("All plugins started");
 
         // Discovering plugins capabilities
-        let capabilities = Self::discover_capabilities(&self.config.cfg, &plugins)?;
+        let capabilities = Self::discover_capabilities(&plugins)?;
 
         // Building a steps to plugins map
         let steps_to_plugin_ids =
@@ -149,14 +149,13 @@ impl KernelBuilder {
     }
 
     fn discover_capabilities(
-        cfg_map: &CfgMap,
         plugins: &[Plugin],
     ) -> Result<Map<PluginStep, Vec<String>>, failure::Error> {
         let discovery = CapabilitiesDiscovery::new();
         let mut capabilities = Map::new();
 
         for plugin in plugins {
-            let plugin_caps = discovery.discover(cfg_map, &plugin)?;
+            let plugin_caps = discovery.discover(&plugin)?;
             for step in plugin_caps {
                 capabilities
                     .entry(step)

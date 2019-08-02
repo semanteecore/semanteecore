@@ -6,21 +6,37 @@ use std::process::Command;
 
 use failure::Fail;
 
-use crate::config::CfgMapExt;
 use crate::plugin::proto::{
     request,
     response::{self, PluginResponse},
 };
 use crate::plugin::{PluginInterface, PluginStep};
+use crate::plugin::flow::KeyValue;
 
 pub struct RustPlugin {
     dry_run_guard: Option<DryRunGuard>,
+    config: Config,
 }
 
 impl RustPlugin {
     pub fn new() -> Self {
         RustPlugin {
             dry_run_guard: None,
+            config: Config::default(),
+        }
+    }
+}
+
+struct Config {
+    project_root: KeyValue<String>,
+    is_dry_run: KeyValue<bool>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            project_root: KeyValue::builder("project_root").protected().build(),
+            is_dry_run: KeyValue::builder("is_dry_run").protected().build(),
         }
     }
 }
@@ -51,6 +67,14 @@ impl PluginInterface for RustPlugin {
         PluginResponse::from_ok("rust".into())
     }
 
+    fn get_default_config(&self) -> response::Config {
+        unimplemented!()
+    }
+
+    fn set_config(&mut self, _req: request::Config) -> response::Null {
+        unimplemented!()
+    }
+
     fn methods(&self, _req: request::Methods) -> response::Methods {
         let methods = vec![
             PluginStep::PreFlight,
@@ -69,7 +93,9 @@ impl PluginInterface for RustPlugin {
     }
 
     fn prepare(&mut self, params: request::Prepare) -> response::Prepare {
-        let project_root = params.cfg_map.project_root()?;
+        let project_root = self.config.project_root.as_value();
+        let is_dry_run = *self.config.is_dry_run.as_value();
+
         let token = params
             .env
             .get("CARGO_TOKEN")
@@ -79,7 +105,7 @@ impl PluginInterface for RustPlugin {
 
         // If we're in the dry-run mode, we don't wanna change the Cargo.toml manifest,
         // so we save the original state of it, which would be written to
-        if params.cfg_map.is_dry_run()? {
+        if is_dry_run {
             log::info!("rust(dry-run): saving original state of Cargo.toml");
 
             let guard = DryRunGuard {
@@ -96,7 +122,8 @@ impl PluginInterface for RustPlugin {
     }
 
     fn verify_release(&mut self, params: request::VerifyRelease) -> response::VerifyRelease {
-        let project_root = params.cfg_map.project_root()?;
+        let project_root = self.config.project_root.as_value();
+
         let token = params
             .env
             .get("CARGO_TOKEN")

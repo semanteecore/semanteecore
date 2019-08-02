@@ -1,29 +1,35 @@
 use std::collections::HashMap;
 
 use super::{Null, Version};
-use crate::config::CfgMap;
 
 pub struct PluginRequest<'a, T> {
-    pub cfg_map: &'a CfgMap,
     pub env: &'a HashMap<String, String>,
     pub data: &'a T,
 }
 
 impl<'a, T: 'a> PluginRequest<'a, T> {
-    pub fn new(cfg_map: &'a CfgMap, env: &'a HashMap<String, String>, data: &'a T) -> Self {
-        Self::with_env(cfg_map, env, data)
-    }
-
-    pub fn with_env(cfg_map: &'a CfgMap, env: &'a HashMap<String, String>, data: &'a T) -> Self {
-        PluginRequest { cfg_map, env, data }
+    pub fn new(env: &'a HashMap<String, String>, data: &'a T) -> Self {
+        PluginRequest{
+            env,
+            data
+        }
     }
 }
 
 impl<'a> PluginRequest<'a, ()> {
-    pub fn new_null(cfg_map: &'a CfgMap, env: &'a HashMap<String, String>) -> Self {
-        PluginRequest::new(cfg_map, env, &())
+    pub fn new_null(env: &'a HashMap<String, String>) -> Self {
+        PluginRequest::new(env, &())
     }
 }
+
+pub type Provision<'a> = PluginRequest<'a, ProvisionData>;
+/// We're only requesting key 'cause plugins do not need to differentiate between request scopes
+/// after the init stage: DataFlowManager would take care of making provisioning requests
+/// to the right plugins according to their advertised scopes
+pub type ProvisionData = String;
+
+pub type Config<'a> = PluginRequest<'a, ConfigData>;
+pub type ConfigData = toml::Value;
 
 pub type Methods<'a> = PluginRequest<'a, MethodsData>;
 pub type MethodsData = Null;

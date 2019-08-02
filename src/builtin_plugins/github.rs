@@ -10,26 +10,30 @@ use serde::Deserialize;
 use tokio::runtime::current_thread::block_on_all;
 use url::{ParseError, Url};
 
-use crate::config::CfgMapExt;
 use crate::plugin::proto::{
     request,
     response::{self, PluginResponse},
 };
 use crate::plugin::{PluginInterface, PluginStep};
 use crate::utils::ResultExt;
+use crate::plugin::flow::KeyValue;
 
 const USERAGENT: &str = concat!("semantic-rs/", env!("CARGO_PKG_VERSION"));
 
-pub struct GithubPlugin {}
+pub struct GithubPlugin {
+    config: Config,
+}
 
 impl GithubPlugin {
     pub fn new() -> Self {
-        GithubPlugin {}
+        GithubPlugin {
+            config: Config::default(),
+        }
     }
 }
 
 #[derive(Deserialize)]
-pub struct GithubPluginConfig {
+pub struct Config {
     assets: Vec<String>,
     user: Option<String>,
     repository: Option<String>,
@@ -41,6 +45,22 @@ pub struct GithubPluginConfig {
     draft: bool,
     #[serde(default)]
     pre_release: bool,
+    project_root: KeyValue<String>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            assets: vec![],
+            user: None,
+            repository: None,
+            remote: default_remote(),
+            branch: default_branch(),
+            draft: false,
+            pre_release: false,
+            project_root: KeyValue::builder("project_root").protected().build(),
+        }
+    }
 }
 
 fn default_remote() -> String {
@@ -85,6 +105,14 @@ impl PluginInterface for GithubPlugin {
         PluginResponse::from_ok("github".into())
     }
 
+    fn get_default_config(&self) -> response::Config {
+        unimplemented!()
+    }
+
+    fn set_config(&mut self, _req: request::Config) -> response::Null {
+        unimplemented!()
+    }
+
     fn methods(&self, _req: request::Methods) -> response::Methods {
         let methods = vec![PluginStep::PreFlight, PluginStep::Publish];
         PluginResponse::from_ok(methods)
@@ -98,11 +126,10 @@ impl PluginInterface for GithubPlugin {
         }
 
         // Try to parse config
-        let cfg: GithubPluginConfig =
-            toml::Value::Table(params.cfg_map.get_sub_table("github")?).try_into()?;
+        let config = &self.config;
 
         // Try to parse assets
-        globs_to_assets(cfg.assets.iter().map(String::as_str))
+        globs_to_assets(config.assets.iter().map(String::as_str))
             .into_iter()
             .inspect(|asset| {
                 asset.as_ref().ok().map(|a| {
@@ -120,9 +147,8 @@ impl PluginInterface for GithubPlugin {
     }
 
     fn publish(&mut self, params: request::Publish) -> response::Publish {
-        let cfg: GithubPluginConfig =
-            toml::Value::Table(params.cfg_map.get_sub_table("github")?).try_into()?;
-        let project_root = Path::new(params.cfg_map.project_root()?);
+        let cfg = &self.config;
+        let project_root = Path::new(cfg.project_root.as_value());
 
         let repo = git2::Repository::open(project_root)?;
         let remote = repo.find_remote(&cfg.remote)?;

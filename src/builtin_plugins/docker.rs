@@ -1,16 +1,14 @@
-use std::fmt::{Debug, Display};
+use std::fmt::{Display};
 use std::io::Write;
 use std::ops::Try;
 use std::path::PathBuf;
-use std::process::{Command, Output, Stdio};
+use std::process::{Command, Stdio};
 
 use failure::Fail;
 
-use crate::config::CfgMapExt;
 use crate::plugin::proto::{
     request,
     response::{self, PluginResponse},
-    Error,
 };
 use crate::plugin::{PluginInterface, PluginStep};
 use serde::Deserialize;
@@ -70,7 +68,7 @@ impl PluginInterface for DockerPlugin {
         PluginResponse::from_ok("docker".into())
     }
 
-    fn methods(&self, req: request::Methods) -> response::Methods {
+    fn methods(&self, _req: request::Methods) -> response::Methods {
         PluginResponse::from_ok(vec![
             PluginStep::PreFlight,
             PluginStep::Prepare,
@@ -78,11 +76,16 @@ impl PluginInterface for DockerPlugin {
         ])
     }
 
-    fn pre_flight(&mut self, req: request::PreFlight) -> response::PreFlight {
-        let mut response = PluginResponse::builder();
+    fn get_default_config(&self) -> response::Config {
+        unimplemented!()
+    }
 
-        let cfg: Config = toml::Value::Table(req.cfg_map.get_sub_table("docker")?).try_into()?;
-        self.cfg.replace(cfg);
+    fn set_config(&mut self, _req: request::Config) -> response::Null {
+        unimplemented!()
+    }
+
+    fn pre_flight(&mut self, _req: request::PreFlight) -> response::PreFlight {
+        let mut response = PluginResponse::builder();
 
         let credentials = {
             let user = std::env::var("DOCKER_USER").ok();
@@ -111,8 +114,6 @@ impl PluginInterface for DockerPlugin {
     }
 
     fn prepare(&mut self, req: request::Prepare) -> response::Prepare {
-        let cfg = self.cfg.as_ref().ok_or(DockerPluginError::MissingState)?;
-
         {
             let state = self.state.as_mut().ok_or(DockerPluginError::MissingState)?;
             state.version.replace(req.data.clone());
@@ -121,7 +122,7 @@ impl PluginInterface for DockerPlugin {
         PluginResponse::from_ok(vec![])
     }
 
-    fn publish(&mut self, req: request::Publish) -> response::Publish {
+    fn publish(&mut self, _req: request::Publish) -> response::Publish {
         let cfg = self.cfg.as_ref().ok_or(DockerPluginError::MissingState)?;
 
         let state = self.state.as_ref().ok_or(DockerPluginError::MissingState)?;
@@ -248,7 +249,7 @@ fn login(registry_url: Option<&str>, credentials: &Credentials) -> Result<(), fa
     let mut child = cmd.stdin(Stdio::piped()).spawn()?;
 
     {
-        let mut stdin = child.stdin.as_mut().ok_or(DockerPluginError::StdioError)?;
+        let stdin = child.stdin.as_mut().ok_or(DockerPluginError::StdioError)?;
         stdin.write_all(credentials.password.as_bytes())?;
     }
 

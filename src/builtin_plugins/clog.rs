@@ -6,28 +6,32 @@ use clog::fmt::MarkdownWriter;
 use clog::Clog;
 use failure::Fail;
 use git2::{Commit, Repository};
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 
-use crate::config::CfgMapExt;
-use crate::plugin::proto::{
-    request,
-    response::{self, PluginResponse},
-    GitRevision,
-};
-use crate::plugin::{PluginInterface, PluginStep};
+use crate::plugin::proto::{request, response::{self, PluginResponse}, GitRevision, Version};
+use crate::plugin::{PluginInterface, PluginStep, Scope};
+use crate::plugin::flow::{FlowError, KeyValue, ProvisionCapability, Availability};
 
 pub struct ClogPlugin {
-    state: Option<request::GenerateNotesData>,
+    config: ClogPluginConfig,
+    state: State,
     dry_run_guard: Option<DryRunGuard>,
 }
 
 impl ClogPlugin {
     pub fn new() -> Self {
         ClogPlugin {
-            state: None,
+            config: ClogPluginConfig::default(),
+            state: State::default(),
             dry_run_guard: None,
         }
     }
+}
+
+#[derive(Default)]
+struct State {
+    release_notes: Option<String>,
+    next_version: Option<semver::Version>,
 }
 
 impl Drop for ClogPlugin {
@@ -59,21 +63,71 @@ struct DryRunGuard {
     original_changelog: Option<Vec<u8>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct ClogPluginConfig {
-    #[serde(default = "default_changelog")]
-    changelog: String,
-    #[serde(default)]
-    ignore: Vec<String>,
+    changelog: KeyValue<String>,
+    ignore: KeyValue<Vec<String>>,
+    project_root: KeyValue<String>,
+    is_dry_run: KeyValue<bool>,
+    current_version: KeyValue<Version>,
+    next_version: KeyValue<semver::Version>,
 }
 
-fn default_changelog() -> String {
-    "Changelog.md".into()
+impl Default for ClogPluginConfig {
+    fn default() -> Self {
+        ClogPluginConfig {
+            changelog: KeyValue::builder("changelog").scope(Scope::Local).value("Changelog.md".into()).build(),
+            ignore: KeyValue::builder("ignore").scope(Scope::Local).default_value().build(),
+            project_root: KeyValue::builder("project_root").protected().build(),
+            is_dry_run: KeyValue::builder("is_dry_run").protected().build(),
+            current_version: KeyValue::builder("current_version").required_at(PluginStep::DeriveNextVersion).build(),
+            next_version: KeyValue::builder("next_version").required_at(PluginStep::GenerateNotes).protected().build(),
+        }
+    }
 }
 
 impl PluginInterface for ClogPlugin {
     fn name(&self) -> response::Name {
         PluginResponse::from_ok("clog".into())
+    }
+
+    fn provision_capabilities(&self) -> response::ProvisionCapabilities {
+        PluginResponse::from_ok(vec![
+            ProvisionCapability::builder("release_notes").scope(Scope::Analysis).after_step(PluginStep::GenerateNotes).build(),
+            ProvisionCapability::builder("next_version").scope(Scope::Analysis).after_step(PluginStep::DeriveNextVersion).build(),
+        ])
+    }
+
+    fn provision(&self, req: request::Provision) -> response::Provision {
+        match req.data.as_str() {
+            "release_notes" => {
+                let notes = self.state.release_notes.as_ref().ok_or_else(|| FlowError::DataNotAvailableYet(
+                    req.data.clone(),
+                    Availability::AfterStep(PluginStep::GenerateNotes)
+                ))?;
+
+                PluginResponse::from_ok(serde_json::to_value(notes)?)
+            }
+            "next_version" => {
+                let next_version = self.state.next_version.as_ref().ok_or_else(|| FlowError::DataNotAvailableYet(
+                    req.data.clone(),
+                    Availability::AfterStep(PluginStep::DeriveNextVersion)
+                ))?;
+
+                PluginResponse::from_ok(serde_json::to_value(next_version)?)
+            }
+            other => PluginResponse::from_error(FlowError::KeyNotSupported(other.to_owned()).into()),
+        }
+    }
+
+    fn get_default_config(&self) -> response::Config {
+        let toml = toml::Value::try_from(&self.config)?;
+        PluginResponse::from_ok(toml)
+    }
+
+    fn set_config(&mut self, req: request::Config) -> response::Null {
+        self.config = req.data.clone().try_into()?;
+        PluginResponse::from_ok(())
     }
 
     fn methods(&self, _req: request::Methods) -> response::Methods {
@@ -86,26 +140,23 @@ impl PluginInterface for ClogPlugin {
         PluginResponse::from_ok(methods)
     }
 
-    fn pre_flight(&mut self, params: request::PreFlight) -> response::PreFlight {
-        // Try to deserialize configuration
-        let _: ClogPluginConfig =
-            toml::Value::Table(params.cfg_map.get_sub_table("clog")?).try_into()?;
+    fn pre_flight(&mut self, _params: request::PreFlight) -> response::PreFlight {
         PluginResponse::from_ok(())
     }
 
     fn derive_next_version(
         &mut self,
-        params: request::DeriveNextVersion,
+        _params: request::DeriveNextVersion,
     ) -> response::DeriveNextVersion {
-        let (cfg_map, current_version) = (params.cfg_map, params.data);
-
-        let cfg: ClogPluginConfig =
-            toml::Value::Table(cfg_map.get_sub_table("clog")?).try_into()?;
+        let cfg = &self.config;
+        let project_root = cfg.project_root.as_value();
+        let current_version = cfg.current_version.as_value();
+        let ignore = cfg.ignore.as_value();
 
         let bump = match &current_version.semver {
             None => CommitType::Major,
             Some(_) => {
-                version_bump_since_rev(&cfg_map.project_root()?, &current_version.rev, &cfg.ignore)?
+                version_bump_since_rev(&project_root, &current_version.rev, &ignore)?
             }
         };
 
@@ -136,29 +187,33 @@ impl PluginInterface for ClogPlugin {
             }
         };
 
+        self.state.next_version.replace(next_version.clone());
+
         PluginResponse::from_ok(next_version)
     }
 
     fn generate_notes(&mut self, params: request::GenerateNotes) -> response::GenerateNotes {
-        let (cfg, data) = (params.cfg_map, params.data);
+        let data = params.data;
 
         let changelog =
-            generate_changelog(&cfg.project_root()?, &data.start_rev, &data.new_version)?;
+            generate_changelog(&self.config.project_root.as_value(), &data.start_rev, &data.new_version)?;
 
         // Store this request as state
-        self.state.replace(data.clone());
+        self.state.release_notes.replace(changelog.clone());
 
         PluginResponse::from_ok(changelog)
     }
 
-    fn prepare(&mut self, params: request::Prepare) -> response::Prepare {
-        let cfg: ClogPluginConfig =
-            toml::Value::Table(params.cfg_map.get_sub_table("clog")?).try_into()?;
-        let changelog_path = &cfg.changelog;
-        let repo_path = params.cfg_map.project_root()?;
+    fn prepare(&mut self, _params: request::Prepare) -> response::Prepare {
+        let cfg = &self.config;
+        let changelog_path = cfg.changelog.as_value();
+        let repo_path = cfg.project_root.as_value();
+        let is_dry_run = *cfg.is_dry_run.as_value();
+        let current_version = cfg.current_version.as_value();
+        let next_version = cfg.next_version.as_value();
 
         // Safely store the original changelog for restoration after dry-run is finished
-        if params.cfg_map.is_dry_run()? {
+        if is_dry_run {
             log::info!("clog(dry-run): saving original state of changelog file");
             let original_changelog = std::fs::read(&changelog_path).ok();
             self.dry_run_guard.replace(DryRunGuard {
@@ -167,12 +222,10 @@ impl PluginInterface for ClogPlugin {
             });
         }
 
-        let state = self.state.as_ref().ok_or(ClogPluginError::MissingState)?;
-
         let mut clog = Clog::with_dir(repo_path)?;
         clog.changelog(changelog_path)
-            .from(&state.start_rev)
-            .version(format!("v{}", state.new_version));
+            .from(&current_version.rev)
+            .version(format!("v{}", next_version));
 
         log::info!("Writing updated changelog");
         clog.write_changelog()?;

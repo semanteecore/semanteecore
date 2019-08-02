@@ -5,7 +5,6 @@ use failure::Fail;
 use git2::{self, Cred, Oid, PushOptions, RemoteCallbacks, Repository, Signature};
 use serde::{Deserialize, Serialize};
 
-use crate::config::CfgMapExt;
 use crate::plugin::proto::{
     request,
     response::{self, PluginResponse, PluginResponseBuilder},
@@ -13,19 +12,20 @@ use crate::plugin::proto::{
 use crate::plugin::proto::{GitRevision, Version};
 use crate::plugin::{PluginInterface, PluginStep};
 use std::path::Path;
+use crate::plugin::flow::KeyValue;
 
 pub struct GitPlugin {
-    state: Option<GitPluginData>,
+    config: Config,
+    state: Option<State>,
 }
 
-struct GitPluginData {
-    config: GitPluginConfig,
+struct State {
     repo: Repository,
     signature: Signature<'static>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct GitPluginConfig {
+struct Config {
     user_name: Option<String>,
     user_email: Option<String>,
     #[serde(default = "default_branch")]
@@ -34,6 +34,20 @@ struct GitPluginConfig {
     remote: String,
     #[serde(default)]
     force_https: bool,
+    project_root: KeyValue<String>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            user_name: None,
+            user_email: None,
+            branch: default_branch(),
+            remote: default_remote(),
+            force_https: false,
+            project_root: KeyValue::builder("project_root").protected().build(),
+        }
+    }
 }
 
 fn default_branch() -> String {
@@ -44,18 +58,17 @@ fn default_remote() -> String {
     "origin".into()
 }
 
-impl GitPluginData {
-    pub fn new(config: GitPluginConfig, repo: Repository) -> Result<Self, failure::Error> {
+impl State {
+    pub fn new(config: &Config, repo: Repository) -> Result<Self, failure::Error> {
         let signature = Self::get_signature(&config, &repo)?;
-        Ok(GitPluginData {
-            config,
+        Ok(State {
             repo,
             signature,
         })
     }
 
     pub fn get_signature(
-        cfg: &GitPluginConfig,
+        cfg: &Config,
         repo: &Repository,
     ) -> Result<Signature<'static>, failure::Error> {
         let author = {
@@ -97,12 +110,12 @@ impl GitPluginData {
         Ok(Signature::now(&author, &email)?)
     }
 
-    pub fn perform_pre_flight_checks<T>(&self, response: &mut PluginResponseBuilder<T>) {
+    pub fn perform_pre_flight_checks<T>(&self, config: &Config, response: &mut PluginResponseBuilder<T>) {
         let result = || -> Result<(), failure::Error> {
-            let remote = self.repo.find_remote(&self.config.remote)?;
+            let remote = self.repo.find_remote(&config.remote)?;
             let remote_url = remote.url().ok_or(GitPluginError::GitRemoteUndefined)?;
 
-            if !self.config.force_https && is_https_remote(remote_url) {
+            if !config.force_https && is_https_remote(remote_url) {
                 response.warnings(&[
                     "Git remote is not HTTPS and 'cfg.git.force_https' != true:",
                     "The publishing will fail if your environment doesn't hold your git ssh keys",
@@ -118,9 +131,9 @@ impl GitPluginData {
         }
     }
 
-    fn perform_pre_flight_overrides(&mut self) -> Result<(), failure::Error> {
-        if self.config.force_https {
-            let remote_name = self.config.remote.clone();
+    fn perform_pre_flight_overrides(&mut self, config: &Config) -> Result<(), failure::Error> {
+        if config.force_https {
+            let remote_name = config.remote.clone();
             let remote_url = self
                 .repo
                 .find_remote(&remote_name)?
@@ -148,21 +161,21 @@ impl GitPluginData {
                     remote_url,
                 ))?;
 
-                self.set_remote_url(&url)?;
+                self.set_remote_url(config, &url)?;
             }
         }
 
         Ok(())
     }
 
-    fn set_remote_url(&mut self, url: &str) -> Result<(), failure::Error> {
-        self.repo.remote_set_url(&self.config.remote, url)?;
+    fn set_remote_url(&mut self, config: &Config, url: &str) -> Result<(), failure::Error> {
+        self.repo.remote_set_url(&config.remote, url)?;
         self.repo
-            .remote_set_pushurl(&self.config.remote, Some(url))?;
+            .remote_set_pushurl(&config.remote, Some(url))?;
         Ok(())
     }
 
-    fn commit_files(&self, files: &[String], commit_msg: &str) -> Result<(), failure::Error> {
+    fn commit_files(&self, config: &Config, files: &[String], commit_msg: &str) -> Result<(), failure::Error> {
         let files = files.iter().filter(|filename| {
             let path = Path::new(filename);
             !self
@@ -173,7 +186,7 @@ impl GitPluginData {
 
         self.add(files)?;
 
-        self.commit(&commit_msg)?;
+        self.commit(config,&commit_msg)?;
 
         Ok(())
     }
@@ -188,8 +201,8 @@ impl GitPluginData {
         index.write()
     }
 
-    fn commit(&self, message: &str) -> Result<(), git2::Error> {
-        let update_ref = format!("refs/heads/{}", self.config.branch);
+    fn commit(&self, config: &Config, message: &str) -> Result<(), git2::Error> {
+        let update_ref = format!("refs/heads/{}", config.branch);
 
         let oid = self.repo.refname_to_id("HEAD")?;
         let parent_commit = self.repo.find_commit(oid)?;
@@ -211,8 +224,8 @@ impl GitPluginData {
             .map(|_| ())
     }
 
-    fn create_tag(&self, tag_name: &str, message: &str) -> Result<(), git2::Error> {
-        let rev = format!("refs/heads/{}", self.config.branch);
+    fn create_tag(&self, config: &Config, tag_name: &str, message: &str) -> Result<(), git2::Error> {
+        let rev = format!("refs/heads/{}", config.branch);
         let obj = self.repo.revparse_single(&rev)?;
 
         self.repo
@@ -220,10 +233,10 @@ impl GitPluginData {
             .map(|_| ())
     }
 
-    pub fn push(&self, tag_name: &str) -> Result<(), failure::Error> {
+    pub fn push(&self, config: &Config, tag_name: &str) -> Result<(), failure::Error> {
         let repo = &self.repo;
 
-        let branch = &self.config.branch;
+        let branch = &config.branch;
         let token = std::env::var("GH_TOKEN").ok();
 
         // We need to push both the branch we just committed as well as the tag we created.
@@ -231,7 +244,7 @@ impl GitPluginData {
         let tag_ref = format!("refs/tags/{}", tag_name);
         let refs = [&branch_ref[..], &tag_ref[..]];
 
-        let mut remote = repo.find_remote(&self.config.remote)?;
+        let mut remote = repo.find_remote(&config.remote)?;
         let remote_url = remote.url().ok_or(GitPluginError::GitRemoteUndefined)?;
         let mut cbs = RemoteCallbacks::new();
         let mut opts = PushOptions::new();
@@ -282,13 +295,21 @@ impl GitPluginData {
 
 impl GitPlugin {
     pub fn new() -> Self {
-        GitPlugin { state: None }
+        GitPlugin { config: Config::default(), state: None }
     }
 }
 
 impl PluginInterface for GitPlugin {
     fn name(&self) -> response::Name {
         PluginResponse::from_ok("git".into())
+    }
+
+    fn get_default_config(&self) -> response::Config {
+        unimplemented!()
+    }
+
+    fn set_config(&mut self, _req: request::Config) -> response::Null {
+        unimplemented!()
     }
 
     fn methods(&self, _req: request::Methods) -> response::Methods {
@@ -300,24 +321,21 @@ impl PluginInterface for GitPlugin {
         PluginResponse::from_ok(methods)
     }
 
-    fn pre_flight(&mut self, params: request::PreFlight) -> response::PreFlight {
+    fn pre_flight(&mut self, _params: request::PreFlight) -> response::PreFlight {
         let mut response = PluginResponse::builder();
 
-        let config = {
-            let config_toml = params.cfg_map.get_sub_table("git")?;
-            toml::Value::Table(config_toml).try_into()?
-        };
+        let config = &self.config;
 
         log::debug!("git(config): {:?}", config);
 
         let mut data = {
-            let path = params.cfg_map.project_root()?;
+            let path = config.project_root.as_value();
             let repo = Repository::open(path)?;
-            GitPluginData::new(config, repo)?
+            State::new(config, repo)?
         };
 
-        data.perform_pre_flight_checks(&mut response);
-        data.perform_pre_flight_overrides()?;
+        data.perform_pre_flight_checks(config, &mut response);
+        data.perform_pre_flight_overrides(config)?;
 
         log::debug!("git(pre_flight): finished");
 
@@ -350,17 +368,18 @@ impl PluginInterface for GitPlugin {
         let data = params.data;
 
         let state = self.state.as_ref().ok_or(GitPluginError::StateIsNone)?;
+        let config = &self.config;
 
         // TODO: make releaserc-configurable
         let commit_msg = format!("chore(release): Version {} [skip ci]", data.version);
         let tag_name = format!("v{}", data.version);
 
         log::info!("Committing files {:?}", data.files_to_commit);
-        state.commit_files(&data.files_to_commit, &commit_msg)?;
+        state.commit_files(config, &data.files_to_commit, &commit_msg)?;
         log::info!("Creating tag {:?}", tag_name);
-        state.create_tag(&tag_name, &data.changelog)?;
+        state.create_tag(config, &tag_name, &data.changelog)?;
         log::info!("Pushing changes, please wait...");
-        state.push(&tag_name)?;
+        state.push(config, &tag_name)?;
 
         PluginResponse::from_ok(tag_name)
     }

@@ -62,7 +62,7 @@ impl Resolver for BuiltinResolver {
             "clog" => Box::new(ClogPlugin::new()),
             "rust" => Box::new(RustPlugin::new()),
             "docker" => Box::new(DockerPlugin::new()),
-            other => Err(ResolverError::BuiltinNotRegistered(other.to_string()))?,
+            other => return Err(ResolverError::BuiltinNotRegistered(other.to_string()).into()),
         };
         Ok(ResolvedPlugin::Builtin(plugin))
     }
@@ -79,8 +79,8 @@ impl CargoResolver {
 impl Resolver for CargoResolver {
     fn resolve(
         &self,
-        name: &str,
-        meta: &UnresolvedPlugin,
+        _name: &str,
+        _meta: &UnresolvedPlugin,
     ) -> Result<ResolvedPlugin, failure::Error> {
         unimplemented!()
     }

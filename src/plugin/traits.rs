@@ -4,9 +4,22 @@ use super::proto::{
     request,
     response::{self, PluginResponse},
 };
+use crate::plugin::flow::FlowError;
 
 pub trait PluginInterface {
     fn name(&self) -> response::Name;
+
+    fn provision_capabilities(&self) -> response::ProvisionCapabilities {
+        PluginResponse::from_ok(vec![])
+    }
+
+    fn provision(&self, req: request::Provision) -> response::Provision {
+        PluginResponse::from_error(FlowError::KeyNotSupported(req.data.clone()).into())
+    }
+
+    fn get_default_config(&self) -> response::Config;
+
+    fn set_config(&mut self, req: request::Config) -> response::Null;
 
     fn methods(&self, _req: request::Methods) -> response::Methods {
         PluginResponse::builder()

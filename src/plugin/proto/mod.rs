@@ -1,6 +1,8 @@
 pub mod request;
 pub mod response;
 
+use serde::{Serialize, Deserialize};
+
 pub type GitRevision = String;
 
 pub type Null = ();
@@ -13,7 +15,7 @@ pub type Warning = String;
 
 pub type Error = String;
 
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Version {
     pub rev: GitRevision,
     pub semver: Option<semver::Version>,
