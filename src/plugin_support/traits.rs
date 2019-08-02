@@ -4,7 +4,7 @@ use super::proto::{
     request,
     response::{self, PluginResponse},
 };
-use crate::plugin::flow::FlowError;
+use crate::plugin_support::flow::FlowError;
 
 pub trait PluginInterface {
     fn name(&self) -> response::Name;

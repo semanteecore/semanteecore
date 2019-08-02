@@ -5,13 +5,13 @@ use failure::Fail;
 use git2::{self, Cred, Oid, PushOptions, RemoteCallbacks, Repository, Signature};
 use serde::{Deserialize, Serialize};
 
-use crate::plugin::flow::{FlowError, KeyValue, ProvisionCapability};
-use crate::plugin::proto::{
+use crate::plugin_support::flow::{FlowError, KeyValue, ProvisionCapability};
+use crate::plugin_support::proto::{
     request,
     response::{self, PluginResponse, PluginResponseBuilder},
 };
-use crate::plugin::proto::{GitRevision, Version};
-use crate::plugin::{PluginInterface, PluginStep, Scope};
+use crate::plugin_support::proto::{GitRevision, Version};
+use crate::plugin_support::{PluginInterface, PluginStep, Scope};
 use std::path::Path;
 
 pub struct GitPlugin {

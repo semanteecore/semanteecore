@@ -1,15 +1,14 @@
 use std::fmt::Debug;
 
-use super::{
+use crate::plugin_support::{
     proto::{
         request::{self, PluginRequest},
         response::{self, PluginResponse},
     },
-    PluginStep,
+    Plugin, PluginInterface, PluginStep,
 };
 
 use crate::config::{CfgMap, Map};
-use crate::plugin::{Plugin, PluginInterface};
 use std::collections::HashMap;
 
 pub struct PluginDispatcher {

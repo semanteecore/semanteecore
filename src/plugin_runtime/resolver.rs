@@ -1,6 +1,8 @@
 use failure::Fail;
 
-use crate::plugin::{PluginInterface, RawPlugin, RawPluginState, ResolvedPlugin, UnresolvedPlugin};
+use crate::plugin_support::{
+    PluginInterface, RawPlugin, RawPluginState, ResolvedPlugin, UnresolvedPlugin,
+};
 
 pub struct PluginResolver {
     builtin: BuiltinResolver,
@@ -16,7 +18,7 @@ impl PluginResolver {
     }
 
     pub fn resolve(&self, plugin: RawPlugin) -> Result<RawPlugin, failure::Error> {
-        if plugin.state.is_resolved() {
+        if plugin.state().is_resolved() {
             return Ok(plugin);
         }
 

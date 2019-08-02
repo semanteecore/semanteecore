@@ -7,13 +7,12 @@ extern crate strum_macros;
 
 mod builtin_plugins;
 mod config;
-mod kernel;
-mod plugin;
+mod plugin_runtime;
+mod plugin_support;
 mod utils;
 
 use crate::config::Config;
-use crate::kernel::Kernel;
-use kernel::KernelError;
+use plugin_runtime::{Kernel, KernelError};
 use std::env;
 
 fn main() {

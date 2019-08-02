@@ -3,7 +3,7 @@ use std::mem;
 use serde::{Deserialize, Serialize};
 
 use super::{ProvisionRequest, Scope};
-use crate::plugin::PluginStep;
+use crate::plugin_support::PluginStep;
 
 pub type Key = String;
 

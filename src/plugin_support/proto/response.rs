@@ -3,8 +3,8 @@ use std::ops::Try;
 use serde::{Deserialize, Serialize};
 
 use super::{Error, ReleaseNotes, Version, Warning};
-use crate::plugin::flow::ProvisionCapability;
-use crate::plugin::PluginStep;
+use crate::plugin_support::flow::ProvisionCapability;
+use crate::plugin_support::PluginStep;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PluginResponse<T> {

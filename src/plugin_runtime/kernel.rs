@@ -4,12 +4,13 @@ use std::ops::Try;
 use failure::Fail;
 
 use crate::config::{CfgMap, CfgMapExt, Config, Map, PluginDefinitionMap, StepDefinition};
-use crate::plugin::discovery::CapabilitiesDiscovery;
-use crate::plugin::proto::Version;
-use crate::plugin::proto::{request, response::PluginResponse};
-use crate::plugin::resolver::PluginResolver;
-use crate::plugin::starter::PluginStarter;
-use crate::plugin::{Plugin, PluginDispatcher, PluginStep, RawPlugin, RawPluginState};
+use crate::plugin_runtime::discovery::CapabilitiesDiscovery;
+use crate::plugin_runtime::dispatcher::PluginDispatcher;
+use crate::plugin_runtime::resolver::PluginResolver;
+use crate::plugin_runtime::starter::PluginStarter;
+use crate::plugin_support::proto::Version;
+use crate::plugin_support::proto::{request, response::PluginResponse};
+use crate::plugin_support::{Plugin, PluginStep, RawPlugin, RawPluginState};
 
 const STEPS_DRY: &[PluginStep] = &[
     PluginStep::PreFlight,

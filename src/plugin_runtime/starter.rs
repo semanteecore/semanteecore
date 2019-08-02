@@ -1,4 +1,4 @@
-use crate::plugin::{Plugin, RawPlugin, RawPluginState, ResolvedPlugin};
+use crate::plugin_support::{Plugin, RawPlugin, RawPluginState, ResolvedPlugin};
 
 pub struct PluginStarter {}
 

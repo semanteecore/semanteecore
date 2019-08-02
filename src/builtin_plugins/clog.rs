@@ -8,13 +8,13 @@ use failure::Fail;
 use git2::{Commit, Repository};
 use serde::{Deserialize, Serialize};
 
-use crate::plugin::flow::{Availability, FlowError, KeyValue, ProvisionCapability};
-use crate::plugin::proto::{
+use crate::plugin_support::flow::{Availability, FlowError, KeyValue, ProvisionCapability};
+use crate::plugin_support::proto::{
     request,
     response::{self, PluginResponse},
     GitRevision, Version,
 };
-use crate::plugin::{PluginInterface, PluginStep, Scope};
+use crate::plugin_support::{PluginInterface, PluginStep, Scope};
 
 pub struct ClogPlugin {
     config: ClogPluginConfig,

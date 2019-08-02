@@ -1,5 +1,5 @@
-use crate::plugin::proto::request::PluginRequest;
-use crate::plugin::{Plugin, PluginStep};
+use crate::plugin_support::proto::request::PluginRequest;
+use crate::plugin_support::{Plugin, PluginStep};
 
 pub struct CapabilitiesDiscovery;
 

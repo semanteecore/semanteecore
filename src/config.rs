@@ -7,7 +7,7 @@ use failure::Fail;
 use linked_hash_map::LinkedHashMap;
 use serde::{de::Deserializer, de::Error as _, Deserialize, Serialize};
 
-use crate::plugin::{PluginStep, PluginStepKind, UnresolvedPlugin};
+use crate::plugin_support::{PluginStep, PluginStepKind, UnresolvedPlugin};
 
 /// Map type override used in configs
 ///
