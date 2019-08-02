@@ -26,7 +26,7 @@ verify_release = "discover"
 # Commit & push changes to the VCS
 commit = "git"
 # Publish to various platforms
-publish = [ "github", "docker" ]
+publish = []
 # Post-release step to notify users about release (e.g leave comments in issues resolved in this release)
 notify = "discover"
 

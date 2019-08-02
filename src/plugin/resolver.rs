@@ -1,6 +1,5 @@
 use failure::Fail;
 
-use crate::builtin_plugins::docker::DockerPlugin;
 use crate::plugin::{PluginInterface, RawPlugin, RawPluginState, ResolvedPlugin, UnresolvedPlugin};
 
 pub struct PluginResolver {
@@ -55,13 +54,13 @@ impl Resolver for BuiltinResolver {
         name: &str,
         _meta: &UnresolvedPlugin,
     ) -> Result<ResolvedPlugin, failure::Error> {
-        use crate::builtin_plugins::{ClogPlugin, GitPlugin, GithubPlugin, RustPlugin};
+        use crate::builtin_plugins::{ClogPlugin, GitPlugin,};//GithubPlugin, RustPlugin, DockerPlugin};
         let plugin: Box<dyn PluginInterface> = match name {
             "git" => Box::new(GitPlugin::new()),
-            "github" => Box::new(GithubPlugin::new()),
             "clog" => Box::new(ClogPlugin::new()),
-            "rust" => Box::new(RustPlugin::new()),
-            "docker" => Box::new(DockerPlugin::new()),
+//            "github" => Box::new(GithubPlugin::new()),
+//            "rust" => Box::new(RustPlugin::new()),
+//            "docker" => Box::new(DockerPlugin::new()),
             other => return Err(ResolverError::BuiltinNotRegistered(other.to_string()).into()),
         };
         Ok(ResolvedPlugin::Builtin(plugin))
