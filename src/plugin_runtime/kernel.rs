@@ -3,7 +3,7 @@ use std::ops::Try;
 
 use failure::Fail;
 
-use crate::config::{CfgMap, CfgMapExt, Config, Map, PluginDefinitionMap, StepDefinition};
+use crate::config::{Config, Map, PluginDefinitionMap, StepDefinition};
 use crate::plugin_runtime::discovery::CapabilitiesDiscovery;
 use crate::plugin_runtime::dispatcher::PluginDispatcher;
 use crate::plugin_runtime::resolver::PluginResolver;
@@ -109,16 +109,12 @@ impl KernelBuilder {
         let steps_to_plugin_ids =
             Self::build_steps_to_plugin_ids_map(&self.config, &plugins, capabilities)?;
 
-        // Extract some configuration values from CfgMap
-        let cfg_map = mem::replace(&mut self.config.cfg, CfgMap::new());
-        let is_dry_run = cfg_map.is_dry_run()?;
-
         // Create Dispatcher
-        let dispatcher = PluginDispatcher::new(cfg_map, plugins, steps_to_plugin_ids);
+        let dispatcher = PluginDispatcher::new(plugins, steps_to_plugin_ids);
 
         Ok(Kernel {
             dispatcher,
-            is_dry_run,
+            is_dry_run: *self.config.cfg.dry_run.as_value(),
         })
     }
 

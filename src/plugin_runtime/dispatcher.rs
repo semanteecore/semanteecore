@@ -8,20 +8,18 @@ use crate::plugin_support::{
     Plugin, PluginInterface, PluginStep,
 };
 
-use crate::config::{CfgMap, Map};
+use crate::config::Map;
 use std::collections::HashMap;
 
 pub struct PluginDispatcher {
-    config: CfgMap,
     env: HashMap<String, String>,
     plugins: Vec<Plugin>,
     map: Map<PluginStep, Vec<usize>>,
 }
 
 impl PluginDispatcher {
-    pub fn new(config: CfgMap, plugins: Vec<Plugin>, map: Map<PluginStep, Vec<usize>>) -> Self {
+    pub fn new(plugins: Vec<Plugin>, map: Map<PluginStep, Vec<usize>>) -> Self {
         PluginDispatcher {
-            config,
             env: std::env::vars().collect(),
             plugins,
             map,

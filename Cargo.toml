@@ -30,6 +30,10 @@ strum_macros = '0.15'
 glob = '0.3'
 futures = '0.1'
 tokio = '0.1'
+nom = "5.0.0"
+pest = "2.1.1"
+pest_derive = "2.1.0"
+serdeconv = "0.3.0"
 
 [dependencies.toml]
 version = '0.5'

@@ -7,7 +7,9 @@ use std::mem;
 
 use super::PluginStep;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash, EnumString)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
 pub enum Scope {
     /// Global semanic-rs data scope for universally shared values
     Global,
@@ -85,7 +87,7 @@ impl ProvisionCapabilityBuilder {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ProvisionRequest {
     pub scope: Scope,
     pub required_at: Option<PluginStep>,

@@ -7,7 +7,8 @@ use failure::Fail;
 use linked_hash_map::LinkedHashMap;
 use serde::{de::Deserializer, de::Error as _, Deserialize, Serialize};
 
-use crate::plugin_support::{PluginStep, PluginStepKind, UnresolvedPlugin};
+use crate::plugin_support::flow::KeyValue;
+use crate::plugin_support::{PluginStep, PluginStepKind, Scope, UnresolvedPlugin};
 
 /// Map type override used in configs
 ///
@@ -22,17 +23,46 @@ pub type PluginDefinitionMap = Map<String, PluginDefinition>;
 #[derive(Serialize, Debug, Clone, Eq, PartialEq)]
 pub struct StepsDefinitionMap(Map<PluginStep, StepDefinition>);
 
-/// CfgMap stores arbitrary configuration values as Key-Value pairs
-/// Primarily it's used to parse the per-config configuration sections,
-/// but may also be used for first-level configuration values (for semantic-rs itself)
-pub type CfgMap = Map<String, toml::Value>;
-
 /// Base structure to parse `releaserc.toml` into
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
     pub plugins: PluginDefinitionMap,
     pub steps: StepsDefinitionMap,
-    pub cfg: CfgMap,
+    pub cfg: Global,
+}
+
+/// Global configuration entries at [cfg]
+#[derive(Deserialize, Clone, Debug)]
+pub struct Global {
+    #[serde(default = "default_project_root")]
+    pub project_root: KeyValue<String>,
+    #[serde(default = "default_dry_run")]
+    pub dry_run: KeyValue<bool>,
+    #[serde(flatten)]
+    pub other: Map<String, toml::Value>,
+}
+
+fn default_project_root() -> KeyValue<String> {
+    let root = PathBuf::from("./");
+    let root = root.canonicalize().ok();
+    let root = root.and_then(|p| p.to_str().map(String::from));
+
+    let mut builder = KeyValue::builder("project_root");
+    builder.scope(Scope::Global);
+
+    if let Some(path) = root {
+        builder.value(path).build()
+    } else {
+        log::warn!("failed to derive project_root from environment, you might need to set cfg.project_root manually in releaserc.toml");
+        builder.build()
+    }
+}
+
+fn default_dry_run() -> KeyValue<bool> {
+    KeyValue::builder("dry_run")
+        .scope(Scope::Global)
+        .default_value()
+        .build()
 }
 
 impl Config {
@@ -49,7 +79,9 @@ impl Config {
 
         config.check_step_arguments_correctness()?;
 
-        config.cfg.derive_missing_keys_from_env(is_dry_run)?;
+        if is_dry_run {
+            *config.cfg.dry_run.as_value_mut() = is_dry_run;
+        }
 
         Ok(config)
     }
@@ -185,74 +217,6 @@ impl PluginDefinition {
                 other => panic!("unknown short plugin alias: '{}'", other),
             },
         }
-    }
-}
-
-pub trait CfgMapExt {
-    fn derive_missing_keys_from_env(&mut self, is_dry_run: bool) -> Result<(), failure::Error>;
-
-    fn is_dry_run(&self) -> Result<bool, failure::Error>;
-
-    fn project_root(&self) -> Result<&str, failure::Error>;
-
-    fn get_sub_table(
-        &self,
-        name: &str,
-    ) -> Result<toml::map::Map<String, toml::Value>, failure::Error>;
-
-    fn project_root_path_key() -> &'static str {
-        "project_root"
-    }
-}
-
-impl CfgMapExt for CfgMap {
-    fn derive_missing_keys_from_env(&mut self, is_dry_run: bool) -> Result<(), failure::Error> {
-        self.insert("dry".into(), toml::Value::Boolean(is_dry_run));
-
-        if !self.contains_key(CfgMap::project_root_path_key()) {
-            let root = PathBuf::from("./");
-            let root = root.canonicalize()?;
-            let root_value = root
-                .to_str()
-                .map(String::from)
-                .map(toml::Value::String)
-                .ok_or_else(|| failure::err_msg("failed to convert PathBuf into UTF-8 string"))?;
-            self.insert(CfgMap::project_root_path_key().into(), root_value);
-        }
-
-        Ok(())
-    }
-
-    fn is_dry_run(&self) -> Result<bool, failure::Error> {
-        let is_dry_run = self
-            .get("dry")
-            .and_then(|v| v.as_bool())
-            .ok_or(ConfigError::MissingDryRunFlag)?;
-        Ok(is_dry_run)
-    }
-
-    fn project_root(&self) -> Result<&str, failure::Error> {
-        let pr = self
-            .get(CfgMap::project_root_path_key())
-            .and_then(|v| v.as_str())
-            .ok_or(ConfigError::MissingProjectRootPath)?;
-        Ok(pr)
-    }
-
-    fn get_sub_table(
-        &self,
-        name: &str,
-    ) -> Result<toml::map::Map<String, toml::Value>, failure::Error> {
-        let table = match self.get(name) {
-            Some(value) => value.as_table().cloned().ok_or_else(|| {
-                let value = format!("{:?}", value);
-                let key = name.to_string();
-                ConfigError::PluginConfigIsNotTable(key, value)
-            })?,
-            None => toml::map::Map::new(),
-        };
-
-        Ok(table)
     }
 }
 
@@ -447,10 +411,10 @@ mod tests {
 
         #[derive(Deserialize, Debug)]
         struct Global {
-            cfg: CfgMap,
+            cfg: Map<String, toml::Value>,
         }
 
-        let mut expected = CfgMap::new();
+        let mut expected = Map::new();
         expected.insert("one".into(), toml::Value::Integer(1));
         expected.insert("two".into(), toml::Value::Integer(2));
 
@@ -471,7 +435,7 @@ mod tests {
 
         #[derive(Deserialize, Debug)]
         struct Global {
-            cfg: CfgMap,
+            cfg: Map<String, toml::Value>,
         }
 
         let mut expected = Map::new();

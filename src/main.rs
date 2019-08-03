@@ -4,6 +4,8 @@
 
 #[macro_use]
 extern crate strum_macros;
+#[macro_use]
+extern crate pest_derive;
 
 mod builtin_plugins;
 mod config;

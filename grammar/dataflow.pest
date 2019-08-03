@@ -1,0 +1,15 @@
+value_def = {
+    SOI ~
+    ( ( from ~ delim ~ (scope ~ delim)? ~ (required_at ~ delim)? ~ key ) | value ) ~
+    EOI
+}
+
+from = _{ "from" }
+scope = { alpha+ }
+required_at = _{ "required_at=" ~ required_at_step }
+required_at_step = { alpha+ }
+key = { ANY+ }
+value = { ANY+ }
+
+delim = _{ ":" }
+alpha = _{ 'a'..'z' | 'A'..'Z' }
