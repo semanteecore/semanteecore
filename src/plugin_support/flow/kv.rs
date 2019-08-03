@@ -2,12 +2,14 @@ use super::{ProvisionRequest, Scope};
 use crate::config::Map;
 use crate::plugin_support::PluginStep;
 use pest::Parser;
+use serde::export::TryFrom;
 use serde::{
     de::{DeserializeOwned, Error as _},
     Deserialize, Deserializer, Serialize,
 };
 use std::io::{BufWriter, Cursor};
 use std::mem;
+use std::ops::{Deref, DerefMut};
 
 pub type Key = String;
 
@@ -138,7 +140,22 @@ impl<T> KeyValueBuilder<T> {
     }
 }
 
-struct KeyValueDefinitionMap(Map<String, ValueDefinition>);
+#[derive(Debug, Clone, Default)]
+pub struct KeyValueDefinitionMap(Map<String, ValueDefinition>);
+
+impl Deref for KeyValueDefinitionMap {
+    type Target = Map<String, ValueDefinition>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for KeyValueDefinitionMap {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 impl Into<Map<String, KeyValue<serde_json::Value>>> for KeyValueDefinitionMap {
     fn into(self) -> Map<String, KeyValue<serde_json::Value>> {
@@ -165,7 +182,7 @@ impl Into<Map<String, KeyValue<serde_json::Value>>> for KeyValueDefinitionMap {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum ValueDefinition {
+pub enum ValueDefinition {
     From {
         scope: Scope,
         required_at: Option<PluginStep>,

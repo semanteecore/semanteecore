@@ -7,6 +7,7 @@ use failure::Fail;
 use linked_hash_map::LinkedHashMap;
 use serde::{de::Deserializer, de::Error as _, Deserialize, Serialize};
 
+use crate::plugin_support::flow::kv::{KeyValueDefinitionMap, ValueDefinition};
 use crate::plugin_support::flow::KeyValue;
 use crate::plugin_support::{PluginStep, PluginStepKind, Scope, UnresolvedPlugin};
 
@@ -28,41 +29,23 @@ pub struct StepsDefinitionMap(Map<PluginStep, StepDefinition>);
 pub struct Config {
     pub plugins: PluginDefinitionMap,
     pub steps: StepsDefinitionMap,
-    pub cfg: Global,
+    pub cfg: KeyValueDefinitionMap,
 }
 
-/// Global configuration entries at [cfg]
-#[derive(Deserialize, Clone, Debug)]
-pub struct Global {
-    #[serde(default = "default_project_root")]
-    pub project_root: KeyValue<String>,
-    #[serde(default = "default_dry_run")]
-    pub dry_run: KeyValue<bool>,
-    #[serde(flatten)]
-    pub other: Map<String, toml::Value>,
-}
-
-fn default_project_root() -> KeyValue<String> {
+fn default_project_root() -> ValueDefinition {
     let root = PathBuf::from("./");
     let root = root.canonicalize().ok();
     let root = root.and_then(|p| p.to_str().map(String::from));
 
-    let mut builder = KeyValue::builder("project_root");
-    builder.scope(Scope::Global);
-
     if let Some(path) = root {
-        builder.value(path).build()
+        ValueDefinition::Value(serde_json::Value::String(path))
     } else {
-        log::warn!("failed to derive project_root from environment, you might need to set cfg.project_root manually in releaserc.toml");
-        builder.build()
+        panic!("failed to derive project_root from environment, please set cfg.project_root manually in releaserc.toml");
     }
 }
 
-fn default_dry_run() -> KeyValue<bool> {
-    KeyValue::builder("dry_run")
-        .scope(Scope::Global)
-        .default_value()
-        .build()
+fn default_dry_run() -> ValueDefinition {
+    ValueDefinition::Value(serde_json::Value::Bool(false))
 }
 
 impl Config {
@@ -79,9 +62,18 @@ impl Config {
 
         config.check_step_arguments_correctness()?;
 
-        if is_dry_run {
-            *config.cfg.dry_run.as_value_mut() = is_dry_run;
-        }
+        config.cfg.entry("dry_run".to_owned()).or_insert_with(|| {
+            if is_dry_run {
+                ValueDefinition::Value(is_dry_run.into())
+            } else {
+                default_dry_run()
+            }
+        });
+
+        config
+            .cfg
+            .entry("project_root".into())
+            .or_insert_with(default_project_root);
 
         Ok(config)
     }
@@ -514,5 +506,81 @@ mod tests {
         let filepath = concat!(env!("CARGO_MANIFEST_DIR"), "/releaserc.toml");
         eprintln!("filepath: {}", filepath);
         Config::from_toml(filepath, true).unwrap();
+    }
+
+    #[test]
+    fn parse_full_config_with_data_flow_queries() {
+        let toml = r#"
+        [plugins]
+        # Fully qualified definition
+        git = { location = "builtin" }
+        # Short definition
+        clog = "builtin"
+        #github = "builtin"
+        #rust = "builtin"
+        #docker = "builtin"
+
+        [steps]
+        # Shared step
+        pre_flight = "discover"
+        # Singleton step
+        get_last_release = "git"
+        # Analyze the changes and derive the appropriate version bump
+        # In case of different results, the most major would be taken
+        derive_next_version = [ "clog" ]
+        # Notes from each step would be appended to the notes of previous one
+        # `discover` is a reserved keyword for deriving the step runners through OpenRPC Service Discovery
+        # the succession of runs in this case will be determined by the succession in the `plugins` list
+        generate_notes = "clog"
+        # Prepare the release (pre-release step for intermediate artifacts generation)
+        prepare = "discover"
+        # Check the release before publishing
+        verify_release = "discover"
+        # Commit & push changes to the VCS
+        commit = "git"
+        # Publish to various platforms
+        publish = []
+        # Post-release step to notify users about release (e.g leave comments in issues resolved in this release)
+        notify = "discover"
+
+        [cfg]
+        # Global configuration
+
+        [cfg.clog]
+        # Ignore commits like feat(ci) cause it makes no sense to issue a release for improvements in CI config
+        ignore = ["ci"]
+
+        [cfg.git]
+        # Per-plugin configuration
+        user_name = "Mike Lubinets"
+        user_email = "me@mkl.dev"
+        branch = "master"
+        force_https = true
+
+        [cfg.github]
+        assets = [
+            "/workspace/bin/*",
+            "Changelog.md"
+        ]
+
+        [cfg.docker]
+        repo_url = "from:vcs:git_clone_url"
+        repo_branch = "from:vcs:git_branch"
+
+        [[cfg.docker.images]]
+        registry = "dockerhub"
+        namespace = "etclabscore"
+        dockerfile = ".docker/Dockerfile"
+        name = "semantic-rs"
+        tag = "latest"
+        binary_path = "target/release/semantic-rs"
+        cleanup = true
+        build_cmd = "from:language:build_cmd"
+        exec_cmd = "/bin/semantic-rs"
+        "#;
+
+        let parsed: Config = toml::from_str(toml).unwrap();
+
+        drop(parsed)
     }
 }

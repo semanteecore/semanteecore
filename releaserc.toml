@@ -51,8 +51,8 @@ assets = [
 ]
 
 [cfg.docker]
-repo_url = "https://github.com/etclabscore/semantic-rs.git"
-repo_branch = "master"
+repo_url = "from:vcs:git_clone_url"
+repo_branch = "from:vcs:git_branch"
 
 [[cfg.docker.images]]
 registry = "dockerhub"
@@ -62,7 +62,7 @@ name = "semantic-rs"
 tag = "latest"
 binary_path = "target/release/semantic-rs"
 cleanup = true
-build_cmd = "cargo build --release"
+build_cmd = "from:language:build_cmd"
 exec_cmd = "/bin/semantic-rs"
 
 
