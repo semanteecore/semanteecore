@@ -25,8 +25,11 @@ const STEPS_DRY: &[PluginStep] = &[
 
 const STEPS_WET: &[PluginStep] = &[PluginStep::Commit, PluginStep::Publish, PluginStep::Notify];
 
+pub type PluginId = usize;
+
 pub struct Kernel {
-    dispatcher: PluginDispatcher,
+    plugins: Vec<Plugin>,
+    step_map: Map<PluginStep, Vec<PluginId>>,
     is_dry_run: bool,
 }
 
@@ -39,12 +42,13 @@ impl Kernel {
     }
 
     pub fn run(self) -> Result<(), failure::Error> {
+        let dispatcher = PluginDispatcher::new(&self.plugins, &self.step_map);
         let mut data = KernelData::default();
 
         let mut run_step = |step: PluginStep| -> Result<(), failure::Error> {
             log::info!("Running step '{}'", step.as_str());
 
-            step.execute(&self, &mut data).map_err(|err| {
+            step.execute(&dispatcher, &mut data).map_err(|err| {
                 log::error!("Step {:?} failed", step);
                 err
             })?;
@@ -116,14 +120,11 @@ impl KernelBuilder {
         let capabilities = Self::discover_capabilities(&plugins)?;
 
         // Building a steps to plugins map
-        let steps_to_plugin_ids =
-            Self::build_steps_to_plugin_ids_map(&self.config, &plugins, capabilities)?;
-
-        // Create Dispatcher
-        let dispatcher = PluginDispatcher::new(plugins, steps_to_plugin_ids);
+        let step_map = Self::build_steps_to_plugin_ids_map(&self.config, &plugins, capabilities)?;
 
         Ok(Kernel {
-            dispatcher,
+            plugins,
+            step_map,
             is_dry_run,
         })
     }
@@ -382,26 +383,36 @@ fn require<T>(desc: &'static str, query_fn: impl Fn() -> Option<T>) -> Result<T,
 type KernelRoutineResult<T> = Result<T, failure::Error>;
 
 trait KernelRoutine {
-    fn execute(&self, kernel: &Kernel, data: &mut KernelData) -> KernelRoutineResult<()>;
+    fn execute(
+        &self,
+        dispatcher: &PluginDispatcher,
+        data: &mut KernelData,
+    ) -> KernelRoutineResult<()>;
 
-    fn pre_flight(kernel: &Kernel, _data: &mut KernelData) -> KernelRoutineResult<()> {
-        execute_request(|| kernel.dispatcher.pre_flight())?;
+    fn pre_flight(
+        dispatcher: &PluginDispatcher,
+        _data: &mut KernelData,
+    ) -> KernelRoutineResult<()> {
+        execute_request(|| dispatcher.pre_flight())?;
         Ok(())
     }
 
-    fn get_last_release(kernel: &Kernel, data: &mut KernelData) -> KernelRoutineResult<()> {
-        let (_, response) = kernel.dispatcher.get_last_release()?;
+    fn get_last_release(
+        dispatcher: &PluginDispatcher,
+        data: &mut KernelData,
+    ) -> KernelRoutineResult<()> {
+        let (_, response) = dispatcher.get_last_release()?;
         let response = response.into_result()?;
         data.set_last_version(response);
         Ok(())
     }
 
-    fn derive_next_version(kernel: &Kernel, data: &mut KernelData) -> KernelRoutineResult<()> {
-        let responses = execute_request(|| {
-            kernel
-                .dispatcher
-                .derive_next_version(data.require_last_version()?)
-        })?;
+    fn derive_next_version(
+        dispatcher: &PluginDispatcher,
+        data: &mut KernelData,
+    ) -> KernelRoutineResult<()> {
+        let responses =
+            execute_request(|| dispatcher.derive_next_version(data.require_last_version()?))?;
 
         let next_version = responses
             .into_iter()
@@ -429,13 +440,16 @@ trait KernelRoutine {
         Ok(())
     }
 
-    fn generate_notes(kernel: &Kernel, data: &mut KernelData) -> KernelRoutineResult<()> {
+    fn generate_notes(
+        dispatcher: &PluginDispatcher,
+        data: &mut KernelData,
+    ) -> KernelRoutineResult<()> {
         let params = request::GenerateNotesData {
             start_rev: data.require_last_version()?.rev.clone(),
             new_version: data.require_next_version()?.clone(),
         };
 
-        let responses = execute_request(|| kernel.dispatcher.generate_notes(&params))?;
+        let responses = execute_request(|| dispatcher.generate_notes(&params))?;
 
         let changelog = responses.values().fold(String::new(), |mut summary, part| {
             summary.push_str(part);
@@ -452,9 +466,8 @@ trait KernelRoutine {
         Ok(())
     }
 
-    fn prepare(kernel: &Kernel, data: &mut KernelData) -> KernelRoutineResult<()> {
-        let responses =
-            execute_request(|| kernel.dispatcher.prepare(data.require_next_version()?))?;
+    fn prepare(dispatcher: &PluginDispatcher, data: &mut KernelData) -> KernelRoutineResult<()> {
+        let responses = execute_request(|| dispatcher.prepare(data.require_next_version()?))?;
 
         let changed_files = responses
             .into_iter()
@@ -466,19 +479,22 @@ trait KernelRoutine {
         Ok(())
     }
 
-    fn verify_release(kernel: &Kernel, _data: &mut KernelData) -> KernelRoutineResult<()> {
-        execute_request(|| kernel.dispatcher.verify_release())?;
+    fn verify_release(
+        dispatcher: &PluginDispatcher,
+        _data: &mut KernelData,
+    ) -> KernelRoutineResult<()> {
+        execute_request(|| dispatcher.verify_release())?;
         Ok(())
     }
 
-    fn commit(kernel: &Kernel, data: &mut KernelData) -> KernelRoutineResult<()> {
+    fn commit(dispatcher: &PluginDispatcher, data: &mut KernelData) -> KernelRoutineResult<()> {
         let params = request::CommitData {
             files_to_commit: data.require_files_to_commit()?.to_owned(),
             version: data.require_next_version()?.clone(),
             changelog: data.require_changelog()?.to_owned(),
         };
 
-        let (_, response) = kernel.dispatcher.commit(&params)?;
+        let (_, response) = dispatcher.commit(&params)?;
 
         let tag_name = response.into_result()?;
 
@@ -487,34 +503,38 @@ trait KernelRoutine {
         Ok(())
     }
 
-    fn publish(kernel: &Kernel, data: &mut KernelData) -> KernelRoutineResult<()> {
+    fn publish(dispatcher: &PluginDispatcher, data: &mut KernelData) -> KernelRoutineResult<()> {
         let params = request::PublishData {
             tag_name: data.requite_tag_name()?.to_owned(),
             changelog: data.require_changelog()?.to_owned(),
         };
 
-        execute_request(|| kernel.dispatcher.publish(&params))?;
+        execute_request(|| dispatcher.publish(&params))?;
         Ok(())
     }
 
-    fn notify(kernel: &Kernel, _data: &mut KernelData) -> KernelRoutineResult<()> {
-        execute_request(|| kernel.dispatcher.notify(&()))?;
+    fn notify(dispatcher: &PluginDispatcher, _data: &mut KernelData) -> KernelRoutineResult<()> {
+        execute_request(|| dispatcher.notify(&()))?;
         Ok(())
     }
 }
 
 impl KernelRoutine for PluginStep {
-    fn execute(&self, kernel: &Kernel, data: &mut KernelData) -> KernelRoutineResult<()> {
+    fn execute(
+        &self,
+        dispatcher: &PluginDispatcher,
+        data: &mut KernelData,
+    ) -> KernelRoutineResult<()> {
         match self {
-            PluginStep::PreFlight => PluginStep::pre_flight(kernel, data),
-            PluginStep::GetLastRelease => PluginStep::get_last_release(kernel, data),
-            PluginStep::DeriveNextVersion => PluginStep::derive_next_version(kernel, data),
-            PluginStep::GenerateNotes => PluginStep::generate_notes(kernel, data),
-            PluginStep::Prepare => PluginStep::prepare(kernel, data),
-            PluginStep::VerifyRelease => PluginStep::verify_release(kernel, data),
-            PluginStep::Commit => PluginStep::commit(kernel, data),
-            PluginStep::Publish => PluginStep::publish(kernel, data),
-            PluginStep::Notify => PluginStep::notify(kernel, data),
+            PluginStep::PreFlight => PluginStep::pre_flight(dispatcher, data),
+            PluginStep::GetLastRelease => PluginStep::get_last_release(dispatcher, data),
+            PluginStep::DeriveNextVersion => PluginStep::derive_next_version(dispatcher, data),
+            PluginStep::GenerateNotes => PluginStep::generate_notes(dispatcher, data),
+            PluginStep::Prepare => PluginStep::prepare(dispatcher, data),
+            PluginStep::VerifyRelease => PluginStep::verify_release(dispatcher, data),
+            PluginStep::Commit => PluginStep::commit(dispatcher, data),
+            PluginStep::Publish => PluginStep::publish(dispatcher, data),
+            PluginStep::Notify => PluginStep::notify(dispatcher, data),
         }
     }
 }

@@ -11,14 +11,14 @@ use crate::plugin_support::{
 use crate::config::Map;
 use std::collections::HashMap;
 
-pub struct PluginDispatcher {
+pub struct PluginDispatcher<'a> {
     env: HashMap<String, String>,
-    plugins: Vec<Plugin>,
-    map: Map<PluginStep, Vec<usize>>,
+    plugins: &'a [Plugin],
+    map: &'a Map<PluginStep, Vec<usize>>,
 }
 
-impl PluginDispatcher {
-    pub fn new(plugins: Vec<Plugin>, map: Map<PluginStep, Vec<usize>>) -> Self {
+impl<'a> PluginDispatcher<'a> {
+    pub fn new(plugins: &'a [Plugin], map: &'a Map<PluginStep, Vec<usize>>) -> Self {
         PluginDispatcher {
             env: std::env::vars().collect(),
             plugins,
@@ -90,7 +90,7 @@ impl PluginDispatcher {
 pub type DispatchedMultiResult<T> = Result<Map<String, T>, failure::Error>;
 pub type DispatchedSingletonResult<T> = Result<(String, T), failure::Error>;
 
-impl PluginDispatcher {
+impl<'a> PluginDispatcher<'a> {
     pub fn pre_flight(&self) -> DispatchedMultiResult<response::PreFlight> {
         self.dispatch(PluginStep::PreFlight, |p| {
             p.pre_flight(PluginRequest::new_null(&self.env))
