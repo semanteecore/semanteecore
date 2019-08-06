@@ -8,8 +8,8 @@ use crate::plugin_runtime::discovery::CapabilitiesDiscovery;
 use crate::plugin_runtime::dispatcher::PluginDispatcher;
 use crate::plugin_runtime::resolver::PluginResolver;
 use crate::plugin_runtime::starter::PluginStarter;
-use crate::plugin_support::flow::kv::KeyValueDefinitionMap;
-use crate::plugin_support::flow::KeyValue;
+use crate::plugin_support::flow::kv::ValueDefinitionMap;
+use crate::plugin_support::flow::Value;
 use crate::plugin_support::proto::Version;
 use crate::plugin_support::proto::{request, response::PluginResponse};
 use crate::plugin_support::{Plugin, PluginStep, RawPlugin, RawPluginState};
@@ -90,8 +90,8 @@ impl KernelBuilder {
 
     pub fn build(&mut self) -> Result<Kernel, failure::Error> {
         // Convert KeyValueDefinitionMap into KeyValue<JsonValue> map
-        let cfg = mem::replace(&mut self.config.cfg, KeyValueDefinitionMap::default());
-        let cfg: Map<String, KeyValue<serde_json::Value>> = cfg.into();
+        let cfg = mem::replace(&mut self.config.cfg, ValueDefinitionMap::default());
+        let cfg: Map<String, Value<serde_json::Value>> = cfg.into();
         let is_dry_run = cfg
             .get("dry_run")
             .and_then(|kv| kv.as_value().as_bool())

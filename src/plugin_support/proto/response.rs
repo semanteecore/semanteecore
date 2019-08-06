@@ -133,7 +133,7 @@ pub type ProvisionCapabilities = PluginResponse<Vec<ProvisionCapability>>;
 
 pub type Provision = PluginResponse<serde_json::Value>;
 
-pub type Config = PluginResponse<toml::Value>;
+pub type Config = PluginResponse<serde_json::Value>;
 
 pub type Methods = PluginResponse<MethodsData>;
 pub type MethodsData = Vec<PluginStep>;

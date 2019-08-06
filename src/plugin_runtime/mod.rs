@@ -1,6 +1,6 @@
 pub mod discovery;
 pub mod dispatcher;
-pub mod flow;
+pub mod graph;
 pub mod kernel;
 pub mod resolver;
 pub mod starter;

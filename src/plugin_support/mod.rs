@@ -2,7 +2,6 @@ pub mod flow;
 pub mod proto;
 pub mod traits;
 
-pub use self::flow::Scope;
 pub use self::traits::PluginInterface;
 
 use serde::{Deserialize, Serialize};
@@ -100,7 +99,18 @@ pub enum ResolvedPlugin {
 }
 
 #[derive(
-    Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash, EnumString, IntoStaticStr,
+    Serialize,
+    Deserialize,
+    Debug,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    EnumString,
+    IntoStaticStr,
 )]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]

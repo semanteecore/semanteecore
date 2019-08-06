@@ -8,13 +8,13 @@ use failure::Fail;
 use git2::{Commit, Repository};
 use serde::{Deserialize, Serialize};
 
-use crate::plugin_support::flow::{Availability, FlowError, KeyValue, ProvisionCapability};
+use crate::plugin_support::flow::{Availability, FlowError, ProvisionCapability, Value};
 use crate::plugin_support::proto::{
     request,
     response::{self, PluginResponse},
     GitRevision, Version,
 };
-use crate::plugin_support::{PluginInterface, PluginStep, Scope};
+use crate::plugin_support::{PluginInterface, PluginStep};
 
 pub struct ClogPlugin {
     config: ClogPluginConfig,
@@ -69,31 +69,27 @@ struct DryRunGuard {
 
 #[derive(Serialize, Deserialize)]
 struct ClogPluginConfig {
-    changelog: KeyValue<String>,
-    ignore: KeyValue<Vec<String>>,
-    project_root: KeyValue<String>,
-    is_dry_run: KeyValue<bool>,
-    current_version: KeyValue<Version>,
-    next_version: KeyValue<semver::Version>,
+    changelog: Value<String>,
+    ignore: Value<Vec<String>>,
+    project_root: Value<String>,
+    is_dry_run: Value<bool>,
+    current_version: Value<Version>,
+    next_version: Value<semver::Version>,
 }
 
 impl Default for ClogPluginConfig {
     fn default() -> Self {
         ClogPluginConfig {
-            changelog: KeyValue::builder("changelog")
-                .scope(Scope::Local)
+            changelog: Value::builder("changelog")
                 .value("Changelog.md".into())
                 .build(),
-            ignore: KeyValue::builder("ignore")
-                .scope(Scope::Local)
-                .default_value()
-                .build(),
-            project_root: KeyValue::builder("project_root").protected().build(),
-            is_dry_run: KeyValue::builder("is_dry_run").protected().build(),
-            current_version: KeyValue::builder("current_version")
+            ignore: Value::builder("ignore").default_value().build(),
+            project_root: Value::builder("project_root").protected().build(),
+            is_dry_run: Value::builder("is_dry_run").protected().build(),
+            current_version: Value::builder("current_version")
                 .required_at(PluginStep::DeriveNextVersion)
                 .build(),
-            next_version: KeyValue::builder("next_version")
+            next_version: Value::builder("next_version")
                 .required_at(PluginStep::GenerateNotes)
                 .protected()
                 .build(),
@@ -109,11 +105,9 @@ impl PluginInterface for ClogPlugin {
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
         PluginResponse::from_ok(vec![
             ProvisionCapability::builder("release_notes")
-                .scope(Scope::Analysis)
                 .after_step(PluginStep::GenerateNotes)
                 .build(),
             ProvisionCapability::builder("next_version")
-                .scope(Scope::Analysis)
                 .after_step(PluginStep::DeriveNextVersion)
                 .build(),
         ])
@@ -148,7 +142,7 @@ impl PluginInterface for ClogPlugin {
     }
 
     fn get_default_config(&self) -> response::Config {
-        let toml = toml::Value::try_from(&self.config)?;
+        let toml = serde_json::to_value(&self.config)?;
         PluginResponse::from_ok(toml)
     }
 

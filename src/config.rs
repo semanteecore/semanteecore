@@ -7,9 +7,9 @@ use failure::Fail;
 use linked_hash_map::LinkedHashMap;
 use serde::{de::Deserializer, de::Error as _, Deserialize, Serialize};
 
-use crate::plugin_support::flow::kv::{KeyValueDefinitionMap, ValueDefinition};
-use crate::plugin_support::flow::KeyValue;
-use crate::plugin_support::{PluginStep, PluginStepKind, Scope, UnresolvedPlugin};
+use crate::plugin_support::flow::kv::{ValueDefinition, ValueDefinitionMap};
+use crate::plugin_support::flow::Value;
+use crate::plugin_support::{PluginStep, PluginStepKind, UnresolvedPlugin};
 
 /// Map type override used in configs
 ///
@@ -29,7 +29,7 @@ pub struct StepsDefinitionMap(Map<PluginStep, StepDefinition>);
 pub struct Config {
     pub plugins: PluginDefinitionMap,
     pub steps: StepsDefinitionMap,
-    pub cfg: KeyValueDefinitionMap,
+    pub cfg: ValueDefinitionMap,
 }
 
 fn default_project_root() -> ValueDefinition {

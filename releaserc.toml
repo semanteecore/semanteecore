@@ -51,8 +51,8 @@ assets = [
 ]
 
 [cfg.docker]
-repo_url = "from:vcs:git_clone_url"
-repo_branch = "from:vcs:git_branch"
+repo_url = "from:git_clone_url"
+repo_branch = "from:git_branch"
 
 [[cfg.docker.images]]
 registry = "dockerhub"

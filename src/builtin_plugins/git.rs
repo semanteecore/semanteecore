@@ -5,13 +5,13 @@ use failure::Fail;
 use git2::{self, Cred, Oid, PushOptions, RemoteCallbacks, Repository, Signature};
 use serde::{Deserialize, Serialize};
 
-use crate::plugin_support::flow::{FlowError, KeyValue, ProvisionCapability};
+use crate::plugin_support::flow::{FlowError, ProvisionCapability, Value};
 use crate::plugin_support::proto::{
     request,
     response::{self, PluginResponse, PluginResponseBuilder},
 };
 use crate::plugin_support::proto::{GitRevision, Version};
-use crate::plugin_support::{PluginInterface, PluginStep, Scope};
+use crate::plugin_support::{PluginInterface, PluginStep};
 use std::path::Path;
 
 pub struct GitPlugin {
@@ -26,38 +26,23 @@ struct State {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Config {
-    user_name: KeyValue<Option<String>>,
-    user_email: KeyValue<Option<String>>,
-    branch: KeyValue<String>,
-    remote: KeyValue<String>,
-    force_https: KeyValue<bool>,
-    project_root: KeyValue<String>,
+    user_name: Value<Option<String>>,
+    user_email: Value<Option<String>>,
+    branch: Value<String>,
+    remote: Value<String>,
+    force_https: Value<bool>,
+    project_root: Value<String>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
-            user_name: KeyValue::builder("user_name")
-                .scope(Scope::Local)
-                .default_value()
-                .build(),
-            user_email: KeyValue::builder("user_email")
-                .scope(Scope::Local)
-                .default_value()
-                .build(),
-            branch: KeyValue::builder("branch")
-                .scope(Scope::Local)
-                .value(default_branch())
-                .build(),
-            remote: KeyValue::builder("remote")
-                .scope(Scope::Local)
-                .value(default_remote())
-                .build(),
-            force_https: KeyValue::builder("force_https")
-                .scope(Scope::Local)
-                .default_value()
-                .build(),
-            project_root: KeyValue::builder("project_root").protected().build(),
+            user_name: Value::builder("user_name").default_value().build(),
+            user_email: Value::builder("user_email").default_value().build(),
+            branch: Value::builder("branch").value(default_branch()).build(),
+            remote: Value::builder("remote").value(default_remote()).build(),
+            force_https: Value::builder("force_https").default_value().build(),
+            project_root: Value::builder("project_root").protected().build(),
         }
     }
 }
@@ -333,20 +318,16 @@ impl PluginInterface for GitPlugin {
 
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
         PluginResponse::from_ok(vec![
-            ProvisionCapability::builder("branch")
-                .scope(Scope::VCS)
+            ProvisionCapability::builder("git_branch")
                 .after_step(PluginStep::PreFlight)
                 .build(),
-            ProvisionCapability::builder("remote")
-                .scope(Scope::VCS)
+            ProvisionCapability::builder("git_remote")
                 .after_step(PluginStep::PreFlight)
                 .build(),
-            ProvisionCapability::builder("github_repo_name")
-                .scope(Scope::VCS)
+            ProvisionCapability::builder("git_repo_name")
                 .after_step(PluginStep::PreFlight)
                 .build(),
             ProvisionCapability::builder("current_version")
-                .scope(Scope::VCS)
                 .after_step(PluginStep::GetLastRelease)
                 .build(),
         ])
@@ -354,8 +335,8 @@ impl PluginInterface for GitPlugin {
 
     fn provision(&self, req: request::Provision) -> response::Provision {
         let value = match req.data.as_str() {
-            "branch" => serde_json::to_value(self.config.branch.as_value())?,
-            "remote" => serde_json::to_value(self.config.remote.as_value())?,
+            "git_branch" => serde_json::to_value(self.config.branch.as_value())?,
+            "git_remote" => serde_json::to_value(self.config.remote.as_value())?,
             other => {
                 return PluginResponse::from_error(
                     FlowError::KeyNotSupported(other.to_owned()).into(),
@@ -367,7 +348,7 @@ impl PluginInterface for GitPlugin {
     }
 
     fn get_default_config(&self) -> response::Config {
-        PluginResponse::from_ok(toml::Value::try_from(Config::default())?)
+        PluginResponse::from_ok(serde_json::to_value(Config::default())?)
     }
 
     fn set_config(&mut self, req: request::Config) -> response::Null {
