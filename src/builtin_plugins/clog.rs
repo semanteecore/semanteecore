@@ -147,7 +147,7 @@ impl PluginInterface for ClogPlugin {
     }
 
     fn set_config(&mut self, req: request::Config) -> response::Null {
-        self.config = req.data.clone().try_into()?;
+        self.config = serde_json::from_value(req.data.clone())?;
         PluginResponse::from_ok(())
     }
 

@@ -26,7 +26,7 @@ pub type Provision<'a> = PluginRequest<'a, ProvisionData>;
 pub type ProvisionData = String;
 
 pub type Config<'a> = PluginRequest<'a, ConfigData>;
-pub type ConfigData = toml::Value;
+pub type ConfigData = serde_json::Value;
 
 pub type Methods<'a> = PluginRequest<'a, MethodsData>;
 pub type MethodsData = Null;
