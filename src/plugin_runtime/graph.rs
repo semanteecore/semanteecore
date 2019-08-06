@@ -162,11 +162,7 @@ impl<'a> StepSequenceBuilder<'a> {
     fn build(mut self) -> Vec<Action> {
         let mut seq = VecDeque::new();
 
-        let unresolved = self
-            .unresolved
-            .iter()
-            .map(|list| list.iter().map(|(key, value)| (key, value)).collect())
-            .collect();
+        let unresolved = self.borrow_unresolved();
 
         // First -- resolve data that's trivially available from the previous step
         let unresolved = self.resolve_already_available(&mut seq, unresolved);
@@ -332,6 +328,13 @@ impl<'a> StepSequenceBuilder<'a> {
             seq.push_back(Action::Call(dest_id, self.step));
         }
     }
+
+    fn borrow_unresolved(&self) -> Vec<Vec<(&DestKey, &SourceKey)>> {
+        self.unresolved
+            .iter()
+            .map(|list| list.iter().map(|(key, value)| (key, value)).collect())
+            .collect()
+    }
 }
 
 fn collect_plugins_names(plugins: &[Plugin]) -> Vec<String> {
@@ -451,6 +454,228 @@ mod tests {
             .collect();
 
         assert_eq!(seq, correct_seq);
+    }
+
+    mod resolve {
+        use super::*;
+
+        mod already_available {
+            use super::*;
+
+            #[test]
+            fn all_available() {
+                let step = PluginStep::PreFlight;
+                let names = vec!["one".into(), "two".into()];
+                let configs = vec![
+                    vec![("one_dst".into(), Value::builder("two_src").build())]
+                        .into_iter()
+                        .collect(),
+                    vec![("two_dst".into(), Value::builder("one_src").build())]
+                        .into_iter()
+                        .collect(),
+                ];
+                let caps = vec![
+                    vec![ProvisionCapability::builder("one_src").build()],
+                    vec![ProvisionCapability::builder("two_src").build()],
+                ];
+
+                let ssb = StepSequenceBuilder::new(step, &names, &configs, &caps);
+                let unresolved = ssb.borrow_unresolved();
+                let mut seq = VecDeque::new();
+
+                let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
+                assert_eq!(unresolved, vec![vec![], vec![]]);
+                assert_eq!(
+                    Vec::from(seq),
+                    vec![
+                        Action::DataQuery(1, "two_src".into()),
+                        Action::DataProvision(0, "one_dst".into(), "two_src".into()),
+                        Action::DataQuery(0, "one_src".into()),
+                        Action::DataProvision(1, "two_dst".into(), "one_src".into()),
+                    ]
+                );
+            }
+
+            #[test]
+            fn same_key() {
+                let step = PluginStep::PreFlight;
+                let names = vec!["one".into(), "two".into()];
+                let configs = vec![
+                    vec![("dst".into(), Value::builder("src").build())]
+                        .into_iter()
+                        .collect(),
+                    vec![("dst".into(), Value::builder("src").build())]
+                        .into_iter()
+                        .collect(),
+                ];
+                let caps = vec![
+                    vec![ProvisionCapability::builder("src").build()],
+                    vec![ProvisionCapability::builder("src").build()],
+                ];
+
+                let ssb = StepSequenceBuilder::new(step, &names, &configs, &caps);
+                let unresolved = ssb.borrow_unresolved();
+                let mut seq = VecDeque::new();
+
+                let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
+                assert_eq!(unresolved, vec![vec![], vec![]]);
+                assert_eq!(
+                    Vec::from(seq),
+                    vec![
+                        Action::DataQuery(1, "src".into()),
+                        Action::DataProvision(0, "dst".into(), "src".into()),
+                        Action::DataQuery(0, "src".into()),
+                        Action::DataProvision(1, "dst".into(), "src".into()),
+                    ]
+                );
+            }
+
+            #[test]
+            fn all_not_available() {
+                let step = PluginStep::PreFlight;
+                let names = vec!["one".into(), "two".into()];
+                let configs = vec![
+                    vec![("one_dst".into(), Value::builder("two_src").build())]
+                        .into_iter()
+                        .collect(),
+                    vec![("two_dst".into(), Value::builder("one_src").build())]
+                        .into_iter()
+                        .collect(),
+                ];
+                let caps = vec![
+                    vec![ProvisionCapability::builder("one_src")
+                        .after_step(PluginStep::DeriveNextVersion)
+                        .build()],
+                    vec![ProvisionCapability::builder("two_src")
+                        .after_step(PluginStep::Commit)
+                        .build()],
+                ];
+
+                let ssb = StepSequenceBuilder::new(step, &names, &configs, &caps);
+                let unresolved = ssb.borrow_unresolved();
+                let mut seq = VecDeque::new();
+
+                let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
+                assert_eq!(
+                    unresolved,
+                    vec![
+                        vec![(&"one_dst".into(), &"two_src".into())],
+                        vec![(&"two_dst".into(), &"one_src".into())],
+                    ]
+                );
+                assert_eq!(Vec::from(seq), vec![]);
+            }
+
+            #[test]
+            fn partially_not_available() {
+                let step = PluginStep::PreFlight;
+                let names = vec!["one".into(), "two".into()];
+                let configs = vec![
+                    vec![("one_dst".into(), Value::builder("two_src").build())]
+                        .into_iter()
+                        .collect(),
+                    vec![("two_dst".into(), Value::builder("one_src").build())]
+                        .into_iter()
+                        .collect(),
+                ];
+                let caps = vec![
+                    vec![ProvisionCapability::builder("one_src").build()],
+                    vec![ProvisionCapability::builder("two_src")
+                        .after_step(PluginStep::Commit)
+                        .build()],
+                ];
+
+                let ssb = StepSequenceBuilder::new(step, &names, &configs, &caps);
+                let unresolved = ssb.borrow_unresolved();
+                let mut seq = VecDeque::new();
+
+                let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
+                assert_eq!(
+                    unresolved,
+                    vec![vec![(&"one_dst".into(), &"two_src".into())], vec![],]
+                );
+                assert_eq!(
+                    Vec::from(seq),
+                    vec![
+                        Action::DataQuery(0, "one_src".into()),
+                        Action::DataProvision(1, "two_dst".into(), "one_src".into()),
+                    ]
+                );
+            }
+
+            #[test]
+            fn all_not_needed() {
+                let step = PluginStep::PreFlight;
+                let names = vec!["one".into(), "two".into()];
+                let configs = vec![
+                    vec![(
+                        "one_dst".into(),
+                        Value::builder("two_src")
+                            .required_at(PluginStep::Commit)
+                            .build(),
+                    )]
+                    .into_iter()
+                    .collect(),
+                    vec![(
+                        "two_dst".into(),
+                        Value::builder("one_src")
+                            .required_at(PluginStep::GenerateNotes)
+                            .build(),
+                    )]
+                    .into_iter()
+                    .collect(),
+                ];
+                let caps = vec![
+                    vec![ProvisionCapability::builder("one_src").build()],
+                    vec![ProvisionCapability::builder("two_src").build()],
+                ];
+
+                let ssb = StepSequenceBuilder::new(step, &names, &configs, &caps);
+                let unresolved = ssb.borrow_unresolved();
+                let mut seq = VecDeque::new();
+
+                let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
+                assert_eq!(unresolved, vec![vec![], vec![]]);
+                assert_eq!(Vec::from(seq), vec![]);
+            }
+
+            #[test]
+            fn partially_not_needed() {
+                let step = PluginStep::PreFlight;
+                let names = vec!["one".into(), "two".into()];
+                let configs = vec![
+                    vec![(
+                        "one_dst".into(),
+                        Value::builder("two_src")
+                            .required_at(PluginStep::Commit)
+                            .build(),
+                    )]
+                    .into_iter()
+                    .collect(),
+                    vec![("two_dst".into(), Value::builder("one_src").build())]
+                        .into_iter()
+                        .collect(),
+                ];
+                let caps = vec![
+                    vec![ProvisionCapability::builder("one_src").build()],
+                    vec![ProvisionCapability::builder("two_src").build()],
+                ];
+
+                let ssb = StepSequenceBuilder::new(step, &names, &configs, &caps);
+                let unresolved = ssb.borrow_unresolved();
+                let mut seq = VecDeque::new();
+
+                let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
+                assert_eq!(unresolved, vec![vec![], vec![]]);
+                assert_eq!(
+                    Vec::from(seq),
+                    vec![
+                        Action::DataQuery(0, "one_src".into()),
+                        Action::DataProvision(1, "two_dst".into(), "one_src".into()),
+                    ]
+                );
+            }
+        }
     }
 
     mod test_plugins {
