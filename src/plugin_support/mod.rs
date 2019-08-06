@@ -110,6 +110,7 @@ pub enum ResolvedPlugin {
     PartialEq,
     Hash,
     EnumString,
+    EnumIter,
     IntoStaticStr,
 )]
 #[serde(rename_all = "snake_case")]
