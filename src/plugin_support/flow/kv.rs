@@ -371,6 +371,14 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn parse_value_definition_unknown_meta_keys() {
+        let v: ValueDefinition = parse_value_definition(r#"from:required_at=commit:unknown_meta:key"#)
+            .map_err(pretty_print_error_and_panic)
+            .unwrap();
+    }
+
+    #[test]
     fn deserialize_value_definition_string() {
         let toml = r#"key = "false""#;
         let kvmap: ValueDefinitionMap = toml::from_str(toml).unwrap();

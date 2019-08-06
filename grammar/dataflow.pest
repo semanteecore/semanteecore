@@ -7,7 +7,7 @@ value_def = {
 from = _{ "from" }
 required_at = _{ "required_at=" ~ required_at_step }
 required_at_step = { alpha+ }
-key = { ANY+ }
+key = { alpha+ }
 value = { ANY+ }
 
 delim = _{ ":" }
