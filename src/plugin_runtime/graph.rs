@@ -162,11 +162,10 @@ impl<'a> StepSequenceBuilder<'a> {
     fn build(mut self) -> Vec<Action> {
         let mut seq = VecDeque::new();
 
-        let unresolved = self.unresolved
+        let unresolved = self
+            .unresolved
             .iter()
-            .map(|list| list.iter()
-                .map(|(key, value)| (key, value))
-                .collect())
+            .map(|list| list.iter().map(|(key, value)| (key, value)).collect())
             .collect();
 
         // First -- resolve data that's trivially available from the previous step
@@ -191,7 +190,11 @@ impl<'a> StepSequenceBuilder<'a> {
     }
 
     // Resolve data that's trivially available (Availability::Always or available since previous step)
-    fn resolve_already_available<'b>(&self, seq: &mut VecDeque<Action>, unresolved: Vec<Vec<(&'b DestKey, &'b SourceKey)>>) -> Vec<Vec<(&'b DestKey, &'b SourceKey)>> {
+    fn resolve_already_available<'b>(
+        &self,
+        seq: &mut VecDeque<Action>,
+        unresolved: Vec<Vec<(&'b DestKey, &'b SourceKey)>>,
+    ) -> Vec<Vec<(&'b DestKey, &'b SourceKey)>> {
         unresolved
             .into_iter()
             .enumerate()
@@ -207,7 +210,11 @@ impl<'a> StepSequenceBuilder<'a> {
                                         Action::DataQuery(*source_id, Clone::clone(source_key))
                                     }),
                             );
-                            seq.push_back(Action::DataProvision(dest_id, dest_key.clone(), source_key.clone()));
+                            seq.push_back(Action::DataProvision(
+                                dest_id,
+                                dest_key.clone(),
+                                source_key.clone(),
+                            ));
                             None
                         } else {
                             Some((dest_key, source_key))
@@ -219,7 +226,11 @@ impl<'a> StepSequenceBuilder<'a> {
     }
 
     // Resolve data that should be in config but isn't there
-    fn resolve_should_be_in_config<'b>(&self, seq: &mut VecDeque<Action>, unresolved: Vec<Vec<(&'b DestKey, &'b SourceKey)>>) -> Vec<Vec<(&'b DestKey, &'b SourceKey)>> {
+    fn resolve_should_be_in_config<'b>(
+        &self,
+        seq: &mut VecDeque<Action>,
+        unresolved: Vec<Vec<(&'b DestKey, &'b SourceKey)>>,
+    ) -> Vec<Vec<(&'b DestKey, &'b SourceKey)>> {
         unresolved.into_iter().enumerate().map(|(dest_id, keys)| {
             keys.into_iter().filter_map(|(dest_key, source_key)| {
                 // Key must be resolved within the current step
@@ -246,7 +257,11 @@ impl<'a> StepSequenceBuilder<'a> {
     }
 
     // Resolve data that should be in config but isn't there
-    fn resolve_same_step_and_build_call_sequence<'b>(&self, seq: &mut VecDeque<Action>, unresolved: Vec<Vec<(&'b DestKey, &'b SourceKey)>>) {
+    fn resolve_same_step_and_build_call_sequence<'b>(
+        &self,
+        seq: &mut VecDeque<Action>,
+        unresolved: Vec<Vec<(&'b DestKey, &'b SourceKey)>>,
+    ) {
         // First option: every key is resolved. Then we just generate a number of Call actions.
         if unresolved.iter().all(Vec::is_empty) {
             seq.extend(
@@ -284,7 +299,11 @@ impl<'a> StepSequenceBuilder<'a> {
                             .filter(|&&source_id| source_id != dest_id)
                             .map(|source_id| Action::DataQuery(*source_id, source_key.clone())),
                     );
-                    seq.push_back(Action::DataProvision(dest_id, dest_key.clone(), source_key.to_owned()));
+                    seq.push_back(Action::DataProvision(
+                        dest_id,
+                        dest_key.clone(),
+                        source_key.to_owned(),
+                    ));
                 } else {
                     let dest_plugin_name = &self.names[dest_id];
                     log::error!(
@@ -292,7 +311,9 @@ impl<'a> StepSequenceBuilder<'a> {
                         dest_plugin_name,
                         source_key
                     );
-                    for source_id in self.same_step_key_to_plugins.get(source_key).expect("at this point only same-step keys should be unresolved. This is a bug.") {
+                    for source_id in self.same_step_key_to_plugins.get(source_key).expect(
+                        "at this point only same-step keys should be unresolved. This is a bug.",
+                    ) {
                         let source_plugin_name = &self.names[*source_id];
                         log::error!("Matching source plugin {:?} supplies this key at the current step ({:?}) but it's set to run after plugin {:?} in releaserc.toml", source_plugin_name, self.step, dest_plugin_name);
                     }
@@ -311,7 +332,6 @@ impl<'a> StepSequenceBuilder<'a> {
             seq.push_back(Action::Call(dest_id, self.step));
         }
     }
-
 }
 
 fn collect_plugins_names(plugins: &[Plugin]) -> Vec<String> {
@@ -418,14 +438,17 @@ mod tests {
     fn build_sequence_for_dependent_provider() {
         let PluginSequence { seq } = PluginSequence::new(&dependent_provider_plugins()).unwrap();
 
-        let correct_seq: Vec<Action> = PluginStep::iter().flat_map(|step| {
-            vec![
-                Action::DataQuery(1, "source_key".into()),
-                Action::DataProvision(0, "dest_key".into(), "source_key".into()),
-                Action::Call(0, step),
-                Action::Call(1, step),
-            ].into_iter()
-        }).collect();
+        let correct_seq: Vec<Action> = PluginStep::iter()
+            .flat_map(|step| {
+                vec![
+                    Action::DataQuery(1, "source_key".into()),
+                    Action::DataProvision(0, "dest_key".into(), "source_key".into()),
+                    Action::Call(0, step),
+                    Action::Call(1, step),
+                ]
+                .into_iter()
+            })
+            .collect();
 
         assert_eq!(seq, correct_seq);
     }
