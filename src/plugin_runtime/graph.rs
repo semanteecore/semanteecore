@@ -254,59 +254,61 @@ impl<'a> StepSequenceBuilder<'a> {
                     .into_iter()
                     .map(|id| Action::Call(id, self.step)),
             );
-        } else {
-            // Second option: there are some inter-step resolutions being necessary,
-            // so we check that the defined sequence of plugins is adequate for provisioning data
-            let mut became_available = Map::new();
-            for (dest_id, unresolved_keys) in unresolved.into_iter().enumerate() {
-                for cap in &self.caps[dest_id] {
-                    let available = match cap.when {
-                        Availability::Always => true,
-                        Availability::AfterStep(after) => after <= self.step,
-                    };
 
-                    if available {
-                        became_available
-                            .entry(cap.key.clone())
-                            .or_insert(Vec::new())
-                            .push(dest_id);
-                    }
+            return;
+        }
+
+        // Second option: there are some inter-step resolutions being necessary,
+        // so we check that the defined sequence of plugins is adequate for provisioning data
+        let mut became_available = Map::new();
+        for (dest_id, unresolved_keys) in unresolved.into_iter().enumerate() {
+            for cap in &self.caps[dest_id] {
+                let available = match cap.when {
+                    Availability::Always => true,
+                    Availability::AfterStep(after) => after <= self.step,
+                };
+
+                if available {
+                    became_available
+                        .entry(cap.key.clone())
+                        .or_insert(Vec::new())
+                        .push(dest_id);
                 }
-
-                for (dest_key, source_key) in unresolved_keys {
-                    if let Some(plugins) = became_available.get(source_key) {
-                        seq.extend(
-                            plugins
-                                .iter()
-                                .filter(|&&source_id| source_id != dest_id)
-                                .map(|source_id| Action::DataQuery(*source_id, source_key.clone())),
-                        );
-                        seq.push_back(Action::DataProvision(dest_id, dest_key.clone(), source_key.to_owned()));
-                    } else {
-                        let dest_plugin_name = &self.names[dest_id];
-                        log::error!(
-                            "Plugin {:?} requested key {:?}",
-                            dest_plugin_name,
-                            source_key
-                        );
-                        for source_id in self.same_step_key_to_plugins.get(source_key).expect("at this point only same-step keys should be unresolved. This is a bug.") {
-                            let source_plugin_name = &self.names[*source_id];
-                            log::error!("Matching source plugin {:?} supplies this key at the current step ({:?}) but it's set to run after plugin {:?} in releaserc.toml", source_plugin_name, self.step, dest_plugin_name);
-                        }
-                        log::error!(
-                            "Reorder the plugins in releaserc.toml or define the key manually."
-                        );
-                        log::error!(
-                            "The releaserc.toml entry cfg.{}.{} must be defined to proceed.",
-                            dest_plugin_name,
-                            dest_key
-                        );
-                        seq.push_front(Action::ConfigQuery(dest_id, source_key.clone()));
-                    }
-                }
-
-                seq.push_back(Action::Call(dest_id, self.step));
             }
+
+            for (dest_key, source_key) in unresolved_keys {
+                if let Some(plugins) = became_available.get(source_key) {
+                    seq.extend(
+                        plugins
+                            .iter()
+                            .filter(|&&source_id| source_id != dest_id)
+                            .map(|source_id| Action::DataQuery(*source_id, source_key.clone())),
+                    );
+                    seq.push_back(Action::DataProvision(dest_id, dest_key.clone(), source_key.to_owned()));
+                } else {
+                    let dest_plugin_name = &self.names[dest_id];
+                    log::error!(
+                        "Plugin {:?} requested key {:?}",
+                        dest_plugin_name,
+                        source_key
+                    );
+                    for source_id in self.same_step_key_to_plugins.get(source_key).expect("at this point only same-step keys should be unresolved. This is a bug.") {
+                        let source_plugin_name = &self.names[*source_id];
+                        log::error!("Matching source plugin {:?} supplies this key at the current step ({:?}) but it's set to run after plugin {:?} in releaserc.toml", source_plugin_name, self.step, dest_plugin_name);
+                    }
+                    log::error!(
+                        "Reorder the plugins in releaserc.toml or define the key manually."
+                    );
+                    log::error!(
+                        "The releaserc.toml entry cfg.{}.{} must be defined to proceed.",
+                        dest_plugin_name,
+                        dest_key
+                    );
+                    seq.push_front(Action::ConfigQuery(dest_id, source_key.clone()));
+                }
+            }
+
+            seq.push_back(Action::Call(dest_id, self.step));
         }
     }
 
