@@ -373,9 +373,10 @@ mod tests {
     #[test]
     #[should_panic]
     fn parse_value_definition_unknown_meta_keys() {
-        let v: ValueDefinition = parse_value_definition(r#"from:required_at=commit:unknown_meta:key"#)
-            .map_err(pretty_print_error_and_panic)
-            .unwrap();
+        let v: ValueDefinition =
+            parse_value_definition(r#"from:required_at=commit:unknown_meta:key"#)
+                .map_err(pretty_print_error_and_panic)
+                .unwrap();
     }
 
     #[test]
