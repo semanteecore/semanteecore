@@ -69,3 +69,26 @@ pub enum FlowError {
     #[fail(display = "key {:?} is supported for querying", _0)]
     KeyNotSupported(String),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn provision_capability_build_default() {
+        let cap = ProvisionCapability::builder("key").build();
+        assert_eq!(cap, ProvisionCapability {
+            when: Availability::Always,
+            key: "key".to_string()
+        })
+    }
+
+    #[test]
+    fn provision_capability_build_after_step() {
+        let cap = ProvisionCapability::builder("key").after_step(PluginStep::PreFlight).build();
+        assert_eq!(cap, ProvisionCapability {
+            when: Availability::AfterStep(PluginStep::PreFlight),
+            key: "key".to_string()
+        })
+    }
+}
