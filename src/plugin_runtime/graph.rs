@@ -67,22 +67,39 @@ impl PluginSequenceBuilder {
         ];
 
         for &step in steps {
-            let step_seq = self.query_sequence_for_step(step);
+            let builder = StepSequenceBuilder::new(step, &self.names, &self.configs, &self.caps);
+            let step_seq = builder.build();
             seq.extend(step_seq.into_iter());
         }
 
         Ok(PluginSequence { seq })
     }
+}
 
-    fn query_sequence_for_step(&self, step: PluginStep) -> Vec<Action> {
-        let mut seq = VecDeque::new();
+struct StepSequenceBuilder<'a> {
+    step: PluginStep,
+    names: &'a [String],
+    configs: &'a [Map<String, Value<serde_json::Value>>],
+    caps: &'a [Vec<ProvisionCapability>],
 
+    unresolved: Vec<Vec<(String, String)>>,
+    available_key_to_plugins: Map<String, Vec<PluginId>>,
+    same_step_key_to_plugins: Map<String, Vec<PluginId>>,
+    future_key_to_plugins: Map<String, Vec<(PluginId, Availability)>>,
+}
+
+impl<'a> StepSequenceBuilder<'a> {
+    fn new(
+        step: PluginStep,
+        names: &'a [String],
+        configs: &'a [Map<String, Value<serde_json::Value>>],
+        caps: &'a [Vec<ProvisionCapability>],
+    ) -> Self {
         // Collect unresolved keys
         // Here are 2 keys for every plugin:
         // - destination: the key in the plugin config
         // - source: the key advertised by the plugin
-        let unresolved: Vec<Vec<(String, String)>> = self
-            .configs
+        let unresolved: Vec<Vec<(String, String)>> = configs
             .iter()
             .enumerate()
             .map(|(dest_id, config)| {
@@ -109,7 +126,7 @@ impl PluginSequenceBuilder {
         let mut available_key_to_plugins = Map::new();
         let mut same_step_key_to_plugins = Map::new();
         let mut future_key_to_plugins = Map::new();
-        self.caps.iter().enumerate().for_each(|(source_id, caps)| {
+        caps.iter().enumerate().for_each(|(source_id, caps)| {
             caps.iter().for_each(|cap| {
                 let (available, same_step, future) = match cap.when {
                     Availability::Always => (true, false, false),
@@ -139,14 +156,30 @@ impl PluginSequenceBuilder {
             })
         });
 
+        StepSequenceBuilder {
+            step,
+            names,
+            configs,
+            caps,
+            unresolved,
+            available_key_to_plugins,
+            same_step_key_to_plugins,
+            future_key_to_plugins,
+        }
+    }
+
+    fn build(mut self) -> Vec<Action> {
+        let mut seq = VecDeque::new();
+
         // Resolve what's trivially available right now
-        let unresolved: Vec<Vec<(String, String)>> = unresolved
-            .into_iter()
+        let unresolved: Vec<Vec<(&String, &String)>> = self
+            .unresolved
+            .iter()
             .enumerate()
             .map(|(dest_id, keys)| {
-                keys.into_iter()
+                keys.iter()
                     .filter_map(|(dest_key, source_key)| {
-                        if let Some(plugins) = available_key_to_plugins.get(&source_key) {
+                        if let Some(plugins) = self.available_key_to_plugins.get(source_key) {
                             seq.extend(
                                 plugins
                                     .iter()
@@ -155,7 +188,7 @@ impl PluginSequenceBuilder {
                                         Action::DataQuery(*source_id, source_key.clone())
                                     }),
                             );
-                            seq.push_back(Action::DataProvision(dest_id, dest_key));
+                            seq.push_back(Action::DataProvision(dest_id, dest_key.to_owned()));
                             None
                         } else {
                             Some((dest_key, source_key))
@@ -170,25 +203,25 @@ impl PluginSequenceBuilder {
         // or data that should be available from the config
         //
         // Firstly let's resolve the config values
-        let unresolved: Vec<Vec<(String, String)>> = unresolved.into_iter().enumerate().map(|(dest_id, keys)| {
+        let unresolved: Vec<Vec<(&String, &String)>> = unresolved.into_iter().enumerate().map(|(dest_id, keys)| {
             keys.into_iter().filter_map(|(dest_key, source_key)| {
                 // Key must be resolved within the current step
-                if same_step_key_to_plugins.contains_key(&source_key) {
+                if self.same_step_key_to_plugins.contains_key(source_key) {
                     Some((dest_key, source_key))
-                // Key is not available now, but would be in future steps.
-                } else if let Some(plugins) = future_key_to_plugins.get(&source_key) {
+                    // Key is not available now, but would be in future steps.
+                } else if let Some(plugins) = self.future_key_to_plugins.get(source_key) {
                     let dest_plugin_name = &self.names[dest_id];
                     log::error!("Plugin {:?} requested key {:?}", dest_plugin_name, source_key);
                     for (source_id, when) in plugins {
                         let source_plugin_name = &self.names[*source_id];
-                        log::error!("Matching source plugin {:?} can supply this key only after step {:?}, and the current step is {:?}", source_plugin_name, when, step);
+                        log::error!("Matching source plugin {:?} can supply this key only after step {:?}, and the current step is {:?}", source_plugin_name, when, self.step);
                     }
                     log::error!("The releaserc.toml entry cfg.{}.{} must be defined to proceed", dest_plugin_name, dest_key);
-                    seq.push_front(Action::ConfigQuery(dest_id, source_key));
+                    seq.push_front(Action::ConfigQuery(dest_id, source_key.clone()));
                     None
-                // Key cannot be supplied by plugins and must be defined in releaserc.toml
+                    // Key cannot be supplied by plugins and must be defined in releaserc.toml
                 } else {
-                    seq.push_front(Action::ConfigQuery(dest_id, dest_key));
+                    seq.push_front(Action::ConfigQuery(dest_id, dest_key.clone()));
                     None
                 }
             }).collect()
@@ -205,7 +238,7 @@ impl PluginSequenceBuilder {
             seq.extend(
                 (0..self.names.len())
                     .into_iter()
-                    .map(|id| Action::Call(id, step)),
+                    .map(|id| Action::Call(id, self.step)),
             );
         } else {
             // Second option: there are some inter-step resolutions being necessary,
@@ -215,7 +248,7 @@ impl PluginSequenceBuilder {
                 for cap in &self.caps[dest_id] {
                     let available = match cap.when {
                         Availability::Always => true,
-                        Availability::AfterStep(after) => after <= step,
+                        Availability::AfterStep(after) => after <= self.step,
                     };
 
                     if available {
@@ -227,14 +260,14 @@ impl PluginSequenceBuilder {
                 }
 
                 for (dest_key, source_key) in unresolved_keys {
-                    if let Some(plugins) = became_available.get(&source_key) {
+                    if let Some(plugins) = became_available.get(source_key) {
                         seq.extend(
                             plugins
                                 .iter()
                                 .filter(|&&source_id| source_id != dest_id)
                                 .map(|source_id| Action::DataQuery(*source_id, source_key.clone())),
                         );
-                        seq.push_back(Action::DataProvision(dest_id, dest_key));
+                        seq.push_back(Action::DataProvision(dest_id, dest_key.clone()));
                     } else {
                         let dest_plugin_name = &self.names[dest_id];
                         log::error!(
@@ -242,9 +275,9 @@ impl PluginSequenceBuilder {
                             dest_plugin_name,
                             source_key
                         );
-                        for source_id in same_step_key_to_plugins.get(&source_key).expect("at this point only same-step keys should be unresolved. This is a bug.") {
+                        for source_id in self.same_step_key_to_plugins.get(source_key).expect("at this point only same-step keys should be unresolved. This is a bug.") {
                             let source_plugin_name = &self.names[*source_id];
-                            log::error!("Matching source plugin {:?} supplies this key at the current step ({:?}) but it's set to run after plugin {:?} in releaserc.toml", source_plugin_name, step, dest_plugin_name);
+                            log::error!("Matching source plugin {:?} supplies this key at the current step ({:?}) but it's set to run after plugin {:?} in releaserc.toml", source_plugin_name, self.step, dest_plugin_name);
                         }
                         log::error!(
                             "Reorder the plugins in releaserc.toml or define the key manually."
@@ -254,11 +287,11 @@ impl PluginSequenceBuilder {
                             dest_plugin_name,
                             dest_key
                         );
-                        seq.push_front(Action::ConfigQuery(dest_id, source_key));
+                        seq.push_front(Action::ConfigQuery(dest_id, source_key.clone()));
                     }
                 }
 
-                seq.push_back(Action::Call(dest_id, step));
+                seq.push_back(Action::Call(dest_id, self.step));
             }
         }
 
