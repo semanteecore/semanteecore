@@ -8,7 +8,6 @@ use linked_hash_map::LinkedHashMap;
 use serde::{de::Deserializer, de::Error as _, Deserialize, Serialize};
 
 use crate::plugin_support::flow::kv::{ValueDefinition, ValueDefinitionMap};
-use crate::plugin_support::flow::Value;
 use crate::plugin_support::{PluginStep, PluginStepKind, UnresolvedPlugin};
 
 /// Map type override used in configs

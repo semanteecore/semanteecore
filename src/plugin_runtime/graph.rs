@@ -1,9 +1,9 @@
 use crate::config::Map;
 use crate::plugin_runtime::kernel::PluginId;
-use crate::plugin_support::flow::kv::{Key, ValueDefinitionMap, ValueState};
-use crate::plugin_support::flow::{Availability, ProvisionCapability, ProvisionRequest, Value};
+use crate::plugin_support::flow::kv::{Key, ValueState};
+use crate::plugin_support::flow::{Availability, ProvisionCapability, Value};
 use crate::plugin_support::{Plugin, PluginStep};
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 use strum::IntoEnumIterator;
 
 pub type SourceKey = Key;
@@ -92,8 +92,7 @@ impl<'a> StepSequenceBuilder<'a> {
         // - source: the key advertised by the plugin
         let unresolved = configs
             .iter()
-            .enumerate()
-            .map(|(dest_id, config)| {
+            .map(|config| {
                 config
                     .iter()
                     .filter_map(|(dest_key, value)| match &value.state {
@@ -159,7 +158,7 @@ impl<'a> StepSequenceBuilder<'a> {
         }
     }
 
-    fn build(mut self) -> Vec<Action> {
+    fn build(self) -> Vec<Action> {
         let mut seq = VecDeque::new();
 
         let unresolved = self.borrow_unresolved();
@@ -232,8 +231,8 @@ impl<'a> StepSequenceBuilder<'a> {
                 // Key must be resolved within the current step
                 if self.same_step_key_to_plugins.contains_key(source_key) {
                     Some((dest_key, source_key))
-                    // Key is not available now, but would be in future steps.
                 } else if let Some(plugins) = self.future_key_to_plugins.get(source_key) {
+                    // Key is not available now, but would be in future steps.
                     let dest_plugin_name = &self.names[dest_id];
                     log::error!("Plugin {:?} requested key {:?}", dest_plugin_name, source_key);
                     for (source_id, when) in plugins {
@@ -243,8 +242,8 @@ impl<'a> StepSequenceBuilder<'a> {
                     log::error!("The releaserc.toml entry cfg.{}.{} must be defined to proceed", dest_plugin_name, dest_key);
                     seq.push_front(Action::ConfigQuery(dest_id, source_key.clone()));
                     None
-                    // Key cannot be supplied by plugins and must be defined in releaserc.toml
                 } else {
+                    // Key cannot be supplied by plugins and must be defined in releaserc.toml
                     seq.push_front(Action::ConfigQuery(dest_id, dest_key.clone()));
                     None
                 }
@@ -260,11 +259,7 @@ impl<'a> StepSequenceBuilder<'a> {
     ) {
         // First option: every key is resolved. Then we just generate a number of Call actions.
         if unresolved.iter().all(Vec::is_empty) {
-            seq.extend(
-                (0..self.names.len())
-                    .into_iter()
-                    .map(|id| Action::Call(id, self.step)),
-            );
+            seq.extend((0..self.names.len()).map(|id| Action::Call(id, self.step)));
 
             return;
         }
@@ -346,7 +341,7 @@ fn collect_plugins_initial_configuration(
 ) -> Result<Vec<Map<String, Value<serde_json::Value>>>, failure::Error> {
     let mut configs = Vec::new();
 
-    for (id, plugin) in plugins.iter().enumerate() {
+    for plugin in plugins.iter() {
         let plugin_config = serde_json::from_value(plugin.as_interface().get_default_config()?)?;
 
         configs.push(plugin_config);
@@ -360,7 +355,7 @@ fn collect_plugins_provision_capabilities(
 ) -> Result<Vec<Vec<ProvisionCapability>>, failure::Error> {
     let mut caps = Vec::new();
 
-    for (id, plugin) in plugins.iter().enumerate() {
+    for plugin in plugins.iter() {
         let plugin_caps = plugin.as_interface().provision_capabilities()?;
 
         caps.push(plugin_caps);
@@ -372,8 +367,7 @@ fn collect_plugins_provision_capabilities(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::builtin_plugins::{ClogPlugin, GitPlugin};
-    use crate::plugin_support::flow::FlowError;
+    use crate::plugin_support::flow::{FlowError, ProvisionRequest};
     use crate::plugin_support::{
         proto::{
             request,
@@ -381,7 +375,6 @@ mod tests {
         },
         PluginInterface,
     };
-    use std::cell::RefCell;
     use std::ops::Try;
 
     fn dependent_provider_plugins() -> Vec<Plugin> {

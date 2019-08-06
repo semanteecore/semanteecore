@@ -2,12 +2,7 @@ use super::ProvisionRequest;
 use crate::config::Map;
 use crate::plugin_support::PluginStep;
 use pest::Parser;
-use serde::export::TryFrom;
-use serde::{
-    de::{DeserializeOwned, Error as _},
-    Deserialize, Deserializer, Serialize,
-};
-use std::io::{BufWriter, Cursor};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 use std::mem;
 use std::ops::{Deref, DerefMut};
 
@@ -158,7 +153,6 @@ impl<'de> Deserialize<'de> for ValueDefinitionMap {
     where
         D: Deserializer<'de>,
     {
-        use std::str::FromStr;
         let raw_map: Map<String, serde_json::Value> = Deserialize::deserialize(de)?;
         let mut map = Map::new();
 
