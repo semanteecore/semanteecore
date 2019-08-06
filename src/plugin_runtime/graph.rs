@@ -330,3 +330,135 @@ fn collect_plugins_provision_capabilities(
 
     Ok(caps)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::builtin_plugins::{ClogPlugin, GitPlugin};
+    use crate::plugin_support::flow::FlowError;
+    use crate::plugin_support::{
+        proto::{
+            request,
+            response::{self, PluginResponse},
+        },
+        PluginInterface,
+    };
+    use std::cell::RefCell;
+    use std::ops::Try;
+
+    fn dependent_provider_plugins() -> Vec<Plugin> {
+        vec![
+            Plugin::new(Box::new(self::test_plugins::Dependent)).unwrap(),
+            Plugin::new(Box::new(self::test_plugins::Provider)).unwrap(),
+        ]
+    }
+
+    #[test]
+    fn collect_names() {
+        let plugins = dependent_provider_plugins();
+        let names = collect_plugins_names(&plugins);
+        assert_eq!(2, names.len());
+        for (id, plugin) in plugins.iter().enumerate() {
+            assert_eq!(&plugin.name, &names[id]);
+        }
+    }
+
+    #[test]
+    fn collect_configs() {
+        let plugins = dependent_provider_plugins();
+        let configs = collect_plugins_initial_configuration(&plugins).unwrap();
+        assert_eq!(2, configs.len());
+
+        // Check dependent config
+        let dependent_map = &configs[0];
+        assert_eq!(dependent_map.len(), 1);
+        assert!(dependent_map.contains_key("dest_key"));
+        let dest_key_value = dependent_map.get("dest_key").unwrap();
+        assert_eq!(
+            dest_key_value.state,
+            ValueState::NeedsProvision(ProvisionRequest {
+                required_at: None,
+                key: "source_key".to_string()
+            })
+        );
+
+        // check provider config
+        assert_eq!(configs[1].len(), 0);
+    }
+
+    #[test]
+    fn collect_caps() {
+        let plugins = dependent_provider_plugins();
+        let caps = collect_plugins_provision_capabilities(&plugins).unwrap();
+        assert_eq!(
+            caps,
+            vec![
+                vec![],
+                vec![ProvisionCapability::builder("source_key").build()]
+            ]
+        );
+    }
+
+    mod test_plugins {
+        use super::*;
+        use serde::{Deserialize, Serialize};
+
+        pub struct Dependent;
+
+        #[derive(Serialize, Deserialize, Debug)]
+        struct DependentConfig {
+            dest_key: Value<String>,
+        }
+
+        impl PluginInterface for Dependent {
+            fn name(&self) -> response::Name {
+                PluginResponse::from_ok("dependent".into())
+            }
+
+            fn get_default_config(&self) -> response::Config {
+                PluginResponse::from_ok(
+                    serde_json::to_value(DependentConfig {
+                        dest_key: Value::builder("source_key").build(),
+                    })
+                    .unwrap(),
+                )
+            }
+
+            fn set_config(&mut self, req: request::Config) -> response::Null {
+                let config: DependentConfig = serde_json::from_value(req.data.clone()).unwrap();
+                assert_eq!(config.dest_key.as_value(), "value");
+                PluginResponse::from_ok(())
+            }
+        }
+
+        pub struct Provider;
+
+        impl PluginInterface for Provider {
+            fn name(&self) -> response::Name {
+                PluginResponse::from_ok("provider".into())
+            }
+
+            fn provision_capabilities(&self) -> response::ProvisionCapabilities {
+                PluginResponse::from_ok(vec![ProvisionCapability::builder("source_key").build()])
+            }
+
+            fn provision(&self, req: request::Provision) -> response::Provision {
+                match req.data.as_str() {
+                    "source_key" => PluginResponse::from_ok(serde_json::to_value("value").unwrap()),
+                    other => PluginResponse::from_error(
+                        FlowError::KeyNotSupported(other.to_owned()).into(),
+                    ),
+                }
+            }
+
+            fn get_default_config(&self) -> response::Config {
+                PluginResponse::from_ok(serde_json::Value::Object(serde_json::Map::default()))
+            }
+
+            fn set_config(&mut self, req: request::Config) -> response::Null {
+                unimplemented!()
+            }
+        }
+    }
+
+}

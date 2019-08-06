@@ -7,7 +7,7 @@ use std::mem;
 
 use super::PluginStep;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Availability {
     Always,
     AfterStep(PluginStep),
@@ -19,6 +19,7 @@ impl Default for Availability {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ProvisionCapability {
     pub when: Availability,
     pub key: String,
