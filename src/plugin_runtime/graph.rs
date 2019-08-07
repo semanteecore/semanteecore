@@ -1,10 +1,12 @@
-use crate::config::Map;
+use crate::config::{Config, Map, StepDefinition};
 use crate::plugin_runtime::kernel::PluginId;
 use crate::plugin_support::flow::kv::{Key, ValueDefinition, ValueDefinitionMap, ValueState};
 use crate::plugin_support::flow::{Availability, ProvisionCapability, Value};
 use crate::plugin_support::{Plugin, PluginStep};
 use std::collections::VecDeque;
 use strum::IntoEnumIterator;
+use crate::plugin_runtime::discovery::CapabilitiesDiscovery;
+use failure::Fail;
 
 pub type SourceKey = Key;
 pub type DestKey = Key;
@@ -23,18 +25,24 @@ pub struct PluginSequence {
 }
 
 impl PluginSequence {
-    pub fn new(plugins: &[Plugin], releaserc: &ValueDefinitionMap) -> Result<Self, failure::Error> {
+    pub fn new(plugins: &[Plugin], releaserc: &Config) -> Result<Self, failure::Error> {
         // First -- collect data from plugins
         let names = collect_plugins_names(plugins);
-        let configs = collect_plugins_initial_configuration(plugins)?;
-        let caps = collect_plugins_provision_capabilities(plugins)?;
+        let initial_configs = collect_plugins_initial_configuration(plugins)?;
+        let provision_caps = collect_plugins_provision_capabilities(plugins)?;
+        let steps_map = build_steps_to_plugins_map(
+            releaserc,
+            plugins,
+            collect_plugins_method_capabilities(plugins)?
+        )?;
 
         // Then delegate that data to a builder
         let builder = PluginSequenceBuilder {
             names,
             configs,
             caps,
-            releaserc,
+            releaserc: &releaserc.cfg,
+            steps_map,
         };
 
         builder.build()
@@ -54,16 +62,18 @@ struct PluginSequenceBuilder<'a> {
     configs: Vec<Map<String, Value<serde_json::Value>>>,
     caps: Vec<Vec<ProvisionCapability>>,
     releaserc: &'a ValueDefinitionMap,
+    steps_map: Map<PluginStep, Vec<PluginId>>,
 }
 
 impl<'a> PluginSequenceBuilder<'a> {
     fn build(mut self) -> Result<PluginSequence, failure::Error> {
+        // Override default configs with values provided in releaserc.toml
         self.apply_releaserc_overrides();
 
         let mut seq = Vec::new();
 
         for step in PluginStep::iter() {
-            let builder = StepSequenceBuilder::new(step, &self.names, &self.configs, &self.caps);
+            let builder = StepSequenceBuilder::new(step, &self.names, &self.configs, &self.caps, &self.step_map);
             let step_seq = builder.build();
             seq.extend(step_seq.into_iter());
         }
@@ -72,7 +82,7 @@ impl<'a> PluginSequenceBuilder<'a> {
     }
 
     fn apply_releaserc_overrides(&mut self) {
-        for (name, value) in self.releaserc.iter() {
+        for (name, value) in self.config.cfg.iter() {
             let subtable: ValueDefinitionMap = match value {
                 ValueDefinition::Value(value) => match serde_json::from_value(value.clone()) {
                     Ok(st) => st,
@@ -126,12 +136,14 @@ struct StepSequenceBuilder<'a> {
     names: &'a [String],
     configs: &'a [Map<String, Value<serde_json::Value>>],
     caps: &'a [Vec<ProvisionCapability>],
+    step_map: &'a Map<PluginStep, Vec<PluginId>>,
 
     seq: VecDeque<Action>,
     unresolved: Vec<Vec<(DestKey, SourceKey)>>,
-    available_key_to_plugins: Map<SourceKey, Vec<PluginId>>,
-    same_step_key_to_plugins: Map<SourceKey, Vec<PluginId>>,
-    future_key_to_plugins: Map<SourceKey, Vec<(PluginId, Availability)>>,
+    available_always: Map<SourceKey, Vec<PluginId>>,
+    available_since: Map<SourceKey, Vec<(PluginId, PluginStep)>>,
+    available_same_step: Map<SourceKey, Vec<PluginId>>,
+    available_in_future: Map<SourceKey, Vec<(PluginId, PluginStep)>>,
 }
 
 impl<'a> StepSequenceBuilder<'a> {
@@ -140,6 +152,7 @@ impl<'a> StepSequenceBuilder<'a> {
         names: &'a [String],
         configs: &'a [Map<String, Value<serde_json::Value>>],
         caps: &'a [Vec<ProvisionCapability>],
+        step_map: &'a Map<PluginStep, Vec<PluginId>>,
     ) -> Self {
         let mut seq = VecDeque::new();
 
@@ -177,10 +190,17 @@ impl<'a> StepSequenceBuilder<'a> {
             })
             .collect();
 
+        // TODO:
+        // - write 4 maps, with separate always and since availability
+        // - error-handling for steps skipped in releaserc.toml (if plugin can provide data after step that's skipped -- that should be handled correctly)
+        // - skip generating Call actions for steps that plugins do not implement
+        // - rewrite tests
+
         // Collect a few maps from keys to plugins to make life easier
-        let mut available_key_to_plugins = Map::new();
-        let mut same_step_key_to_plugins = Map::new();
-        let mut future_key_to_plugins = Map::new();
+        let mut available_always = Map::new();
+        let mut available_since = Map::new();
+        let mut available_same_step = Map::new();
+        let mut available_in_future = Map::new();
         caps.iter().enumerate().for_each(|(source_id, caps)| {
             caps.iter().for_each(|cap| {
                 let (available, same_step, future) = match cap.when {
@@ -216,11 +236,13 @@ impl<'a> StepSequenceBuilder<'a> {
             names,
             configs,
             caps,
+            step_map,
             seq,
             unresolved,
-            available_key_to_plugins,
-            same_step_key_to_plugins,
-            future_key_to_plugins,
+            available_always,
+            available_since,
+            available_same_step,
+            available_in_future
         }
     }
 
@@ -390,6 +412,16 @@ impl<'a> StepSequenceBuilder<'a> {
         }
     }
 
+    fn is_enabled_for_step(&self, plugin_id: PluginId, step: PluginStep) -> bool {
+        self.step_map.get(&step)
+            .unwrap()
+            .contains(&plugin_id)
+    }
+
+    fn is_enabled(&self, plugin_id: PluginId) -> bool {
+        self.is_enabled_for_step(plugin_id, self.step)
+    }
+
     fn borrow_unresolved(&self) -> Vec<Vec<(&DestKey, &SourceKey)>> {
         self.unresolved
             .iter()
@@ -428,6 +460,121 @@ fn collect_plugins_provision_capabilities(
     }
 
     Ok(caps)
+}
+
+fn collect_plugins_methods_capabilities(
+    plugins: &[Plugin],
+) -> Result<Map<PluginStep, Vec<String>>, failure::Error> {
+    let discovery = CapabilitiesDiscovery::new();
+    let mut capabilities = Map::new();
+
+    for plugin in plugins {
+        let plugin_caps = discovery.discover(&plugin)?;
+        for step in plugin_caps {
+            capabilities
+                .entry(step)
+                .or_insert_with(Vec::new)
+                .push(plugin.name.clone());
+        }
+    }
+
+    Ok(capabilities)
+}
+
+fn build_steps_to_plugins_map(
+    config: &Config,
+    plugins: &[Plugin],
+    capabilities: Map<PluginStep, Vec<String>>,
+) -> Result<Map<PluginStep, Vec<PluginId>>, failure::Error> {
+    let mut map = Map::new();
+
+    fn collect_ids_of_plugins_matching(
+        plugins: &[Plugin],
+        names: &[impl AsRef<str>],
+    ) -> Vec<usize> {
+        plugins
+            .iter()
+            .enumerate()
+            .filter_map(|(id, p)| {
+                names
+                    .iter()
+                    .map(AsRef::as_ref)
+                    .find(|&n| n == p.name)
+                    .map(|_| id)
+            })
+            .collect::<Vec<_>>()
+    }
+
+    for (step, step_def) in config.steps.iter() {
+        match step_def {
+            StepDefinition::Discover => {
+                let names = capabilities.get(&step);
+
+                let ids = if let Some(names) = names {
+                    collect_ids_of_plugins_matching(&plugins[..], &names[..])
+                } else {
+                    Vec::new()
+                };
+
+                if ids.is_empty() {
+                    log::warn!("Step '{}' is marked for auto-discovery, but no plugin implements this method", step.as_str());
+                }
+
+                map.insert(*step, ids);
+            }
+            StepDefinition::Singleton(plugin) => {
+                let names = capabilities
+                    .get(&step)
+                    .ok_or(GraphError::NoPluginsForStep(*step))?;
+
+                if !names.contains(&plugin) {
+                    Err(GraphError::PluginDoesNotImplementStep(
+                        *step,
+                        plugin.to_string(),
+                    ))?
+                }
+
+                let ids = collect_ids_of_plugins_matching(&plugins, &[plugin]);
+                assert_eq!(ids.len(), 1);
+
+                map.insert(*step, ids);
+            }
+            StepDefinition::Shared(list) => {
+                if list.is_empty() {
+                    continue;
+                };
+
+                let names = capabilities
+                    .get(&step)
+                    .ok_or(GraphError::NoPluginsForStep(*step))?;
+
+                for plugin in list {
+                    if !names.contains(&plugin) {
+                        Err(GraphError::PluginDoesNotImplementStep(
+                            *step,
+                            plugin.to_string(),
+                        ))?
+                    }
+                }
+
+                let ids = collect_ids_of_plugins_matching(&plugins, &list[..]);
+                assert_eq!(ids.len(), list.len());
+
+                map.insert(*step, ids);
+            }
+        }
+    }
+
+    Ok(map)
+}
+
+#[derive(Fail, Debug)]
+#[rustfmt::skip]
+enum GraphError {
+    #[fail(display = "no plugins is capable of satisfying a non-null step {:?}", _0)]
+    NoPluginsForStep(PluginStep),
+    #[fail(display = "step {:?} requested plugin {:?}, but it does not implement this step", _0, 1)]
+    PluginDoesNotImplementStep(PluginStep, String),
 }
 
 #[cfg(test)]
