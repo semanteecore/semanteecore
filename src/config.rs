@@ -28,6 +28,7 @@ pub struct StepsDefinitionMap(Map<PluginStep, StepDefinition>);
 pub struct Config {
     pub plugins: PluginDefinitionMap,
     pub steps: StepsDefinitionMap,
+    #[serde(default)]
     pub cfg: ValueDefinitionMap,
 }
 
