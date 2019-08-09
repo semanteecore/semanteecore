@@ -25,7 +25,7 @@ pub struct PluginSequence {
 }
 
 impl PluginSequence {
-    pub fn new(plugins: &[Plugin], releaserc: &Config) -> Result<Self, failure::Error> {
+    pub fn new(plugins: &[Plugin], releaserc: &Config, is_dry_run: bool,) -> Result<Self, failure::Error> {
         // First -- collect data from plugins
         let names = collect_plugins_names(plugins);
         let configs = collect_plugins_initial_configuration(plugins)?;
@@ -45,7 +45,7 @@ impl PluginSequence {
             step_map,
         };
 
-        builder.build()
+        builder.build(is_dry_run)
     }
 
     fn iter(&self) -> impl Iterator<Item = &Action> {
@@ -66,13 +66,13 @@ struct PluginSequenceBuilder<'a> {
 }
 
 impl<'a> PluginSequenceBuilder<'a> {
-    fn build(mut self) -> Result<PluginSequence, failure::Error> {
+    fn build(mut self, is_dry_run: bool) -> Result<PluginSequence, failure::Error> {
         // Override default configs with values provided in releaserc.toml
         self.apply_releaserc_overrides();
 
         let mut seq = Vec::new();
 
-        for step in PluginStep::iter() {
+        for step in PluginStep::iter().filter(PluginStep::is_dry) {
             let builder = StepSequenceBuilder::new(
                 step,
                 &self.names,
@@ -694,7 +694,7 @@ mod tests {
 
         let config = toml::from_str(toml).unwrap();
         let PluginSequence { seq } =
-            PluginSequence::new(&dependent_provider_plugins(), &config).unwrap();
+            PluginSequence::new(&dependent_provider_plugins(), &config, false).unwrap();
 
         let correct_seq: Vec<Action> = PluginStep::iter()
             .flat_map(|step| {
@@ -737,7 +737,7 @@ mod tests {
 
         let config = toml::from_str(toml).unwrap();
         let PluginSequence { seq } =
-            PluginSequence::new(&dependent_provider_plugins(), &config).unwrap();
+            PluginSequence::new(&dependent_provider_plugins(), &config, false).unwrap();
 
         let correct_seq: Vec<Action> = PluginStep::iter()
             .flat_map(|step| {

@@ -134,7 +134,7 @@ impl PluginStep {
 
     pub fn kind(self) -> PluginStepKind {
         match self {
-            PluginStep::PreFlight
+            | PluginStep::PreFlight
             | PluginStep::DeriveNextVersion
             | PluginStep::Prepare
             | PluginStep::VerifyRelease
@@ -143,6 +143,20 @@ impl PluginStep {
             PluginStep::GetLastRelease | PluginStep::GenerateNotes | PluginStep::Commit => {
                 PluginStepKind::Singleton
             }
+        }
+    }
+
+    pub fn is_dry(&self) -> bool {
+        match self {
+            PluginStep::PreFlight
+            | PluginStep::GetLastRelease
+            | PluginStep::DeriveNextVersion
+            | PluginStep::GenerateNotes
+            | PluginStep::Prepare
+            | PluginStep::VerifyRelease => true,
+            PluginStep::Publish
+            | PluginStep::Notify
+            | PluginStep::Commit => false,
         }
     }
 }
