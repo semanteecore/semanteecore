@@ -2,10 +2,12 @@ use std::mem;
 use std::ops::Try;
 
 use failure::Fail;
+use strum::IntoEnumIterator;
 
 use crate::config::{Config, Map, PluginDefinitionMap, StepDefinition};
 use crate::plugin_runtime::discovery::CapabilitiesDiscovery;
 use crate::plugin_runtime::dispatcher::PluginDispatcher;
+use crate::plugin_runtime::graph::PluginSequence;
 use crate::plugin_runtime::resolver::PluginResolver;
 use crate::plugin_runtime::starter::PluginStarter;
 use crate::plugin_support::flow::kv::ValueDefinitionMap;
@@ -29,48 +31,25 @@ pub type PluginId = usize;
 
 pub struct Kernel {
     plugins: Vec<Plugin>,
-    step_map: Map<PluginStep, Vec<PluginId>>,
+    sequence: PluginSequence,
     is_dry_run: bool,
 }
 
 impl Kernel {
     pub fn builder(config: Config) -> KernelBuilder {
-        KernelBuilder {
-            config,
-            additional_plugins: vec![],
-        }
+        KernelBuilder { config }
     }
 
     pub fn run(self) -> Result<(), failure::Error> {
-        let dispatcher = PluginDispatcher::new(&self.plugins, &self.step_map);
-        let mut data = KernelData::default();
-
-        let mut run_step = |step: PluginStep| -> Result<(), failure::Error> {
-            log::info!("Running step '{}'", step.as_str());
-
-            step.execute(&dispatcher, &mut data).map_err(|err| {
-                log::error!("Step {:?} failed", step);
-                err
-            })?;
-
-            if data.should_finish_early {
-                Err(KernelError::EarlyExit)?
-            } else {
-                Ok(())
-            }
-        };
-
-        // Run through the "dry" steps
-        for &step in STEPS_DRY {
-            run_step(step)?;
-        }
+        unimplemented!();
 
         if self.is_dry_run {
-            log::info!("DRY RUN: skipping steps {:?}", STEPS_WET);
-        } else {
-            for &step in STEPS_WET {
-                run_step(step)?
-            }
+            log::info!(
+                "DRY RUN: skipping steps {:?}",
+                PluginStep::iter()
+                    .filter(|s| !s.is_dry())
+                    .collect::<Vec<_>>()
+            );
         }
 
         Ok(())
@@ -79,18 +58,12 @@ impl Kernel {
 
 pub struct KernelBuilder {
     config: Config,
-    additional_plugins: Vec<RawPlugin>,
 }
 
 impl KernelBuilder {
-    pub fn plugin(&mut self, plugin: RawPlugin) -> &mut Self {
-        self.additional_plugins.push(plugin);
-        self
-    }
-
     pub fn build(&mut self) -> Result<Kernel, failure::Error> {
         // Convert KeyValueDefinitionMap into KeyValue<JsonValue> map
-        let cfg = mem::replace(&mut self.config.cfg, ValueDefinitionMap::default());
+        let cfg = self.config.cfg.clone();
         let cfg: Map<String, Value<serde_json::Value>> = cfg.into();
         let is_dry_run = cfg
             .get("dry_run")
@@ -98,14 +71,8 @@ impl KernelBuilder {
             .unwrap_or(true);
 
         // Move PluginDefinitions out of config and convert them to Plugins
-        let plugins = mem::replace(&mut self.config.plugins, Map::new());
+        let plugins = self.config.plugins.clone();
         let mut plugins = Self::plugin_def_map_to_vec(plugins);
-
-        // Append plugins from config to additional plugins
-        // Order matters here 'cause additional plugins
-        // MUST run before external plugins from Config
-        self.additional_plugins.extend(plugins.drain(..));
-        let plugins = mem::replace(&mut self.additional_plugins, Vec::new());
 
         // Resolve stage
         let plugins = Self::resolve_plugins(plugins)?;
@@ -116,15 +83,12 @@ impl KernelBuilder {
         let plugins = Self::start_plugins(plugins)?;
         log::info!("All plugins started");
 
-        // Discovering plugins capabilities
-        let capabilities = Self::discover_capabilities(&plugins)?;
-
-        // Building a steps to plugins map
-        let step_map = Self::build_steps_to_plugin_ids_map(&self.config, &plugins, capabilities)?;
+        // Calculate the plugin run sequence
+        let sequence = PluginSequence::new(&plugins, &self.config, is_dry_run)?;
 
         Ok(Kernel {
             plugins,
-            step_map,
+            sequence,
             is_dry_run,
         })
     }

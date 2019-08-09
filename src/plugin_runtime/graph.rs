@@ -25,7 +25,11 @@ pub struct PluginSequence {
 }
 
 impl PluginSequence {
-    pub fn new(plugins: &[Plugin], releaserc: &Config, is_dry_run: bool,) -> Result<Self, failure::Error> {
+    pub fn new(
+        plugins: &[Plugin],
+        releaserc: &Config,
+        is_dry_run: bool,
+    ) -> Result<Self, failure::Error> {
         // First -- collect data from plugins
         let names = collect_plugins_names(plugins);
         let configs = collect_plugins_initial_configuration(plugins)?;

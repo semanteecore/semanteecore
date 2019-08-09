@@ -134,7 +134,7 @@ impl PluginStep {
 
     pub fn kind(self) -> PluginStepKind {
         match self {
-            | PluginStep::PreFlight
+            PluginStep::PreFlight
             | PluginStep::DeriveNextVersion
             | PluginStep::Prepare
             | PluginStep::VerifyRelease
@@ -154,9 +154,7 @@ impl PluginStep {
             | PluginStep::GenerateNotes
             | PluginStep::Prepare
             | PluginStep::VerifyRelease => true,
-            PluginStep::Publish
-            | PluginStep::Notify
-            | PluginStep::Commit => false,
+            PluginStep::Publish | PluginStep::Notify | PluginStep::Commit => false,
         }
     }
 }
