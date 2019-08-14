@@ -210,11 +210,7 @@ fn parse_value_definition(value: &str) -> Result<ValueDefinition, failure::Error
     for pair in pairs.into_inner() {
         log::trace!("{:#?}", pair);
         match pair.as_rule() {
-            Rule::value => {
-                return Ok(ValueDefinition::Value(serde_json::Value::String(
-                    pair.as_str().into(),
-                )))
-            }
+            Rule::value => return Ok(ValueDefinition::Value(serde_json::Value::String(pair.as_str().into()))),
             Rule::required_at_step => {
                 required_at = Some(PluginStep::from_str(pair.as_str())?);
             }
@@ -270,9 +266,7 @@ mod tests {
 
     #[test]
     fn build_required_at() {
-        let kv: Value<()> = Value::builder("key")
-            .required_at(PluginStep::Commit)
-            .build();
+        let kv: Value<()> = Value::builder("key").required_at(PluginStep::Commit).build();
         assert_eq!(kv.protected, false);
         assert_eq!(kv.key, "key");
         assert_eq!(
@@ -351,10 +345,7 @@ mod tests {
             .map_err(pretty_print_error_and_panic)
             .unwrap();
 
-        assert_eq!(
-            v,
-            ValueDefinition::Value(serde_json::Value::String("false".into()))
-        );
+        assert_eq!(v, ValueDefinition::Value(serde_json::Value::String("false".into())));
     }
 
     #[test]
@@ -390,10 +381,9 @@ mod tests {
     #[test]
     #[should_panic]
     fn parse_value_definition_unknown_meta_keys() {
-        let v: ValueDefinition =
-            parse_value_definition(r#"from:required_at=commit:unknown_meta:key"#)
-                .map_err(pretty_print_error_and_panic)
-                .unwrap();
+        let v: ValueDefinition = parse_value_definition(r#"from:required_at=commit:unknown_meta:key"#)
+            .map_err(pretty_print_error_and_panic)
+            .unwrap();
     }
 
     #[test]
@@ -403,10 +393,7 @@ mod tests {
         assert_eq!(kvmap.0.len(), 1);
         let v = kvmap.0.values().next().unwrap();
 
-        assert_eq!(
-            v,
-            &ValueDefinition::Value(serde_json::Value::String("false".into()))
-        );
+        assert_eq!(v, &ValueDefinition::Value(serde_json::Value::String("false".into())));
     }
 
     #[test]

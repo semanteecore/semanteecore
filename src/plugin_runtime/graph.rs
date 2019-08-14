@@ -28,20 +28,12 @@ pub struct PluginSequence {
 }
 
 impl PluginSequence {
-    pub fn new(
-        plugins: &[Plugin],
-        releaserc: &Config,
-        is_dry_run: bool,
-    ) -> Result<Self, failure::Error> {
+    pub fn new(plugins: &[Plugin], releaserc: &Config, is_dry_run: bool) -> Result<Self, failure::Error> {
         // First -- collect data from plugins
         let names = collect_plugins_names(plugins);
         let configs = collect_plugins_initial_configuration(plugins)?;
         let caps = collect_plugins_provision_capabilities(plugins)?;
-        let step_map = build_steps_to_plugins_map(
-            releaserc,
-            plugins,
-            collect_plugins_methods_capabilities(plugins)?,
-        )?;
+        let step_map = build_steps_to_plugins_map(releaserc, plugins, collect_plugins_methods_capabilities(plugins)?)?;
 
         // Then delegate that data to a builder
         let builder = PluginSequenceBuilder {
@@ -80,13 +72,7 @@ impl<'a> PluginSequenceBuilder<'a> {
         let mut seq = Vec::new();
 
         for step in PluginStep::iter().filter(|s| s.is_dry() || !is_dry_run) {
-            let builder = StepSequenceBuilder::new(
-                step,
-                &self.names,
-                &self.configs,
-                &self.caps,
-                &self.step_map,
-            );
+            let builder = StepSequenceBuilder::new(step, &self.names, &self.configs, &self.caps, &self.step_map);
             let step_seq = builder.build();
             seq.extend(step_seq.into_iter());
         }
@@ -105,10 +91,7 @@ impl<'a> PluginSequenceBuilder<'a> {
                 ValueDefinition::Value(value) => match serde_json::from_value(value.clone()) {
                     Ok(st) => st,
                     Err(err) => {
-                        log::warn!(
-                            "Failed to deserialize a table of key-value definitions: {}",
-                            err
-                        );
+                        log::warn!("Failed to deserialize a table of key-value definitions: {}", err);
                         log::warn!("Configuration entry cfg.{} will be ignored", name);
                         continue;
                     }
@@ -124,8 +107,11 @@ impl<'a> PluginSequenceBuilder<'a> {
                 let cfg = &mut self.configs[id];
                 for (dest_key, value_def) in subtable.iter() {
                     if !cfg.contains_key(dest_key) {
-                        log::warn!("Key cfg.{}.{} was defined in releaserc.toml but is not supported by plugin {:?}",
-                            name, dest_key, name
+                        log::warn!(
+                            "Key cfg.{}.{} was defined in releaserc.toml but is not supported by plugin {:?}",
+                            name,
+                            dest_key,
+                            name
                         );
                         continue;
                     }
@@ -186,11 +172,7 @@ impl<'a> StepSequenceBuilder<'a> {
                     .iter()
                     .filter_map(|(dest_key, value)| match &value.state {
                         ValueState::Ready(value) => {
-                            seq.push_back(Action::SetValue(
-                                dest_id,
-                                dest_key.clone(),
-                                value.clone(),
-                            ));
+                            seq.push_back(Action::SetValue(dest_id, dest_key.clone(), value.clone()));
                             None
                         }
                         ValueState::NeedsProvision(pr) => match pr.required_at {
@@ -398,9 +380,7 @@ impl<'a> StepSequenceBuilder<'a> {
             for cap in &self.caps[dest_id] {
                 let available = match cap.when {
                     Availability::Always => true,
-                    Availability::AfterStep(after) => {
-                        after <= self.step && self.is_enabled(dest_id)
-                    }
+                    Availability::AfterStep(after) => after <= self.step && self.is_enabled(dest_id),
                 };
 
                 if available {
@@ -424,27 +404,19 @@ impl<'a> StepSequenceBuilder<'a> {
                             .filter(|&&source_id| source_id != dest_id)
                             .map(|source_id| Action::Get(*source_id, source_key.clone())),
                     );
-                    seq.push_back(Action::Set(
-                        dest_id,
-                        dest_key.clone(),
-                        source_key.to_owned(),
-                    ));
+                    seq.push_back(Action::Set(dest_id, dest_key.clone(), source_key.to_owned()));
                 } else {
                     let dest_plugin_name = &self.names[dest_id];
-                    log::error!(
-                        "Plugin {:?} requested key {:?}",
-                        dest_plugin_name,
-                        source_key
-                    );
-                    for source_id in self.available_same_step.get(source_key).expect(
-                        "at this point only same-step keys should be unresolved. This is a bug.",
-                    ) {
+                    log::error!("Plugin {:?} requested key {:?}", dest_plugin_name, source_key);
+                    for source_id in self
+                        .available_same_step
+                        .get(source_key)
+                        .expect("at this point only same-step keys should be unresolved. This is a bug.")
+                    {
                         let source_plugin_name = &self.names[*source_id];
                         log::error!("Matching source plugin {:?} supplies this key at the current step ({:?}) but it's set to run after plugin {:?} in releaserc.toml", source_plugin_name, self.step, dest_plugin_name);
                     }
-                    log::error!(
-                        "Reorder the plugins in releaserc.toml or define the key manually."
-                    );
+                    log::error!("Reorder the plugins in releaserc.toml or define the key manually.");
                     log::error!(
                         "The releaserc.toml entry cfg.{}.{} must be defined to proceed.",
                         dest_plugin_name,
@@ -501,9 +473,7 @@ pub fn collect_plugins_initial_configuration(
     Ok(configs)
 }
 
-fn collect_plugins_provision_capabilities(
-    plugins: &[Plugin],
-) -> Result<Vec<Vec<ProvisionCapability>>, failure::Error> {
+fn collect_plugins_provision_capabilities(plugins: &[Plugin]) -> Result<Vec<Vec<ProvisionCapability>>, failure::Error> {
     let mut caps = Vec::new();
 
     for plugin in plugins.iter() {
@@ -515,9 +485,7 @@ fn collect_plugins_provision_capabilities(
     Ok(caps)
 }
 
-fn collect_plugins_methods_capabilities(
-    plugins: &[Plugin],
-) -> Result<Map<PluginStep, Vec<String>>, failure::Error> {
+fn collect_plugins_methods_capabilities(plugins: &[Plugin]) -> Result<Map<PluginStep, Vec<String>>, failure::Error> {
     let discovery = CapabilitiesDiscovery::new();
     let mut capabilities = Map::new();
 
@@ -541,20 +509,11 @@ fn build_steps_to_plugins_map(
 ) -> Result<Map<PluginStep, Vec<PluginId>>, failure::Error> {
     let mut map = Map::new();
 
-    fn collect_ids_of_plugins_matching(
-        plugins: &[Plugin],
-        names: &[impl AsRef<str>],
-    ) -> Vec<usize> {
+    fn collect_ids_of_plugins_matching(plugins: &[Plugin], names: &[impl AsRef<str>]) -> Vec<usize> {
         plugins
             .iter()
             .enumerate()
-            .filter_map(|(id, p)| {
-                names
-                    .iter()
-                    .map(AsRef::as_ref)
-                    .find(|&n| n == p.name)
-                    .map(|_| id)
-            })
+            .filter_map(|(id, p)| names.iter().map(AsRef::as_ref).find(|&n| n == p.name).map(|_| id))
             .collect::<Vec<_>>()
     }
 
@@ -570,21 +529,19 @@ fn build_steps_to_plugins_map(
                 };
 
                 if ids.is_empty() {
-                    log::warn!("Step '{}' is marked for auto-discovery, but no plugin implements this method", step.as_str());
+                    log::warn!(
+                        "Step '{}' is marked for auto-discovery, but no plugin implements this method",
+                        step.as_str()
+                    );
                 }
 
                 map.insert(*step, ids);
             }
             StepDefinition::Singleton(plugin) => {
-                let names = capabilities
-                    .get(&step)
-                    .ok_or(GraphError::NoPluginsForStep(*step))?;
+                let names = capabilities.get(&step).ok_or(GraphError::NoPluginsForStep(*step))?;
 
                 if !names.contains(&plugin) {
-                    Err(GraphError::PluginDoesNotImplementStep(
-                        *step,
-                        plugin.to_string(),
-                    ))?
+                    Err(GraphError::PluginDoesNotImplementStep(*step, plugin.to_string()))?
                 }
 
                 let ids = collect_ids_of_plugins_matching(&plugins, &[plugin]);
@@ -597,16 +554,11 @@ fn build_steps_to_plugins_map(
                     continue;
                 };
 
-                let names = capabilities
-                    .get(&step)
-                    .ok_or(GraphError::NoPluginsForStep(*step))?;
+                let names = capabilities.get(&step).ok_or(GraphError::NoPluginsForStep(*step))?;
 
                 for plugin in list {
                     if !names.contains(&plugin) {
-                        Err(GraphError::PluginDoesNotImplementStep(
-                            *step,
-                            plugin.to_string(),
-                        ))?
+                        Err(GraphError::PluginDoesNotImplementStep(*step, plugin.to_string()))?
                     }
                 }
 
@@ -687,10 +639,7 @@ mod tests {
         let caps = collect_plugins_provision_capabilities(&plugins).unwrap();
         assert_eq!(
             caps,
-            vec![
-                vec![],
-                vec![ProvisionCapability::builder("source_key").build()]
-            ]
+            vec![vec![], vec![ProvisionCapability::builder("source_key").build()]]
         );
     }
 
@@ -710,8 +659,7 @@ mod tests {
         "#;
 
         let config = toml::from_str(toml).unwrap();
-        let PluginSequence { seq } =
-            PluginSequence::new(&dependent_provider_plugins(), &config, false).unwrap();
+        let PluginSequence { seq } = PluginSequence::new(&dependent_provider_plugins(), &config, false).unwrap();
 
         let correct_seq: Vec<Action> = PluginStep::iter()
             .flat_map(|step| {
@@ -753,8 +701,7 @@ mod tests {
         "#;
 
         let config = toml::from_str(toml).unwrap();
-        let PluginSequence { seq } =
-            PluginSequence::new(&dependent_provider_plugins(), &config, false).unwrap();
+        let PluginSequence { seq } = PluginSequence::new(&dependent_provider_plugins(), &config, false).unwrap();
 
         let correct_seq: Vec<Action> = PluginStep::iter()
             .flat_map(|step| {
@@ -917,10 +864,7 @@ mod tests {
                 let mut seq = VecDeque::new();
 
                 let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
-                assert_eq!(
-                    unresolved,
-                    vec![vec![(&"one_dst".into(), &"two_src".into())], vec![],]
-                );
+                assert_eq!(unresolved, vec![vec![(&"one_dst".into(), &"two_src".into())], vec![],]);
                 assert_eq!(
                     Vec::from(seq),
                     vec![
@@ -937,17 +881,13 @@ mod tests {
                 let configs = vec![
                     vec![(
                         "one_dst".into(),
-                        Value::builder("two_src")
-                            .required_at(PluginStep::Commit)
-                            .build(),
+                        Value::builder("two_src").required_at(PluginStep::Commit).build(),
                     )]
                     .into_iter()
                     .collect(),
                     vec![(
                         "two_dst".into(),
-                        Value::builder("one_src")
-                            .required_at(PluginStep::GenerateNotes)
-                            .build(),
+                        Value::builder("one_src").required_at(PluginStep::GenerateNotes).build(),
                     )]
                     .into_iter()
                     .collect(),
@@ -980,9 +920,7 @@ mod tests {
                 let configs = vec![
                     vec![(
                         "one_dst".into(),
-                        Value::builder("two_src")
-                            .required_at(PluginStep::Commit)
-                            .build(),
+                        Value::builder("two_src").required_at(PluginStep::Commit).build(),
                     )]
                     .into_iter()
                     .collect(),
@@ -1024,9 +962,7 @@ mod tests {
                 let configs = vec![
                     vec![(
                         "one_dst".into(),
-                        Value::builder("two_src")
-                            .required_at(PluginStep::PreFlight)
-                            .build(),
+                        Value::builder("two_src").required_at(PluginStep::PreFlight).build(),
                     )]
                     .into_iter()
                     .collect(),
@@ -1046,17 +982,11 @@ mod tests {
                 let mut seq = VecDeque::new();
 
                 let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
-                assert_eq!(
-                    unresolved,
-                    vec![vec![(&"one_dst".into(), &"two_src".into())], vec![]]
-                );
+                assert_eq!(unresolved, vec![vec![(&"one_dst".into(), &"two_src".into())], vec![]]);
                 assert_eq!(seq.len(), 0);
 
                 let unresolved = ssb.resolve_should_be_in_config(&mut seq, unresolved);
-                assert_eq!(
-                    unresolved,
-                    vec![vec![(&"one_dst".into(), &"two_src".into())], vec![]]
-                );
+                assert_eq!(unresolved, vec![vec![(&"one_dst".into(), &"two_src".into())], vec![]]);
                 assert_eq!(seq.len(), 0);
             }
 
@@ -1085,18 +1015,12 @@ mod tests {
                 let mut seq = VecDeque::new();
 
                 let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
-                assert_eq!(
-                    unresolved,
-                    vec![vec![(&"one_dst".into(), &"two_src".into())], vec![],]
-                );
+                assert_eq!(unresolved, vec![vec![(&"one_dst".into(), &"two_src".into())], vec![],]);
                 assert_eq!(seq.len(), 0);
 
                 let unresolved = ssb.resolve_should_be_in_config(&mut seq, unresolved);
                 assert_eq!(unresolved, vec![vec![], vec![]]);
-                assert_eq!(
-                    Vec::from(seq),
-                    vec![Action::RequireConfigEntry(0, "two_src".into())]
-                );
+                assert_eq!(Vec::from(seq), vec![Action::RequireConfigEntry(0, "two_src".into())]);
             }
 
             #[test]
@@ -1117,18 +1041,12 @@ mod tests {
                 let mut seq = VecDeque::new();
 
                 let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
-                assert_eq!(
-                    unresolved,
-                    vec![vec![(&"one_dst".into(), &"two_src".into())], vec![],]
-                );
+                assert_eq!(unresolved, vec![vec![(&"one_dst".into(), &"two_src".into())], vec![],]);
                 assert_eq!(seq.len(), 0);
 
                 let unresolved = ssb.resolve_should_be_in_config(&mut seq, unresolved);
                 assert_eq!(unresolved, vec![vec![], vec![]]);
-                assert_eq!(
-                    Vec::from(seq),
-                    vec![Action::RequireConfigEntry(0, "two_src".into())]
-                );
+                assert_eq!(Vec::from(seq), vec![Action::RequireConfigEntry(0, "two_src".into())]);
             }
         }
 
@@ -1143,9 +1061,7 @@ mod tests {
                     Map::new(),
                     vec![(
                         "two_dst".into(),
-                        Value::builder("one_src")
-                            .required_at(PluginStep::PreFlight)
-                            .build(),
+                        Value::builder("one_src").required_at(PluginStep::PreFlight).build(),
                     )]
                     .into_iter()
                     .collect(),
@@ -1163,17 +1079,11 @@ mod tests {
                 let mut seq = VecDeque::new();
 
                 let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
-                assert_eq!(
-                    unresolved,
-                    vec![vec![], vec![(&"two_dst".into(), &"one_src".into())],]
-                );
+                assert_eq!(unresolved, vec![vec![], vec![(&"two_dst".into(), &"one_src".into())],]);
                 assert_eq!(seq.len(), 0);
 
                 let unresolved = ssb.resolve_should_be_in_config(&mut seq, unresolved);
-                assert_eq!(
-                    unresolved,
-                    vec![vec![], vec![(&"two_dst".into(), &"one_src".into())],]
-                );
+                assert_eq!(unresolved, vec![vec![], vec![(&"two_dst".into(), &"one_src".into())],]);
                 assert_eq!(seq.len(), 0);
 
                 ssb.resolve_same_step_and_build_call_sequence(&mut seq, unresolved);
@@ -1196,9 +1106,7 @@ mod tests {
                 let configs = vec![
                     vec![(
                         "one_dst".into(),
-                        Value::builder("two_src")
-                            .required_at(PluginStep::PreFlight)
-                            .build(),
+                        Value::builder("two_src").required_at(PluginStep::PreFlight).build(),
                     )]
                     .into_iter()
                     .collect(),
@@ -1217,17 +1125,11 @@ mod tests {
                 let mut seq = VecDeque::new();
 
                 let unresolved = ssb.resolve_already_available(&mut seq, unresolved);
-                assert_eq!(
-                    unresolved,
-                    vec![vec![(&"one_dst".into(), &"two_src".into())], vec![]]
-                );
+                assert_eq!(unresolved, vec![vec![(&"one_dst".into(), &"two_src".into())], vec![]]);
                 assert_eq!(seq.len(), 0);
 
                 let unresolved = ssb.resolve_should_be_in_config(&mut seq, unresolved);
-                assert_eq!(
-                    unresolved,
-                    vec![vec![(&"one_dst".into(), &"two_src".into())], vec![]]
-                );
+                assert_eq!(unresolved, vec![vec![(&"one_dst".into(), &"two_src".into())], vec![]]);
                 assert_eq!(seq.len(), 0);
 
                 ssb.resolve_same_step_and_build_call_sequence(&mut seq, unresolved);
@@ -1284,8 +1186,7 @@ mod tests {
 
             fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
                 let config_json = self.get_config()?;
-                let mut config_map: HashMap<String, Value<serde_json::Value>> =
-                    serde_json::from_value(config_json)?;
+                let mut config_map: HashMap<String, Value<serde_json::Value>> = serde_json::from_value(config_json)?;
                 config_map.insert(key.to_owned(), value);
                 let config_json = serde_json::to_value(config_map)?;
                 self.config = serde_json::from_value(config_json)?;
@@ -1312,9 +1213,7 @@ mod tests {
             fn get_value(&self, key: &str) -> response::GetValue {
                 match key {
                     "source_key" => PluginResponse::from_ok(serde_json::to_value("value").unwrap()),
-                    other => PluginResponse::from_error(
-                        FlowError::KeyNotSupported(other.to_owned()).into(),
-                    ),
+                    other => PluginResponse::from_error(FlowError::KeyNotSupported(other.to_owned()).into()),
                 }
             }
 

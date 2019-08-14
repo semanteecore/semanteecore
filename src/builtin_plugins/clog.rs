@@ -80,9 +80,7 @@ struct ClogPluginConfig {
 impl Default for ClogPluginConfig {
     fn default() -> Self {
         ClogPluginConfig {
-            changelog: Value::builder("changelog")
-                .value("Changelog.md".into())
-                .build(),
+            changelog: Value::builder("changelog").value("Changelog.md".into()).build(),
             ignore: Value::builder("ignore").default_value().build(),
             project_root: Value::builder("project_root").protected().build(),
             dry_run: Value::builder("dry_run").protected().build(),
@@ -120,10 +118,7 @@ impl PluginInterface for ClogPlugin {
         match key {
             "release_notes" => {
                 let notes = self.state.release_notes.as_ref().ok_or_else(|| {
-                    FlowError::DataNotAvailableYet(
-                        key.to_owned(),
-                        Availability::AfterStep(PluginStep::GenerateNotes),
-                    )
+                    FlowError::DataNotAvailableYet(key.to_owned(), Availability::AfterStep(PluginStep::GenerateNotes))
                 })?;
 
                 PluginResponse::from_ok(serde_json::to_value(notes)?)
@@ -142,17 +137,14 @@ impl PluginInterface for ClogPlugin {
                 let changelog_path = self.config.changelog.as_value();
                 PluginResponse::from_ok(serde_json::to_value(vec![changelog_path])?)
             }
-            other => {
-                PluginResponse::from_error(FlowError::KeyNotSupported(other.to_owned()).into())
-            }
+            other => PluginResponse::from_error(FlowError::KeyNotSupported(other.to_owned()).into()),
         }
     }
 
     fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
         log::trace!("Setting {:?} = {:?}", key, value);
         let config_json = self.get_config()?;
-        let mut config_map: HashMap<String, Value<serde_json::Value>> =
-            serde_json::from_value(config_json)?;
+        let mut config_map: HashMap<String, Value<serde_json::Value>> = serde_json::from_value(config_json)?;
         config_map.insert(key.to_owned(), value);
         let config_json = serde_json::to_value(config_map)?;
         self.config = serde_json::from_value(config_json)?;
@@ -273,11 +265,7 @@ impl PluginInterface for ClogPlugin {
     }
 }
 
-fn version_bump_since_rev(
-    path: &str,
-    rev: &GitRevision,
-    ignore: &[String],
-) -> Result<CommitType, failure::Error> {
+fn version_bump_since_rev(path: &str, rev: &GitRevision, ignore: &[String]) -> Result<CommitType, failure::Error> {
     let repo = Repository::open(path)?;
     let range = format!("{}..HEAD", rev);
     log::debug!("analyzing commits {} to determine version bump", range);
@@ -403,9 +391,6 @@ mod tests {
     #[test]
     fn ignored_component() {
         let commit = "0\nfeat(ci): This commits should be ignored";
-        assert_eq!(
-            CommitType::Unknown,
-            analyze_single(commit, &["ci".into()]).unwrap()
-        );
+        assert_eq!(CommitType::Unknown, analyze_single(commit, &["ci".into()]).unwrap());
     }
 }

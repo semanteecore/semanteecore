@@ -40,7 +40,9 @@ fn default_project_root() -> ValueDefinition {
     if let Some(path) = root {
         ValueDefinition::Value(serde_json::Value::String(path))
     } else {
-        panic!("failed to derive project_root from environment, please set cfg.project_root manually in releaserc.toml");
+        panic!(
+            "failed to derive project_root from environment, please set cfg.project_root manually in releaserc.toml"
+        );
     }
 }
 
@@ -221,9 +223,7 @@ mod tests {
         let toml = "name = { location = \"builtin\" }";
         let parsed: PluginDefinitionMap = toml::from_str(toml).unwrap();
 
-        let plugin = parsed
-            .get("name")
-            .expect("plugin 'name' not found in parsed map");
+        let plugin = parsed.get("name").expect("plugin 'name' not found in parsed map");
 
         assert_eq!(&PluginDefinition::Full(UnresolvedPlugin::Builtin), plugin);
     }
@@ -233,9 +233,7 @@ mod tests {
         let toml = "name = \"builtin\"";
         let parsed: PluginDefinitionMap = toml::from_str(toml).unwrap();
 
-        let plugin = parsed
-            .get("name")
-            .expect("plugin 'name' not found in parsed map");
+        let plugin = parsed.get("name").expect("plugin 'name' not found in parsed map");
 
         assert_eq!(&PluginDefinition::Short("builtin".into()), plugin);
     }
@@ -289,12 +287,7 @@ mod tests {
 
         let expected: PluginDefinitionMap = ["git", "clog", "github", "rust"]
             .into_iter()
-            .map(|name| {
-                (
-                    name.to_string(),
-                    PluginDefinition::Short("builtin".to_string()),
-                )
-            })
+            .map(|name| (name.to_string(), PluginDefinition::Short("builtin".to_string())))
             .collect();
 
         let parsed: PluginDefinitionMap = toml::from_str(toml).unwrap();

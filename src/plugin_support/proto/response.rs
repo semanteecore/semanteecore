@@ -93,10 +93,7 @@ impl<T> PluginResponseBuilder<T> {
     where
         failure::Error: From<&'a E>,
     {
-        let new_errors = new
-            .iter()
-            .map(failure::Error::from)
-            .map(|err| format!("{}", err));
+        let new_errors = new.iter().map(failure::Error::from).map(|err| format!("{}", err));
         self.errors.extend(new_errors);
         self
     }
@@ -114,8 +111,7 @@ impl<T> PluginResponseBuilder<T> {
         let data = self.data.take();
 
         let body = if errors.is_empty() {
-            let data =
-                data.expect("data must be present in response if it's a successful response");
+            let data = data.expect("data must be present in response if it's a successful response");
             PluginResponseBody::Data(data)
         } else {
             PluginResponseBody::Error(errors)

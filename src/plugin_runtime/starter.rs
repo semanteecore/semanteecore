@@ -12,9 +12,7 @@ impl PluginStarter {
     pub fn start(&self, plugin: RawPlugin) -> Result<Plugin, failure::Error> {
         let (_name, state) = plugin.decompose();
         let started = match state {
-            RawPluginState::Unresolved(_) => {
-                panic!("all plugins must be resolved before calling Starter::start")
-            }
+            RawPluginState::Unresolved(_) => panic!("all plugins must be resolved before calling Starter::start"),
             RawPluginState::Started(started) => started,
             RawPluginState::Resolved(resolved) => match resolved {
                 ResolvedPlugin::Builtin(builtin) => Plugin::new(builtin)?,

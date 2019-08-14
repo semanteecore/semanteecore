@@ -140,9 +140,7 @@ impl PluginStep {
             | PluginStep::VerifyRelease
             | PluginStep::Publish
             | PluginStep::Notify => PluginStepKind::Shared,
-            PluginStep::GetLastRelease | PluginStep::GenerateNotes | PluginStep::Commit => {
-                PluginStepKind::Singleton
-            }
+            PluginStep::GetLastRelease | PluginStep::GenerateNotes | PluginStep::Commit => PluginStepKind::Singleton,
         }
     }
 

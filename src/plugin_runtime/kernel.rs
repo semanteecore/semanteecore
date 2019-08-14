@@ -39,7 +39,10 @@ pub struct Kernel {
 
 impl Kernel {
     pub fn builder(config: Config) -> KernelBuilder {
-        KernelBuilder { config, hooks: Hooks::default() }
+        KernelBuilder {
+            config,
+            hooks: Hooks::default(),
+        }
     }
 
     pub fn run(mut self) -> Result<(), failure::Error> {
@@ -64,50 +67,24 @@ impl Kernel {
                 }
                 Action::Get(src_id, src_key) => {
                     let value = self.plugins[src_id].as_interface().get_value(&src_key)?;
-                    log::debug!(
-                        "get {}::{} ==> {:?}",
-                        self.plugins[src_id].name,
-                        src_key,
-                        value
-                    );
+                    log::debug!("get {}::{} ==> {:?}", self.plugins[src_id].name, src_key, value);
                     let value = Value::builder(&src_key).value(value).build();
                     self.data_mgr.insert_global(src_key, value);
                 }
                 Action::Set(dst_id, dst_key, src_key) => {
                     let value = self.data_mgr.prepare_value(dst_id, &dst_key, &src_key)?;
-                    log::debug!(
-                        "set {}::{} <== {:?}",
-                        self.plugins[dst_id].name,
-                        dst_key,
-                        value
-                    );
-                    self.plugins[dst_id]
-                        .as_interface()
-                        .set_value(&dst_key, value)?;
+                    log::debug!("set {}::{} <== {:?}", self.plugins[dst_id].name, dst_key, value);
+                    self.plugins[dst_id].as_interface().set_value(&dst_key, value)?;
                 }
                 Action::SetValue(dst_id, dst_key, value) => {
                     let value = Value::builder(&dst_key).value(value).build();
-                    log::debug!(
-                        "set {}::{} <== {:?}",
-                        self.plugins[dst_id].name,
-                        dst_key,
-                        value
-                    );
-                    self.plugins[dst_id]
-                        .as_interface()
-                        .set_value(&dst_key, value)?;
+                    log::debug!("set {}::{} <== {:?}", self.plugins[dst_id].name, dst_key, value);
+                    self.plugins[dst_id].as_interface().set_value(&dst_key, value)?;
                 }
                 Action::RequireConfigEntry(dst_id, dst_key) => {
                     let value = self.data_mgr.prepare_value_same_key(dst_id, &dst_key)?;
-                    log::debug!(
-                        "set {}::{} <== {:?}",
-                        self.plugins[dst_id].name,
-                        dst_key,
-                        value
-                    );
-                    self.plugins[dst_id]
-                        .as_interface()
-                        .set_value(&dst_key, value)?;
+                    log::debug!("set {}::{} <== {:?}", self.plugins[dst_id].name, dst_key, value);
+                    self.plugins[dst_id].as_interface().set_value(&dst_key, value)?;
                 }
                 Action::PreStepHook(step) => self.hooks.exec_before(step, &mut self.data_mgr)?,
                 Action::PostStepHook(step) => self.hooks.exec_after(step, &mut self.data_mgr)?,
@@ -117,9 +94,7 @@ impl Kernel {
         if self.is_dry_run {
             log::info!(
                 "DRY RUN: skipping steps {:?}",
-                PluginStep::iter()
-                    .filter(|s| !s.is_dry())
-                    .collect::<Vec<_>>()
+                PluginStep::iter().filter(|s| !s.is_dry()).collect::<Vec<_>>()
             );
         }
 
@@ -146,7 +121,9 @@ pub struct Hooks {
 
 impl Hooks {
     pub fn exec_before(&self, step: PluginStep, data_mgr: &mut DataManager) -> Result<(), failure::Error> {
-        let hooks = self.before.get(&step)
+        let hooks = self
+            .before
+            .get(&step)
             .into_iter()
             .flat_map(|hooks| hooks.iter())
             .chain(self.before_any.iter());
@@ -159,7 +136,9 @@ impl Hooks {
     }
 
     pub fn exec_after(&self, step: PluginStep, data_mgr: &mut DataManager) -> Result<(), failure::Error> {
-        let hooks = self.after.get(&step)
+        let hooks = self
+            .after
+            .get(&step)
             .into_iter()
             .flat_map(|hooks| hooks.iter())
             .chain(self.after_any.iter());
@@ -179,7 +158,8 @@ pub struct KernelBuilder {
 
 impl KernelBuilder {
     pub fn hook<H>(&mut self, target: HookTarget, hook: H) -> &mut Self
-        where H: Fn(PluginStep, &mut DataManager) -> Result<(), failure::Error> + 'static
+    where
+        H: Fn(PluginStep, &mut DataManager) -> Result<(), failure::Error> + 'static,
     {
         let hook = Box::new(hook);
         match target {
@@ -220,10 +200,7 @@ impl KernelBuilder {
         log::trace!("graph: {:#?}", sequence);
 
         // Create data manager
-        let data_mgr = DataManager::new(
-            collect_plugins_initial_configuration(&plugins)?,
-            &self.config,
-        );
+        let data_mgr = DataManager::new(collect_plugins_initial_configuration(&plugins)?, &self.config);
 
         // Move out hooks
         let hooks = mem::replace(&mut self.hooks, Hooks::default());
@@ -280,10 +257,7 @@ impl KernelBuilder {
         })
     }
 
-    fn list_all_plugins_that(
-        plugins: &[RawPlugin],
-        filter: impl Fn(&RawPlugin) -> bool,
-    ) -> Vec<String> {
+    fn list_all_plugins_that(plugins: &[RawPlugin], filter: impl Fn(&RawPlugin) -> bool) -> Vec<String> {
         plugins
             .iter()
             .filter_map(|plugin| {
@@ -303,20 +277,14 @@ pub enum KernelError {
     FailedToResolvePlugins(Vec<String>),
     #[fail(display = "failed to start some modules: \n{:#?}", _0)]
     FailedToStartPlugins(Vec<String>),
-    #[fail(
-        display = "no plugins is capable of satisfying a non-null step {:?}",
-        _0
-    )]
+    #[fail(display = "no plugins is capable of satisfying a non-null step {:?}", _0)]
     NoPluginsForStep(PluginStep),
     #[fail(
         display = "step {:?} requested plugin {:?}, but it does not implement this step",
         _0, 1
     )]
     PluginDoesNotImplementStep(PluginStep, String),
-    #[fail(
-        display = "required data '{}' was not provided by the previous steps",
-        _0
-    )]
+    #[fail(display = "required data '{}' was not provided by the previous steps", _0)]
     MissingRequiredData(&'static str),
     #[fail(display = "'{}' is undefined in releaserc.toml", _0)]
     ConfigEntryUndefined(String),

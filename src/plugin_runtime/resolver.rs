@@ -1,8 +1,6 @@
 use failure::Fail;
 
-use crate::plugin_support::{
-    PluginInterface, RawPlugin, RawPluginState, ResolvedPlugin, UnresolvedPlugin,
-};
+use crate::plugin_support::{PluginInterface, RawPlugin, RawPluginState, ResolvedPlugin, UnresolvedPlugin};
 
 pub struct PluginResolver {
     builtin: BuiltinResolver,
@@ -35,11 +33,7 @@ impl PluginResolver {
 }
 
 trait Resolver {
-    fn resolve(
-        &self,
-        name: &str,
-        meta: &UnresolvedPlugin,
-    ) -> Result<ResolvedPlugin, failure::Error>;
+    fn resolve(&self, name: &str, meta: &UnresolvedPlugin) -> Result<ResolvedPlugin, failure::Error>;
 }
 
 struct BuiltinResolver;
@@ -51,11 +45,7 @@ impl BuiltinResolver {
 }
 
 impl Resolver for BuiltinResolver {
-    fn resolve(
-        &self,
-        name: &str,
-        _meta: &UnresolvedPlugin,
-    ) -> Result<ResolvedPlugin, failure::Error> {
+    fn resolve(&self, name: &str, _meta: &UnresolvedPlugin) -> Result<ResolvedPlugin, failure::Error> {
         use crate::builtin_plugins::{ClogPlugin, GitPlugin}; //GithubPlugin, RustPlugin, DockerPlugin};
         let plugin: Box<dyn PluginInterface> = match name {
             "git" => Box::new(GitPlugin::new()),
@@ -78,11 +68,7 @@ impl CargoResolver {
 }
 
 impl Resolver for CargoResolver {
-    fn resolve(
-        &self,
-        _name: &str,
-        _meta: &UnresolvedPlugin,
-    ) -> Result<ResolvedPlugin, failure::Error> {
+    fn resolve(&self, _name: &str, _meta: &UnresolvedPlugin) -> Result<ResolvedPlugin, failure::Error> {
         unimplemented!()
     }
 }
