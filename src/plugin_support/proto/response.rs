@@ -131,38 +131,9 @@ pub type Name = PluginResponse<String>;
 
 pub type ProvisionCapabilities = PluginResponse<Vec<ProvisionCapability>>;
 
-pub type Provision = PluginResponse<serde_json::Value>;
+pub type GetValue = PluginResponse<serde_json::Value>;
 
 pub type Config = PluginResponse<serde_json::Value>;
 
 pub type Methods = PluginResponse<MethodsData>;
 pub type MethodsData = Vec<PluginStep>;
-
-pub type PreFlight = PluginResponse<PreFlightData>;
-pub type PreFlightData = ();
-
-pub type GetLastRelease = PluginResponse<GetLastReleaseData>;
-pub type GetLastReleaseData = Version;
-
-pub type DeriveNextVersion = PluginResponse<DeriveNextVersionData>;
-pub type DeriveNextVersionData = semver::Version;
-
-pub type GenerateNotes = PluginResponse<GenerateNotesData>;
-pub type GenerateNotesData = ReleaseNotes;
-
-pub type Prepare = PluginResponse<PrepareData>;
-/// List of changed files to be committed
-pub type PrepareData = Vec<String>;
-
-pub type VerifyRelease = PluginResponse<VerifyReleaseData>;
-pub type VerifyReleaseData = ();
-
-pub type Commit = PluginResponse<CommitData>;
-/// Name of the created git tag
-pub type CommitData = String;
-
-pub type Publish = PluginResponse<PublishData>;
-pub type PublishData = ();
-
-pub type Notify = PluginResponse<NotifyData>;
-pub type NotifyData = ();

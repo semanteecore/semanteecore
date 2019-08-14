@@ -10,11 +10,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::plugin_support::flow::{Availability, FlowError, ProvisionCapability, Value};
 use crate::plugin_support::proto::{
-    request,
     response::{self, PluginResponse},
     GitRevision, Version,
 };
 use crate::plugin_support::{PluginInterface, PluginStep};
+use std::collections::HashMap;
 
 pub struct ClogPlugin {
     config: ClogPluginConfig,
@@ -72,7 +72,7 @@ struct ClogPluginConfig {
     changelog: Value<String>,
     ignore: Value<Vec<String>>,
     project_root: Value<String>,
-    is_dry_run: Value<bool>,
+    dry_run: Value<bool>,
     current_version: Value<Version>,
     next_version: Value<semver::Version>,
 }
@@ -85,7 +85,7 @@ impl Default for ClogPluginConfig {
                 .build(),
             ignore: Value::builder("ignore").default_value().build(),
             project_root: Value::builder("project_root").protected().build(),
-            is_dry_run: Value::builder("is_dry_run").protected().build(),
+            dry_run: Value::builder("dry_run").protected().build(),
             current_version: Value::builder("current_version")
                 .required_at(PluginStep::DeriveNextVersion)
                 .build(),
@@ -110,15 +110,18 @@ impl PluginInterface for ClogPlugin {
             ProvisionCapability::builder("next_version")
                 .after_step(PluginStep::DeriveNextVersion)
                 .build(),
+            ProvisionCapability::builder("files_to_commit")
+                .after_step(PluginStep::Prepare)
+                .build(),
         ])
     }
 
-    fn provision(&self, req: request::Provision) -> response::Provision {
-        match req.data.as_str() {
+    fn get_value(&self, key: &str) -> response::GetValue {
+        match key {
             "release_notes" => {
                 let notes = self.state.release_notes.as_ref().ok_or_else(|| {
                     FlowError::DataNotAvailableYet(
-                        req.data.clone(),
+                        key.to_owned(),
                         Availability::AfterStep(PluginStep::GenerateNotes),
                     )
                 })?;
@@ -128,12 +131,16 @@ impl PluginInterface for ClogPlugin {
             "next_version" => {
                 let next_version = self.state.next_version.as_ref().ok_or_else(|| {
                     FlowError::DataNotAvailableYet(
-                        req.data.clone(),
+                        key.to_owned(),
                         Availability::AfterStep(PluginStep::DeriveNextVersion),
                     )
                 })?;
 
                 PluginResponse::from_ok(serde_json::to_value(next_version)?)
+            }
+            "files_to_commit" => {
+                let changelog_path = self.config.changelog.as_value();
+                PluginResponse::from_ok(serde_json::to_value(vec![changelog_path])?)
             }
             other => {
                 PluginResponse::from_error(FlowError::KeyNotSupported(other.to_owned()).into())
@@ -141,17 +148,23 @@ impl PluginInterface for ClogPlugin {
         }
     }
 
-    fn get_default_config(&self) -> response::Config {
-        let toml = serde_json::to_value(&self.config)?;
-        PluginResponse::from_ok(toml)
-    }
-
-    fn set_config(&mut self, req: request::Config) -> response::Null {
-        self.config = serde_json::from_value(req.data.clone())?;
+    fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
+        log::trace!("Setting {:?} = {:?}", key, value);
+        let config_json = self.get_config()?;
+        let mut config_map: HashMap<String, Value<serde_json::Value>> =
+            serde_json::from_value(config_json)?;
+        config_map.insert(key.to_owned(), value);
+        let config_json = serde_json::to_value(config_map)?;
+        self.config = serde_json::from_value(config_json)?;
         PluginResponse::from_ok(())
     }
 
-    fn methods(&self, _req: request::Methods) -> response::Methods {
+    fn get_config(&self) -> response::Config {
+        let json = serde_json::to_value(&self.config)?;
+        PluginResponse::from_ok(json)
+    }
+
+    fn methods(&self) -> response::Methods {
         let methods = vec![
             PluginStep::PreFlight,
             PluginStep::DeriveNextVersion,
@@ -161,14 +174,11 @@ impl PluginInterface for ClogPlugin {
         PluginResponse::from_ok(methods)
     }
 
-    fn pre_flight(&mut self, _params: request::PreFlight) -> response::PreFlight {
+    fn pre_flight(&mut self) -> response::Null {
         PluginResponse::from_ok(())
     }
 
-    fn derive_next_version(
-        &mut self,
-        _params: request::DeriveNextVersion,
-    ) -> response::DeriveNextVersion {
+    fn derive_next_version(&mut self) -> response::Null {
         let cfg = &self.config;
         let project_root = cfg.project_root.as_value();
         let current_version = cfg.current_version.as_value();
@@ -208,29 +218,36 @@ impl PluginInterface for ClogPlugin {
 
         self.state.next_version.replace(next_version.clone());
 
-        PluginResponse::from_ok(next_version)
+        PluginResponse::from_ok(())
     }
 
-    fn generate_notes(&mut self, params: request::GenerateNotes) -> response::GenerateNotes {
-        let data = params.data;
+    fn generate_notes(&mut self) -> response::Null {
+        let changelog = {
+            let project_root = self.config.project_root.as_value();
+            let current_version = self.config.current_version.as_value();
+            let next_version = self.config.next_version.as_value();
 
-        let changelog = generate_changelog(
-            &self.config.project_root.as_value(),
-            &data.start_rev,
-            &data.new_version,
-        )?;
+            let changelog = generate_changelog(project_root, &current_version.rev, next_version)?;
+
+            log::info!("Changelog for {}..{}", current_version.rev, next_version);
+            log::info!("---------------------------------------------------");
+            log::info!("{}", changelog);
+            log::info!("---------------------------------------------------");
+
+            changelog
+        };
 
         // Store this request as state
         self.state.release_notes.replace(changelog.clone());
 
-        PluginResponse::from_ok(changelog)
+        PluginResponse::from_ok(())
     }
 
-    fn prepare(&mut self, _params: request::Prepare) -> response::Prepare {
+    fn prepare(&mut self) -> response::Null {
         let cfg = &self.config;
         let changelog_path = cfg.changelog.as_value();
         let repo_path = cfg.project_root.as_value();
-        let is_dry_run = *cfg.is_dry_run.as_value();
+        let is_dry_run = *cfg.dry_run.as_value();
         let current_version = cfg.current_version.as_value();
         let next_version = cfg.next_version.as_value();
 
@@ -252,7 +269,7 @@ impl PluginInterface for ClogPlugin {
         log::info!("Writing updated changelog");
         clog.write_changelog()?;
 
-        PluginResponse::from_ok(vec![changelog_path.to_owned()])
+        PluginResponse::from_ok(())
     }
 }
 
@@ -316,7 +333,7 @@ pub fn analyze_single(commit_str: &str, ignore: &[String]) -> Result<CommitType,
     };
 
     if let Some(message) = message {
-        log::debug!("derived commit type {:?} for {}", commit_type, message);
+        log::trace!("derived commit type {:?} for {}", commit_type, message);
     }
 
     Ok(commit_type)

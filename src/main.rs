@@ -14,6 +14,8 @@ mod plugin_support;
 mod utils;
 
 use crate::config::Config;
+use env_logger::fmt::Formatter;
+use log::Record;
 use plugin_runtime::{Kernel, KernelError};
 use std::env;
 
@@ -75,13 +77,30 @@ fn init_logger() {
         env::set_var("RUST_LOG", "info");
     }
 
+    let with_prefix =
+        |record: &Record, prefix: &'static str, verbose: bool, fmt: &mut Formatter| {
+            if !verbose {
+                writeln!(fmt, "{}{}", prefix, record.args())
+            } else {
+                if let Some(module) = record.module_path() {
+                    if let Some(line) = record.line() {
+                        writeln!(fmt, "{}{}:{}\t{}", prefix, module, line, record.args())
+                    } else {
+                        writeln!(fmt, "{}{}\t{}", prefix, module, record.args())
+                    }
+                } else {
+                    writeln!(fmt, "{}{}", prefix, record.args())
+                }
+            }
+        };
+
     env_logger::Builder::from_default_env()
-        .format(|fmt, record| match record.level() {
-            log::Level::Info => writeln!(fmt, "{}", record.args()),
-            log::Level::Warn => writeln!(fmt, ">> {}", record.args()),
-            log::Level::Error => writeln!(fmt, "!! {}", record.args()),
-            log::Level::Debug => writeln!(fmt, "DD {}", record.args()),
-            log::Level::Trace => writeln!(fmt, "TT {}", record.args()),
+        .format(move |fmt, record| match record.level() {
+            log::Level::Info => with_prefix(record, "", false, fmt),
+            log::Level::Warn => with_prefix(record, ">> ", false, fmt),
+            log::Level::Error => with_prefix(record, "!! ", false, fmt),
+            log::Level::Debug => with_prefix(record, "DD ", true, fmt),
+            log::Level::Trace => with_prefix(record, "TT ", true, fmt),
         })
         .init();
 }

@@ -6,9 +6,10 @@ value_def = {
 
 from = _{ "from" }
 required_at = _{ "required_at=" ~ required_at_step }
-required_at_step = { alpha+ }
-key = { alpha+ }
+required_at_step = { char+ }
+key = { char+ }
 value = { ANY+ }
 
+char = _{ alpha | "_" }
 delim = _{ ":" }
 alpha = _{ 'a'..'z' | 'A'..'Z' }

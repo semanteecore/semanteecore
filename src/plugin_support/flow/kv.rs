@@ -46,6 +46,13 @@ impl<T> Value<T> {
                         This is a data flow manager bug, please consider opening an issue at https://github.com/etclabscore/semantic-rs/issues/new", self.key, pr),
         }
     }
+
+    pub fn is_ready(&self) -> bool {
+        match &self.state {
+            ValueState::Ready(_) => true,
+            ValueState::NeedsProvision(_) => false,
+        }
+    }
 }
 
 pub struct ValueBuilder<T> {
@@ -148,6 +155,22 @@ pub enum ValueDefinition {
     Value(serde_json::Value),
 }
 
+impl ValueDefinition {
+    pub fn is_value(&self) -> bool {
+        match self {
+            ValueDefinition::Value(_) => true,
+            ValueDefinition::From { .. } => false,
+        }
+    }
+
+    pub fn as_value(&self) -> &serde_json::Value {
+        match self {
+            ValueDefinition::Value(v) => &v,
+            ValueDefinition::From { .. } => panic!("ValueDefinition is not in Value state."),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for ValueDefinitionMap {
     fn deserialize<D>(de: D) -> Result<Self, D::Error>
     where
@@ -185,7 +208,7 @@ fn parse_value_definition(value: &str) -> Result<ValueDefinition, failure::Error
     let mut key = String::new();
 
     for pair in pairs.into_inner() {
-        let pair = dbg!(pair);
+        log::trace!("{:#?}", pair);
         match pair.as_rule() {
             Rule::value => {
                 return Ok(ValueDefinition::Value(serde_json::Value::String(

@@ -14,12 +14,13 @@ pub type DestKey = Key;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
     Call(PluginId, PluginStep),
-    Query(PluginId, SourceKey),
-    Provision(PluginId, DestKey, SourceKey),
-    ProvisionValue(PluginId, DestKey, serde_json::Value),
+    Get(PluginId, SourceKey),
+    Set(PluginId, DestKey, SourceKey),
+    SetValue(PluginId, DestKey, serde_json::Value),
     RequireConfigEntry(PluginId, DestKey),
 }
 
+#[derive(Debug)]
 pub struct PluginSequence {
     seq: Vec<Action>,
 }
@@ -52,11 +53,11 @@ impl PluginSequence {
         builder.build(is_dry_run)
     }
 
-    fn iter(&self) -> impl Iterator<Item = &Action> {
+    pub fn iter(&self) -> impl Iterator<Item = &Action> {
         self.seq.iter()
     }
 
-    fn into_iter(self) -> impl Iterator<Item = Action> {
+    pub fn into_iter(self) -> impl Iterator<Item = Action> {
         self.seq.into_iter()
     }
 }
@@ -76,7 +77,7 @@ impl<'a> PluginSequenceBuilder<'a> {
 
         let mut seq = Vec::new();
 
-        for step in PluginStep::iter().filter(PluginStep::is_dry) {
+        for step in PluginStep::iter().filter(|s| s.is_dry() || !is_dry_run) {
             let builder = StepSequenceBuilder::new(
                 step,
                 &self.names,
@@ -93,6 +94,11 @@ impl<'a> PluginSequenceBuilder<'a> {
 
     fn apply_releaserc_overrides(&mut self) {
         for (name, value) in self.releaserc.iter() {
+            // Skip cfg entries that are not plugin configurations
+            if !self.names.contains(name) {
+                continue;
+            }
+
             let subtable: ValueDefinitionMap = match value {
                 ValueDefinition::Value(value) => match serde_json::from_value(value.clone()) {
                     Ok(st) => st,
@@ -178,7 +184,7 @@ impl<'a> StepSequenceBuilder<'a> {
                     .iter()
                     .filter_map(|(dest_key, value)| match &value.state {
                         ValueState::Ready(value) => {
-                            seq.push_back(Action::ProvisionValue(
+                            seq.push_back(Action::SetValue(
                                 dest_id,
                                 dest_key.clone(),
                                 value.clone(),
@@ -298,7 +304,7 @@ impl<'a> StepSequenceBuilder<'a> {
                                     .iter()
                                     .filter(|&&source_id| source_id != dest_id)
                                     .map(|source_id| {
-                                        Action::Query(*source_id, Clone::clone(source_key))
+                                        Action::Get(*source_id, Clone::clone(source_key))
                                     }),
                             );
                             resolved = true;
@@ -307,7 +313,7 @@ impl<'a> StepSequenceBuilder<'a> {
                         if let Some(plugins) = self.available_since.get(source_key) {
                             for (src_id, step) in plugins {
                                 if self.is_enabled_for_step(*src_id, *step) {
-                                    seq.push_back(Action::Query(*src_id, source_key.clone()));
+                                    seq.push_back(Action::Get(*src_id, source_key.clone()));
                                     resolved = true;
                                 } else {
                                     let dst_name = &self.names[dest_id];
@@ -319,7 +325,7 @@ impl<'a> StepSequenceBuilder<'a> {
                         }
 
                         if resolved {
-                            seq.push_back(Action::Provision(
+                            seq.push_back(Action::Set(
                                 dest_id,
                                 dest_key.clone(),
                                 source_key.clone(),
@@ -354,11 +360,11 @@ impl<'a> StepSequenceBuilder<'a> {
                         log::warn!("Matching source plugin {:?} can supply this key only after step {:?}, and the current step is {:?}", source_plugin_name, when, self.step);
                     }
                     log::warn!("The releaserc.toml entry cfg.{}.{} must be defined to proceed", dest_plugin_name, dest_key);
-                    seq.push_front(Action::RequireConfigEntry(dest_id, dest_key.clone()));
+                    seq.push_front(Action::RequireConfigEntry(dest_id, source_key.clone()));
                     None
                 } else {
                     // Key cannot be supplied by plugins and must be defined in releaserc.toml
-                    seq.push_front(Action::RequireConfigEntry(dest_id, dest_key.clone()));
+                    seq.push_front(Action::RequireConfigEntry(dest_id, source_key.clone()));
                     None
                 }
             }).collect()
@@ -412,9 +418,9 @@ impl<'a> StepSequenceBuilder<'a> {
                         plugins
                             .iter()
                             .filter(|&&source_id| source_id != dest_id)
-                            .map(|source_id| Action::Query(*source_id, source_key.clone())),
+                            .map(|source_id| Action::Get(*source_id, source_key.clone())),
                     );
-                    seq.push_back(Action::Provision(
+                    seq.push_back(Action::Set(
                         dest_id,
                         dest_key.clone(),
                         source_key.to_owned(),
@@ -471,13 +477,13 @@ fn collect_plugins_names(plugins: &[Plugin]) -> Vec<String> {
     plugins.iter().map(|p| p.name.clone()).collect()
 }
 
-fn collect_plugins_initial_configuration(
+pub fn collect_plugins_initial_configuration(
     plugins: &[Plugin],
 ) -> Result<Vec<Map<String, Value<serde_json::Value>>>, failure::Error> {
     let mut configs = Vec::new();
 
     for plugin in plugins.iter() {
-        let plugin_config = serde_json::from_value(plugin.as_interface().get_default_config()?)?;
+        let plugin_config = serde_json::from_value(plugin.as_interface().get_config()?)?;
 
         configs.push(plugin_config);
     }
@@ -619,10 +625,7 @@ mod tests {
     use super::*;
     use crate::plugin_support::flow::{FlowError, ProvisionRequest};
     use crate::plugin_support::{
-        proto::{
-            request,
-            response::{self, PluginResponse},
-        },
+        proto::response::{self, PluginResponse},
         PluginInterface,
     };
     use serde::Deserialize;
@@ -630,7 +633,7 @@ mod tests {
 
     fn dependent_provider_plugins() -> Vec<Plugin> {
         vec![
-            Plugin::new(Box::new(self::test_plugins::Dependent)).unwrap(),
+            Plugin::new(Box::new(self::test_plugins::Dependent::default())).unwrap(),
             Plugin::new(Box::new(self::test_plugins::Provider)).unwrap(),
         ]
     }
@@ -703,8 +706,8 @@ mod tests {
         let correct_seq: Vec<Action> = PluginStep::iter()
             .flat_map(|step| {
                 vec![
-                    Action::Query(1, "source_key".into()),
-                    Action::Provision(0, "dest_key".into(), "source_key".into()),
+                    Action::Get(1, "source_key".into()),
+                    Action::Set(0, "dest_key".into(), "source_key".into()),
                     Action::Call(0, step),
                     Action::Call(1, step),
                 ]
@@ -746,7 +749,7 @@ mod tests {
         let correct_seq: Vec<Action> = PluginStep::iter()
             .flat_map(|step| {
                 vec![
-                    Action::ProvisionValue(0, "dest_key".into(), "value".into()),
+                    Action::SetValue(0, "dest_key".into(), "value".into()),
                     Action::Call(0, step),
                     Action::Call(1, step),
                 ]
@@ -790,10 +793,10 @@ mod tests {
                 assert_eq!(
                     Vec::from(seq),
                     vec![
-                        Action::Query(1, "two_src".into()),
-                        Action::Provision(0, "one_dst".into(), "two_src".into()),
-                        Action::Query(0, "one_src".into()),
-                        Action::Provision(1, "two_dst".into(), "one_src".into()),
+                        Action::Get(1, "two_src".into()),
+                        Action::Set(0, "one_dst".into(), "two_src".into()),
+                        Action::Get(0, "one_src".into()),
+                        Action::Set(1, "two_dst".into(), "one_src".into()),
                     ]
                 );
             }
@@ -825,10 +828,10 @@ mod tests {
                 assert_eq!(
                     Vec::from(seq),
                     vec![
-                        Action::Query(1, "src".into()),
-                        Action::Provision(0, "dst".into(), "src".into()),
-                        Action::Query(0, "src".into()),
-                        Action::Provision(1, "dst".into(), "src".into()),
+                        Action::Get(1, "src".into()),
+                        Action::Set(0, "dst".into(), "src".into()),
+                        Action::Get(0, "src".into()),
+                        Action::Set(1, "dst".into(), "src".into()),
                     ]
                 );
             }
@@ -911,8 +914,8 @@ mod tests {
                 assert_eq!(
                     Vec::from(seq),
                     vec![
-                        Action::Query(0, "one_src".into()),
-                        Action::Provision(1, "two_dst".into(), "one_src".into()),
+                        Action::Get(0, "one_src".into()),
+                        Action::Set(1, "two_dst".into(), "one_src".into()),
                     ]
                 );
             }
@@ -994,8 +997,8 @@ mod tests {
                 assert_eq!(
                     Vec::from(seq),
                     vec![
-                        Action::Query(0, "one_src".into()),
-                        Action::Provision(1, "two_dst".into(), "one_src".into()),
+                        Action::Get(0, "one_src".into()),
+                        Action::Set(1, "two_dst".into(), "one_src".into()),
                     ]
                 );
             }
@@ -1082,7 +1085,7 @@ mod tests {
                 assert_eq!(unresolved, vec![vec![], vec![]]);
                 assert_eq!(
                     Vec::from(seq),
-                    vec![Action::RequireConfigEntry(0, "one_dst".into())]
+                    vec![Action::RequireConfigEntry(0, "two_src".into())]
                 );
             }
 
@@ -1114,7 +1117,7 @@ mod tests {
                 assert_eq!(unresolved, vec![vec![], vec![]]);
                 assert_eq!(
                     Vec::from(seq),
-                    vec![Action::RequireConfigEntry(0, "one_dst".into())]
+                    vec![Action::RequireConfigEntry(0, "two_src".into())]
                 );
             }
         }
@@ -1169,8 +1172,8 @@ mod tests {
                     Vec::from(seq),
                     vec![
                         Action::Call(0, PluginStep::PreFlight),
-                        Action::Query(0, "one_src".into()),
-                        Action::Provision(1, "two_dst".into(), "one_src".into()),
+                        Action::Get(0, "one_src".into()),
+                        Action::Set(1, "two_dst".into(), "one_src".into()),
                         Action::Call(1, PluginStep::PreFlight),
                     ]
                 )
@@ -1234,12 +1237,25 @@ mod tests {
     mod test_plugins {
         use super::*;
         use serde::{Deserialize, Serialize};
+        use std::collections::HashMap;
 
-        pub struct Dependent;
+        pub struct Dependent {
+            config: DependentConfig,
+        }
 
         #[derive(Serialize, Deserialize, Debug)]
         struct DependentConfig {
             dest_key: Value<String>,
+        }
+
+        impl Default for Dependent {
+            fn default() -> Self {
+                Dependent {
+                    config: DependentConfig {
+                        dest_key: Value::builder("source_key").build(),
+                    },
+                }
+            }
         }
 
         impl PluginInterface for Dependent {
@@ -1247,23 +1263,22 @@ mod tests {
                 PluginResponse::from_ok("dependent".into())
             }
 
-            fn methods(&self, _req: request::Methods) -> response::Methods {
+            fn methods(&self) -> response::Methods {
                 let methods = PluginStep::iter().collect();
                 PluginResponse::from_ok(methods)
             }
 
-            fn get_default_config(&self) -> response::Config {
-                PluginResponse::from_ok(
-                    serde_json::to_value(DependentConfig {
-                        dest_key: Value::builder("source_key").build(),
-                    })
-                    .unwrap(),
-                )
+            fn get_config(&self) -> response::Config {
+                PluginResponse::from_ok(serde_json::to_value(&self.config).unwrap())
             }
 
-            fn set_config(&mut self, req: request::Config) -> response::Null {
-                let config: DependentConfig = serde_json::from_value(req.data.clone()).unwrap();
-                assert_eq!(config.dest_key.as_value(), "value");
+            fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
+                let config_json = self.get_config()?;
+                let mut config_map: HashMap<String, Value<serde_json::Value>> =
+                    serde_json::from_value(config_json)?;
+                config_map.insert(key.to_owned(), value);
+                let config_json = serde_json::to_value(config_map)?;
+                self.config = serde_json::from_value(config_json)?;
                 PluginResponse::from_ok(())
             }
         }
@@ -1275,7 +1290,7 @@ mod tests {
                 PluginResponse::from_ok("provider".into())
             }
 
-            fn methods(&self, _req: request::Methods) -> response::Methods {
+            fn methods(&self) -> response::Methods {
                 let methods = PluginStep::iter().collect();
                 PluginResponse::from_ok(methods)
             }
@@ -1284,8 +1299,8 @@ mod tests {
                 PluginResponse::from_ok(vec![ProvisionCapability::builder("source_key").build()])
             }
 
-            fn provision(&self, req: request::Provision) -> response::Provision {
-                match req.data.as_str() {
+            fn get_value(&self, key: &str) -> response::GetValue {
+                match key {
                     "source_key" => PluginResponse::from_ok(serde_json::to_value("value").unwrap()),
                     other => PluginResponse::from_error(
                         FlowError::KeyNotSupported(other.to_owned()).into(),
@@ -1293,12 +1308,8 @@ mod tests {
                 }
             }
 
-            fn get_default_config(&self) -> response::Config {
+            fn get_config(&self) -> response::Config {
                 PluginResponse::from_ok(serde_json::Value::Object(serde_json::Map::default()))
-            }
-
-            fn set_config(&mut self, req: request::Config) -> response::Null {
-                unimplemented!()
             }
         }
     }

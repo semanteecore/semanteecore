@@ -5,13 +5,11 @@ use failure::Fail;
 use git2::{self, Cred, Oid, PushOptions, RemoteCallbacks, Repository, Signature};
 use serde::{Deserialize, Serialize};
 
-use crate::plugin_support::flow::{FlowError, ProvisionCapability, Value};
-use crate::plugin_support::proto::{
-    request,
-    response::{self, PluginResponse, PluginResponseBuilder},
-};
+use crate::plugin_support::flow::{Availability, FlowError, ProvisionCapability, Value};
+use crate::plugin_support::proto::response::{self, PluginResponse, PluginResponseBuilder};
 use crate::plugin_support::proto::{GitRevision, Version};
 use crate::plugin_support::{PluginInterface, PluginStep};
+use std::collections::HashMap;
 use std::path::Path;
 
 pub struct GitPlugin {
@@ -22,9 +20,11 @@ pub struct GitPlugin {
 struct State {
     repo: Repository,
     signature: Signature<'static>,
+    current_version: Option<Version>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 struct Config {
     user_name: Value<Option<String>>,
     user_email: Value<Option<String>>,
@@ -32,6 +32,9 @@ struct Config {
     remote: Value<String>,
     force_https: Value<bool>,
     project_root: Value<String>,
+    next_version: Value<semver::Version>,
+    files_to_commit: Value<Vec<String>>,
+    changelog: Value<String>,
 }
 
 impl Default for Config {
@@ -43,6 +46,18 @@ impl Default for Config {
             remote: Value::builder("remote").value(default_remote()).build(),
             force_https: Value::builder("force_https").default_value().build(),
             project_root: Value::builder("project_root").protected().build(),
+            next_version: Value::builder("next_version")
+                .protected()
+                .required_at(PluginStep::Commit)
+                .build(),
+            files_to_commit: Value::builder("files_to_commit")
+                .protected()
+                .required_at(PluginStep::Commit)
+                .build(),
+            changelog: Value::builder("changelog")
+                .protected()
+                .required_at(PluginStep::Commit)
+                .build(),
         }
     }
 }
@@ -58,7 +73,11 @@ fn default_remote() -> String {
 impl State {
     pub fn new(config: &Config, repo: Repository) -> Result<Self, failure::Error> {
         let signature = Self::get_signature(&config, &repo)?;
-        Ok(State { repo, signature })
+        Ok(State {
+            repo,
+            signature,
+            current_version: None,
+        })
     }
 
     pub fn get_signature(
@@ -318,25 +337,40 @@ impl PluginInterface for GitPlugin {
 
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
         PluginResponse::from_ok(vec![
-            ProvisionCapability::builder("git_branch")
+            ProvisionCapability::builder("branch")
                 .after_step(PluginStep::PreFlight)
                 .build(),
-            ProvisionCapability::builder("git_remote")
+            ProvisionCapability::builder("remote")
                 .after_step(PluginStep::PreFlight)
                 .build(),
-            ProvisionCapability::builder("git_repo_name")
+            ProvisionCapability::builder("repo_name")
                 .after_step(PluginStep::PreFlight)
                 .build(),
             ProvisionCapability::builder("current_version")
                 .after_step(PluginStep::GetLastRelease)
                 .build(),
+            ProvisionCapability::builder("release_tag")
+                .after_step(PluginStep::Commit)
+                .build(),
         ])
     }
 
-    fn provision(&self, req: request::Provision) -> response::Provision {
-        let value = match req.data.as_str() {
-            "git_branch" => serde_json::to_value(self.config.branch.as_value())?,
-            "git_remote" => serde_json::to_value(self.config.remote.as_value())?,
+    fn get_value(&self, key: &str) -> response::GetValue {
+        let value = match key {
+            "branch" => serde_json::to_value(self.config.branch.as_value())?,
+            "remote" => serde_json::to_value(self.config.remote.as_value())?,
+            "current_version" => serde_json::to_value(
+                self.state
+                    .as_ref()
+                    .and_then(|s| s.current_version.as_ref())
+                    .ok_or(FlowError::DataNotAvailableYet(
+                        key.to_owned(),
+                        Availability::AfterStep(PluginStep::GetLastRelease),
+                    ))?,
+            )?,
+            "release_tag" => {
+                serde_json::to_value(format!("v{}", self.config.next_version.as_value()))?
+            }
             other => {
                 return PluginResponse::from_error(
                     FlowError::KeyNotSupported(other.to_owned()).into(),
@@ -347,16 +381,21 @@ impl PluginInterface for GitPlugin {
         PluginResponse::from_ok(value)
     }
 
-    fn get_default_config(&self) -> response::Config {
-        PluginResponse::from_ok(serde_json::to_value(Config::default())?)
-    }
-
-    fn set_config(&mut self, req: request::Config) -> response::Null {
-        self.config = serde_json::from_value(req.data.clone())?;
+    fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
+        let config_json = self.get_config()?;
+        let mut config_map: HashMap<String, Value<serde_json::Value>> =
+            serde_json::from_value(config_json)?;
+        config_map.insert(key.to_owned(), value);
+        let config_json = serde_json::to_value(config_map)?;
+        self.config = serde_json::from_value(config_json)?;
         PluginResponse::from_ok(())
     }
 
-    fn methods(&self, _req: request::Methods) -> response::Methods {
+    fn get_config(&self) -> response::Config {
+        PluginResponse::from_ok(serde_json::to_value(&self.config)?)
+    }
+
+    fn methods(&self) -> response::Methods {
         let methods = vec![
             PluginStep::PreFlight,
             PluginStep::GetLastRelease,
@@ -365,7 +404,7 @@ impl PluginInterface for GitPlugin {
         PluginResponse::from_ok(methods)
     }
 
-    fn pre_flight(&mut self, _params: request::PreFlight) -> response::PreFlight {
+    fn pre_flight(&mut self) -> response::Null {
         let mut response = PluginResponse::builder();
 
         let config = &self.config;
@@ -388,8 +427,8 @@ impl PluginInterface for GitPlugin {
         response.body(()).build()
     }
 
-    fn get_last_release(&mut self, _params: request::GetLastRelease) -> response::GetLastRelease {
-        let state = self.state.as_ref().ok_or(GitPluginError::StateIsNone)?;
+    fn get_last_release(&mut self) -> response::Null {
+        let state = self.state.as_mut().ok_or(GitPluginError::StateIsNone)?;
 
         let version = match state.latest_tag() {
             Some((rev, version)) => Version {
@@ -405,27 +444,30 @@ impl PluginInterface for GitPlugin {
             }
         };
 
-        PluginResponse::from_ok(version)
+        state.current_version.replace(version);
+
+        PluginResponse::from_ok(())
     }
 
-    fn commit(&mut self, params: request::Commit) -> response::Commit {
-        let data = params.data;
-
+    fn commit(&mut self) -> response::Null {
+        let next_version = self.config.next_version.as_value();
+        let files_to_commit = self.config.files_to_commit.as_value();
+        let changelog = self.config.changelog.as_value();
         let state = self.state.as_ref().ok_or(GitPluginError::StateIsNone)?;
         let config = &self.config;
 
         // TODO: make releaserc-configurable
-        let commit_msg = format!("chore(release): Version {} [skip ci]", data.version);
-        let tag_name = format!("v{}", data.version);
+        let commit_msg = format!("chore(release): Version {} [skip ci]", next_version);
+        let tag_name = format!("v{}", next_version);
 
-        log::info!("Committing files {:?}", data.files_to_commit);
-        state.commit_files(config, &data.files_to_commit, &commit_msg)?;
+        log::info!("Committing files {:?}", files_to_commit);
+        state.commit_files(config, &files_to_commit, &commit_msg)?;
         log::info!("Creating tag {:?}", tag_name);
-        state.create_tag(config, &tag_name, &data.changelog)?;
+        state.create_tag(config, &tag_name, &changelog)?;
         log::info!("Pushing changes, please wait...");
         state.push(config, &tag_name)?;
 
-        PluginResponse::from_ok(tag_name)
+        PluginResponse::from_ok(())
     }
 }
 

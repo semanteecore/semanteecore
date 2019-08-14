@@ -1,10 +1,7 @@
 use std::ops::Try;
 
-use super::proto::{
-    request,
-    response::{self, PluginResponse},
-};
-use crate::plugin_support::flow::FlowError;
+use super::proto::response::{self, PluginResponse};
+use crate::plugin_support::flow::{FlowError, Value};
 
 pub trait PluginInterface {
     fn name(&self) -> response::Name;
@@ -13,57 +10,56 @@ pub trait PluginInterface {
         PluginResponse::from_ok(vec![])
     }
 
-    fn provision(&self, req: request::Provision) -> response::Provision {
-        PluginResponse::from_error(FlowError::KeyNotSupported(req.data.clone()).into())
+    fn get_value(&self, key: &str) -> response::GetValue {
+        PluginResponse::from_error(FlowError::KeyNotSupported(key.to_owned()).into())
     }
 
-    fn get_default_config(&self) -> response::Config;
+    fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
+        PluginResponse::from_error(FlowError::KeyNotSupported(key.to_owned()).into())
+    }
 
-    fn set_config(&mut self, req: request::Config) -> response::Null;
+    fn get_config(&self) -> response::Config;
 
-    fn methods(&self, _req: request::Methods) -> response::Methods {
+    fn methods(&self) -> response::Methods {
         PluginResponse::builder()
             .warning("default methods() implementation called: returning an empty map")
             .body(response::MethodsData::default())
             .build()
     }
 
-    fn pre_flight(&mut self, _params: request::PreFlight) -> response::PreFlight {
+    fn pre_flight(&mut self) -> response::Null {
         not_implemented_response()
     }
 
-    fn get_last_release(&mut self, _params: request::GetLastRelease) -> response::GetLastRelease {
+    fn get_last_release(&mut self) -> response::Null {
         not_implemented_response()
     }
 
-    fn derive_next_version(
-        &mut self,
-        _params: request::DeriveNextVersion,
-    ) -> response::DeriveNextVersion {
+    fn derive_next_version(&mut self) -> response::Null {
         not_implemented_response()
     }
 
-    fn generate_notes(&mut self, _params: request::GenerateNotes) -> response::GenerateNotes {
+    fn generate_notes(&mut self) -> response::Null {
         not_implemented_response()
     }
 
-    fn prepare(&mut self, _params: request::Prepare) -> response::Prepare {
+    fn prepare(&mut self) -> response::Null {
         not_implemented_response()
     }
 
-    fn verify_release(&mut self, _params: request::VerifyRelease) -> response::VerifyRelease {
+    fn verify_release(&mut self) -> response::Null {
         not_implemented_response()
     }
 
-    fn commit(&mut self, _params: request::Commit) -> response::Commit {
+    fn commit(&mut self) -> response::Null {
         not_implemented_response()
     }
 
-    fn publish(&mut self, _params: request::Publish) -> response::Publish {
+    fn publish(&mut self) -> response::Null {
         not_implemented_response()
     }
 
-    fn notify(&self, _params: request::Notify) -> response::Notify {
+    fn notify(&self) -> response::Null {
         not_implemented_response()
     }
 }

@@ -5,15 +5,15 @@ use failure::Fail;
 use strum::IntoEnumIterator;
 
 use crate::config::{Config, Map, PluginDefinitionMap, StepDefinition};
+use crate::plugin_runtime::data_mgr::DataManager;
 use crate::plugin_runtime::discovery::CapabilitiesDiscovery;
-use crate::plugin_runtime::dispatcher::PluginDispatcher;
-use crate::plugin_runtime::graph::PluginSequence;
+use crate::plugin_runtime::graph::{collect_plugins_initial_configuration, Action, PluginSequence};
 use crate::plugin_runtime::resolver::PluginResolver;
 use crate::plugin_runtime::starter::PluginStarter;
 use crate::plugin_support::flow::kv::ValueDefinitionMap;
 use crate::plugin_support::flow::Value;
+use crate::plugin_support::proto::response::PluginResponse;
 use crate::plugin_support::proto::Version;
-use crate::plugin_support::proto::{request, response::PluginResponse};
 use crate::plugin_support::{Plugin, PluginStep, RawPlugin, RawPluginState};
 
 const STEPS_DRY: &[PluginStep] = &[
@@ -31,6 +31,7 @@ pub type PluginId = usize;
 
 pub struct Kernel {
     plugins: Vec<Plugin>,
+    data_mgr: DataManager,
     sequence: PluginSequence,
     is_dry_run: bool,
 }
@@ -40,8 +41,75 @@ impl Kernel {
         KernelBuilder { config }
     }
 
-    pub fn run(self) -> Result<(), failure::Error> {
-        unimplemented!();
+    pub fn run(mut self) -> Result<(), failure::Error> {
+        for action in self.sequence.into_iter() {
+            log::trace!("running action {:?}", action);
+            match action {
+                Action::Call(id, step) => {
+                    let plugin = &self.plugins[id];
+                    log::debug!("call {}::{}", plugin.name, step.as_str());
+                    let mut callable = plugin.as_interface();
+                    match step {
+                        PluginStep::PreFlight => callable.pre_flight()?,
+                        PluginStep::GetLastRelease => callable.get_last_release()?,
+                        PluginStep::DeriveNextVersion => callable.derive_next_version()?,
+                        PluginStep::GenerateNotes => callable.generate_notes()?,
+                        PluginStep::Prepare => callable.prepare()?,
+                        PluginStep::VerifyRelease => callable.verify_release()?,
+                        PluginStep::Commit => callable.commit()?,
+                        PluginStep::Publish => callable.publish()?,
+                        PluginStep::Notify => callable.notify()?,
+                    }
+                }
+                Action::Get(src_id, src_key) => {
+                    let value = self.plugins[src_id].as_interface().get_value(&src_key)?;
+                    log::debug!(
+                        "get {}::{} ==> {:?}",
+                        self.plugins[src_id].name,
+                        src_key,
+                        value
+                    );
+                    let value = Value::builder(&src_key).value(value).build();
+                    self.data_mgr.insert_global(src_key, value);
+                }
+                Action::Set(dst_id, dst_key, src_key) => {
+                    let value = self.data_mgr.prepare_value(dst_id, &dst_key, &src_key)?;
+                    log::debug!(
+                        "set {}::{} <== {:?}",
+                        self.plugins[dst_id].name,
+                        dst_key,
+                        value
+                    );
+                    self.plugins[dst_id]
+                        .as_interface()
+                        .set_value(&dst_key, value)?;
+                }
+                Action::SetValue(dst_id, dst_key, value) => {
+                    let value = Value::builder(&dst_key).value(value).build();
+                    log::debug!(
+                        "set {}::{} <== {:?}",
+                        self.plugins[dst_id].name,
+                        dst_key,
+                        value
+                    );
+                    self.plugins[dst_id]
+                        .as_interface()
+                        .set_value(&dst_key, value)?;
+                }
+                Action::RequireConfigEntry(dst_id, dst_key) => {
+                    let value = self.data_mgr.prepare_value_same_key(dst_id, &dst_key)?;
+                    log::debug!(
+                        "set {}::{} <== {:?}",
+                        self.plugins[dst_id].name,
+                        dst_key,
+                        value
+                    );
+                    self.plugins[dst_id]
+                        .as_interface()
+                        .set_value(&dst_key, value)?;
+                }
+            }
+        }
 
         if self.is_dry_run {
             log::info!(
@@ -85,9 +153,18 @@ impl KernelBuilder {
 
         // Calculate the plugin run sequence
         let sequence = PluginSequence::new(&plugins, &self.config, is_dry_run)?;
+        log::info!("Plugin Sequence Graph built successfully");
+        log::trace!("graph: {:#?}", sequence);
+
+        // Create data manager
+        let data_mgr = DataManager::new(
+            collect_plugins_initial_configuration(&plugins)?,
+            &self.config,
+        );
 
         Ok(Kernel {
             plugins,
+            data_mgr,
             sequence,
             is_dry_run,
         })
@@ -118,113 +195,6 @@ impl KernelBuilder {
             .map(|p| starter.start(p))
             .collect::<Result<_, _>>()?;
         Ok(plugins)
-    }
-
-    fn discover_capabilities(
-        plugins: &[Plugin],
-    ) -> Result<Map<PluginStep, Vec<String>>, failure::Error> {
-        let discovery = CapabilitiesDiscovery::new();
-        let mut capabilities = Map::new();
-
-        for plugin in plugins {
-            let plugin_caps = discovery.discover(&plugin)?;
-            for step in plugin_caps {
-                capabilities
-                    .entry(step)
-                    .or_insert_with(Vec::new)
-                    .push(plugin.name.clone());
-            }
-        }
-
-        Ok(capabilities)
-    }
-
-    fn build_steps_to_plugin_ids_map(
-        config: &Config,
-        plugins: &[Plugin],
-        capabilities: Map<PluginStep, Vec<String>>,
-    ) -> Result<Map<PluginStep, Vec<usize>>, failure::Error> {
-        let mut map = Map::new();
-
-        fn collect_ids_of_plugins_matching(
-            plugins: &[Plugin],
-            names: &[impl AsRef<str>],
-        ) -> Vec<usize> {
-            plugins
-                .iter()
-                .enumerate()
-                .filter_map(|(id, p)| {
-                    names
-                        .iter()
-                        .map(AsRef::as_ref)
-                        .find(|&n| n == p.name)
-                        .map(|_| id)
-                })
-                .collect::<Vec<_>>()
-        }
-
-        // TODO: Store plugins in Arc links to make it possible to have copies in different steps
-        for (step, step_def) in config.steps.iter() {
-            match step_def {
-                StepDefinition::Discover => {
-                    let names = capabilities.get(&step);
-
-                    let ids = if let Some(names) = names {
-                        collect_ids_of_plugins_matching(&plugins[..], &names[..])
-                    } else {
-                        Vec::new()
-                    };
-
-                    if ids.is_empty() {
-                        log::warn!("Step '{}' is marked for auto-discovery, but no plugin implements this method", step.as_str());
-                    }
-
-                    map.insert(*step, ids);
-                }
-                StepDefinition::Singleton(plugin) => {
-                    let names = capabilities
-                        .get(&step)
-                        .ok_or(KernelError::NoPluginsForStep(*step))?;
-
-                    if !names.contains(&plugin) {
-                        Err(KernelError::PluginDoesNotImplementStep(
-                            *step,
-                            plugin.to_string(),
-                        ))?
-                    }
-
-                    let ids = collect_ids_of_plugins_matching(&plugins, &[plugin]);
-                    assert_eq!(ids.len(), 1);
-
-                    map.insert(*step, ids);
-                }
-                StepDefinition::Shared(list) => {
-                    if list.is_empty() {
-                        continue;
-                    };
-
-                    let names = capabilities
-                        .get(&step)
-                        .ok_or(KernelError::NoPluginsForStep(*step))?;
-
-                    for plugin in list {
-                        if !names.contains(&plugin) {
-                            Err(KernelError::PluginDoesNotImplementStep(
-                                *step,
-                                plugin.to_string(),
-                            ))?
-                        }
-                    }
-
-                    let ids = collect_ids_of_plugins_matching(&plugins, &list[..]);
-                    assert_eq!(ids.len(), list.len());
-
-                    map.insert(*step, ids);
-                }
-            }
-        }
-
-        Ok(map)
     }
 
     fn check_all_resolved(plugins: &[RawPlugin]) -> Result<(), failure::Error> {
@@ -281,238 +251,8 @@ pub enum KernelError {
         _0
     )]
     MissingRequiredData(&'static str),
+    #[fail(display = "'{}' is undefined in releaserc.toml", _0)]
+    ConfigEntryUndefined(String),
     #[fail(display = "Kernel finished early")]
     EarlyExit,
-}
-
-#[derive(Default)]
-struct KernelData {
-    last_version: Option<Version>,
-    next_version: Option<semver::Version>,
-    changelog: Option<String>,
-    files_to_commit: Option<Vec<String>>,
-    tag_name: Option<String>,
-    should_finish_early: bool,
-}
-
-impl KernelData {
-    fn set_last_version(&mut self, version: Version) {
-        self.last_version = Some(version)
-    }
-
-    fn set_next_version(&mut self, version: semver::Version) {
-        self.next_version = Some(version)
-    }
-
-    fn set_changelog(&mut self, changelog: String) {
-        self.changelog = Some(changelog)
-    }
-
-    fn set_files_to_commit(&mut self, files: Vec<String>) {
-        self.files_to_commit = Some(files);
-    }
-
-    fn set_tag_name(&mut self, tag_name: String) {
-        self.tag_name = Some(tag_name);
-    }
-
-    fn require_last_version(&self) -> Result<&Version, failure::Error> {
-        Ok(require("last_version", || self.last_version.as_ref())?)
-    }
-
-    fn require_next_version(&self) -> Result<&semver::Version, failure::Error> {
-        Ok(require("next_version", || self.next_version.as_ref())?)
-    }
-
-    fn require_changelog(&self) -> Result<&str, failure::Error> {
-        Ok(require("changelog", || self.changelog.as_ref())?)
-    }
-
-    fn require_files_to_commit(&self) -> Result<&[String], failure::Error> {
-        Ok(require("files_to_commit", || {
-            self.files_to_commit.as_ref()
-        })?)
-    }
-
-    fn requite_tag_name(&self) -> Result<&str, failure::Error> {
-        Ok(require("tag_name", || self.tag_name.as_ref())?)
-    }
-}
-
-fn require<T>(desc: &'static str, query_fn: impl Fn() -> Option<T>) -> Result<T, failure::Error> {
-    let data = query_fn().ok_or(KernelError::MissingRequiredData(desc))?;
-    Ok(data)
-}
-
-type KernelRoutineResult<T> = Result<T, failure::Error>;
-
-trait KernelRoutine {
-    fn execute(
-        &self,
-        dispatcher: &PluginDispatcher,
-        data: &mut KernelData,
-    ) -> KernelRoutineResult<()>;
-
-    fn pre_flight(
-        dispatcher: &PluginDispatcher,
-        _data: &mut KernelData,
-    ) -> KernelRoutineResult<()> {
-        execute_request(|| dispatcher.pre_flight())?;
-        Ok(())
-    }
-
-    fn get_last_release(
-        dispatcher: &PluginDispatcher,
-        data: &mut KernelData,
-    ) -> KernelRoutineResult<()> {
-        let (_, response) = dispatcher.get_last_release()?;
-        let response = response.into_result()?;
-        data.set_last_version(response);
-        Ok(())
-    }
-
-    fn derive_next_version(
-        dispatcher: &PluginDispatcher,
-        data: &mut KernelData,
-    ) -> KernelRoutineResult<()> {
-        let responses =
-            execute_request(|| dispatcher.derive_next_version(data.require_last_version()?))?;
-
-        let next_version = responses
-            .into_iter()
-            .map(|(_, v)| v)
-            .max()
-            .expect("iterator from response map cannot be empty: this is a bug, aborting.");
-
-        let is_same_versions = {
-            let last_version = data.require_last_version()?;
-            last_version
-                .semver
-                .as_ref()
-                .map(|v| v == &next_version)
-                .unwrap_or(false)
-        };
-
-        data.set_next_version(next_version);
-
-        if is_same_versions {
-            log::info!("Next version would be the same as previous");
-            log::info!("You're all set, no release is required!");
-            data.should_finish_early = true;
-        }
-
-        Ok(())
-    }
-
-    fn generate_notes(
-        dispatcher: &PluginDispatcher,
-        data: &mut KernelData,
-    ) -> KernelRoutineResult<()> {
-        let params = request::GenerateNotesData {
-            start_rev: data.require_last_version()?.rev.clone(),
-            new_version: data.require_next_version()?.clone(),
-        };
-
-        let responses = execute_request(|| dispatcher.generate_notes(&params))?;
-
-        let changelog = responses.values().fold(String::new(), |mut summary, part| {
-            summary.push_str(part);
-            summary
-        });
-
-        log::info!("Would write the following changelog: ");
-        log::info!("--------- BEGIN CHANGELOG ----------");
-        log::info!("{}", changelog);
-        log::info!("---------- END CHANGELOG -----------");
-
-        data.set_changelog(changelog);
-
-        Ok(())
-    }
-
-    fn prepare(dispatcher: &PluginDispatcher, data: &mut KernelData) -> KernelRoutineResult<()> {
-        let responses = execute_request(|| dispatcher.prepare(data.require_next_version()?))?;
-
-        let changed_files = responses
-            .into_iter()
-            .flat_map(|(_, v)| v.into_iter())
-            .collect();
-
-        data.set_files_to_commit(changed_files);
-
-        Ok(())
-    }
-
-    fn verify_release(
-        dispatcher: &PluginDispatcher,
-        _data: &mut KernelData,
-    ) -> KernelRoutineResult<()> {
-        execute_request(|| dispatcher.verify_release())?;
-        Ok(())
-    }
-
-    fn commit(dispatcher: &PluginDispatcher, data: &mut KernelData) -> KernelRoutineResult<()> {
-        let params = request::CommitData {
-            files_to_commit: data.require_files_to_commit()?.to_owned(),
-            version: data.require_next_version()?.clone(),
-            changelog: data.require_changelog()?.to_owned(),
-        };
-
-        let (_, response) = dispatcher.commit(&params)?;
-
-        let tag_name = response.into_result()?;
-
-        data.set_tag_name(tag_name);
-
-        Ok(())
-    }
-
-    fn publish(dispatcher: &PluginDispatcher, data: &mut KernelData) -> KernelRoutineResult<()> {
-        let params = request::PublishData {
-            tag_name: data.requite_tag_name()?.to_owned(),
-            changelog: data.require_changelog()?.to_owned(),
-        };
-
-        execute_request(|| dispatcher.publish(&params))?;
-        Ok(())
-    }
-
-    fn notify(dispatcher: &PluginDispatcher, _data: &mut KernelData) -> KernelRoutineResult<()> {
-        execute_request(|| dispatcher.notify(&()))?;
-        Ok(())
-    }
-}
-
-impl KernelRoutine for PluginStep {
-    fn execute(
-        &self,
-        dispatcher: &PluginDispatcher,
-        data: &mut KernelData,
-    ) -> KernelRoutineResult<()> {
-        match self {
-            PluginStep::PreFlight => PluginStep::pre_flight(dispatcher, data),
-            PluginStep::GetLastRelease => PluginStep::get_last_release(dispatcher, data),
-            PluginStep::DeriveNextVersion => PluginStep::derive_next_version(dispatcher, data),
-            PluginStep::GenerateNotes => PluginStep::generate_notes(dispatcher, data),
-            PluginStep::Prepare => PluginStep::prepare(dispatcher, data),
-            PluginStep::VerifyRelease => PluginStep::verify_release(dispatcher, data),
-            PluginStep::Commit => PluginStep::commit(dispatcher, data),
-            PluginStep::Publish => PluginStep::publish(dispatcher, data),
-            PluginStep::Notify => PluginStep::notify(dispatcher, data),
-        }
-    }
-}
-
-fn execute_request<F, T>(request_fn: F) -> Result<Map<String, T>, failure::Error>
-where
-    F: FnOnce() -> Result<Map<String, PluginResponse<T>>, failure::Error>,
-{
-    request_fn()?
-        .into_iter()
-        .map(|(name, r)| {
-            r.into_result()
-                .map_err(|err| failure::format_err!("Plugin {:?} raised error: {}", name, err))
-                .map(|data| (name, data))
-        })
-        .collect()
 }

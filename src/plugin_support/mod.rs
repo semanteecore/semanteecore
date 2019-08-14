@@ -146,7 +146,7 @@ impl PluginStep {
         }
     }
 
-    pub fn is_dry(&self) -> bool {
+    pub fn is_dry(self) -> bool {
         match self {
             PluginStep::PreFlight
             | PluginStep::GetLastRelease
