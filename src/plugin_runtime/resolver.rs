@@ -46,11 +46,11 @@ impl BuiltinResolver {
 
 impl Resolver for BuiltinResolver {
     fn resolve(&self, name: &str, _meta: &UnresolvedPlugin) -> Result<ResolvedPlugin, failure::Error> {
-        use crate::builtin_plugins::{ClogPlugin, GitPlugin}; //GithubPlugin, RustPlugin, DockerPlugin};
+        use crate::builtin_plugins::{ClogPlugin, GitPlugin, GithubPlugin}; //, RustPlugin, DockerPlugin};
         let plugin: Box<dyn PluginInterface> = match name {
             "git" => Box::new(GitPlugin::new()),
             "clog" => Box::new(ClogPlugin::new()),
-            //            "github" => Box::new(GithubPlugin::new()),
+            "github" => Box::new(GithubPlugin::new()),
             //            "rust" => Box::new(RustPlugin::new()),
             //            "docker" => Box::new(DockerPlugin::new()),
             other => return Err(ResolverError::BuiltinNotRegistered(other.to_string()).into()),

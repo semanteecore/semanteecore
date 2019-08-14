@@ -56,6 +56,7 @@ impl ProvisionCapabilityBuilder {
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ProvisionRequest {
     pub required_at: Option<PluginStep>,
+    pub from_env: bool,
     pub key: String,
 }
 

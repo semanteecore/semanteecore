@@ -18,6 +18,7 @@ pub enum Action {
     Set(PluginId, DestKey, SourceKey),
     SetValue(PluginId, DestKey, serde_json::Value),
     RequireConfigEntry(PluginId, DestKey),
+    RequireEnvValue(PluginId, DestKey, SourceKey),
     PreStepHook(PluginStep),
     PostStepHook(PluginStep),
 }
@@ -121,10 +122,17 @@ impl<'a> PluginSequenceBuilder<'a> {
                             let new = Value::builder(&dest_key).value(value.clone()).build();
                             cfg.insert(dest_key.clone(), new);
                         }
-                        ValueDefinition::From { required_at, key } => {
+                        ValueDefinition::From {
+                            required_at,
+                            from_env,
+                            key,
+                        } => {
                             let mut new = Value::builder(&key);
                             if let Some(step) = required_at {
                                 new.required_at(*step);
+                            }
+                            if *from_env {
+                                new.from_env();
                             }
                             cfg.insert(key.clone(), new.build());
                         }
@@ -175,16 +183,23 @@ impl<'a> StepSequenceBuilder<'a> {
                             seq.push_back(Action::SetValue(dest_id, dest_key.clone(), value.clone()));
                             None
                         }
-                        ValueState::NeedsProvision(pr) => match pr.required_at {
-                            Some(required_at) => {
-                                if required_at > step {
-                                    None
-                                } else {
-                                    Some((dest_key.clone(), pr.key.clone()))
+                        ValueState::NeedsProvision(pr) => {
+                            if pr.from_env {
+                                seq.push_back(Action::RequireEnvValue(dest_id, dest_key.clone(), pr.key.clone()));
+                                None
+                            } else {
+                                match pr.required_at {
+                                    Some(required_at) => {
+                                        if required_at > step {
+                                            None
+                                        } else {
+                                            Some((dest_key.clone(), pr.key.clone()))
+                                        }
+                                    }
+                                    None => Some((dest_key.clone(), pr.key.clone())),
                                 }
                             }
-                            None => Some((dest_key.clone(), pr.key.clone())),
-                        },
+                        }
                     })
                     .collect()
             })

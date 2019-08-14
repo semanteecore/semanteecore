@@ -59,6 +59,7 @@ pub struct ValueBuilder<T> {
     protected: bool,
     key: String,
     value: Option<T>,
+    from_env: bool,
     required_at: Option<PluginStep>,
 }
 
@@ -68,6 +69,7 @@ impl<T> ValueBuilder<T> {
             protected: false,
             key: key.to_owned(),
             value: None,
+            from_env: false,
             required_at: None,
         }
     }
@@ -87,6 +89,11 @@ impl<T> ValueBuilder<T> {
         self
     }
 
+    pub fn from_env(&mut self) -> &mut Self {
+        self.from_env = true;
+        self
+    }
+
     pub fn build(&mut self) -> Value<T> {
         let key = mem::replace(&mut self.key, String::new());
 
@@ -102,6 +109,7 @@ impl<T> ValueBuilder<T> {
                 key: key.clone(),
                 state: ValueState::NeedsProvision(ProvisionRequest {
                     required_at: self.required_at.take(),
+                    from_env: self.from_env,
                     key,
                 }),
             }
@@ -132,10 +140,17 @@ impl Into<Map<String, Value<serde_json::Value>>> for ValueDefinitionMap {
         for (key, value) in self.0 {
             let kv = match value {
                 ValueDefinition::Value(v) => Value::builder(&key).value(v).build(),
-                ValueDefinition::From { required_at, key } => {
+                ValueDefinition::From {
+                    required_at,
+                    from_env,
+                    key,
+                } => {
                     let mut kv = Value::builder(&key);
                     if let Some(step) = required_at {
                         kv.required_at(step);
+                    }
+                    if from_env {
+                        kv.from_env();
                     }
                     kv.build()
                 }
@@ -150,6 +165,7 @@ impl Into<Map<String, Value<serde_json::Value>>> for ValueDefinitionMap {
 pub enum ValueDefinition {
     From {
         required_at: Option<PluginStep>,
+        from_env: bool,
         key: String,
     },
     Value(serde_json::Value),
@@ -205,6 +221,7 @@ fn parse_value_definition(value: &str) -> Result<ValueDefinition, failure::Error
         .unwrap();
 
     let mut required_at = None;
+    let mut from_env = false;
     let mut key = String::new();
 
     for pair in pairs.into_inner() {
@@ -214,6 +231,9 @@ fn parse_value_definition(value: &str) -> Result<ValueDefinition, failure::Error
             Rule::required_at_step => {
                 required_at = Some(PluginStep::from_str(pair.as_str())?);
             }
+            Rule::from_env => {
+                from_env = true;
+            }
             Rule::key => {
                 key = pair.as_str().into();
             }
@@ -221,7 +241,11 @@ fn parse_value_definition(value: &str) -> Result<ValueDefinition, failure::Error
         }
     }
 
-    Ok(ValueDefinition::From { required_at, key })
+    Ok(ValueDefinition::From {
+        required_at,
+        from_env,
+        key,
+    })
 }
 
 impl<T: Default> ValueBuilder<T> {

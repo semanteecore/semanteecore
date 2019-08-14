@@ -15,6 +15,7 @@ use crate::plugin_support::flow::Value;
 use crate::plugin_support::proto::response::PluginResponse;
 use crate::plugin_support::proto::Version;
 use crate::plugin_support::{Plugin, PluginStep, RawPlugin, RawPluginState};
+use std::collections::HashMap;
 
 const STEPS_DRY: &[PluginStep] = &[
     PluginStep::PreFlight,
@@ -33,6 +34,7 @@ pub struct Kernel {
     plugins: Vec<Plugin>,
     data_mgr: DataManager,
     sequence: PluginSequence,
+    env: HashMap<String, String>,
     hooks: Hooks,
     is_dry_run: bool,
 }
@@ -83,6 +85,15 @@ impl Kernel {
                 }
                 Action::RequireConfigEntry(dst_id, dst_key) => {
                     let value = self.data_mgr.prepare_value_same_key(dst_id, &dst_key)?;
+                    log::debug!("set {}::{} <== {:?}", self.plugins[dst_id].name, dst_key, value);
+                    self.plugins[dst_id].as_interface().set_value(&dst_key, value)?;
+                }
+                Action::RequireEnvValue(dst_id, dst_key, src_key) => {
+                    let value = self
+                        .env
+                        .get(&src_key)
+                        .ok_or_else(|| KernelError::EnvValueUndefined(src_key.clone()))?;
+                    let value = Value::builder(&src_key).value(serde_json::to_value(value)?).build();
                     log::debug!("set {}::{} <== {:?}", self.plugins[dst_id].name, dst_key, value);
                     self.plugins[dst_id].as_interface().set_value(&dst_key, value)?;
                 }
@@ -206,6 +217,7 @@ impl KernelBuilder {
         let hooks = mem::replace(&mut self.hooks, Hooks::default());
 
         Ok(Kernel {
+            env: std::env::vars().collect(),
             plugins,
             data_mgr,
             sequence,
@@ -290,6 +302,8 @@ pub enum KernelError {
     ConfigEntryUndefined(String),
     #[fail(display = "cannot determine current version due to value conflict {:?}", _0)]
     CurrentVersionConflict(Vec<serde_json::Value>),
+    #[fail(display = "environment value must be set: {}", _0)]
+    EnvValueUndefined(String),
     #[fail(display = "Kernel finished early")]
     EarlyExit,
 }

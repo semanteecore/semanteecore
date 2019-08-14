@@ -54,7 +54,7 @@ impl Default for Config {
                 .protected()
                 .required_at(PluginStep::Commit)
                 .build(),
-            changelog: Value::builder("changelog")
+            changelog: Value::builder("release_notes")
                 .protected()
                 .required_at(PluginStep::Commit)
                 .build(),
@@ -313,13 +313,13 @@ impl PluginInterface for GitPlugin {
 
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
         PluginResponse::from_ok(vec![
-            ProvisionCapability::builder("branch")
+            ProvisionCapability::builder("git_branch")
                 .after_step(PluginStep::PreFlight)
                 .build(),
-            ProvisionCapability::builder("remote")
+            ProvisionCapability::builder("git_remote")
                 .after_step(PluginStep::PreFlight)
                 .build(),
-            ProvisionCapability::builder("repo_name")
+            ProvisionCapability::builder("git_remote_url")
                 .after_step(PluginStep::PreFlight)
                 .build(),
             ProvisionCapability::builder("current_version")
@@ -333,8 +333,17 @@ impl PluginInterface for GitPlugin {
 
     fn get_value(&self, key: &str) -> response::GetValue {
         let value = match key {
-            "branch" => serde_json::to_value(self.config.branch.as_value())?,
-            "remote" => serde_json::to_value(self.config.remote.as_value())?,
+            "git_branch" => serde_json::to_value(self.config.branch.as_value())?,
+            "git_remote" => serde_json::to_value(self.config.remote.as_value())?,
+            "git_remote_url" => {
+                let state = self.state.as_ref().ok_or(GitPluginError::StateIsNone)?;
+                let remote = state.repo.find_remote(self.config.remote.as_value())?;
+                if let Some(url) = remote.url() {
+                    serde_json::to_value(url)?
+                } else {
+                    return PluginResponse::from_error(GitPluginError::GitRemoteUndefined.into());
+                }
+            }
             "current_version" => {
                 serde_json::to_value(self.state.as_ref().and_then(|s| s.current_version.as_ref()).ok_or(
                     FlowError::DataNotAvailableYet(key.to_owned(), Availability::AfterStep(PluginStep::GetLastRelease)),

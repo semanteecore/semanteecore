@@ -6,10 +6,7 @@ use std::process::{Command, Stdio};
 
 use failure::Fail;
 
-use crate::plugin::proto::{
-    request,
-    response::{self, PluginResponse},
-};
+use crate::plugin::proto::response::{self, PluginResponse};
 use crate::plugin::{PluginInterface, PluginStep};
 use serde::Deserialize;
 

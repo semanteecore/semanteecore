@@ -6,17 +6,15 @@ use failure::Fail;
 use http::header::HeaderValue;
 use hubcaps::releases::ReleaseOptions;
 use hubcaps::{Credentials, Github};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::runtime::current_thread::block_on_all;
 use url::{ParseError, Url};
 
-use crate::plugin::proto::{
-    request,
-    response::{self, PluginResponse},
-};
-use crate::plugin::{PluginInterface, PluginStep};
+use crate::plugin_support::flow::{FlowError, Value};
+use crate::plugin_support::proto::response::{self, PluginResponse};
+use crate::plugin_support::{PluginInterface, PluginStep};
 use crate::utils::ResultExt;
-use crate::plugin::flow::KeyValue;
+use std::collections::HashMap;
 
 const USERAGENT: &str = concat!("semantic-rs/", env!("CARGO_PKG_VERSION"));
 
@@ -32,33 +30,37 @@ impl GithubPlugin {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
-    assets: Vec<String>,
-    user: Option<String>,
-    repository: Option<String>,
-    #[serde(default = "default_remote")]
-    remote: String,
-    #[serde(default = "default_branch")]
-    branch: String,
-    #[serde(default)]
-    draft: bool,
-    #[serde(default)]
-    pre_release: bool,
-    project_root: KeyValue<String>,
+    assets: Value<Vec<String>>,
+    user: Value<Option<String>>,
+    repository: Value<Option<String>>,
+    remote: Value<String>,
+    remote_url: Value<String>,
+    branch: Value<String>,
+    tag_name: Value<String>,
+    changelog: Value<String>,
+    draft: Value<bool>,
+    pre_release: Value<bool>,
+    project_root: Value<String>,
+    token: Value<String>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
-            assets: vec![],
-            user: None,
-            repository: None,
-            remote: default_remote(),
-            branch: default_branch(),
-            draft: false,
-            pre_release: false,
-            project_root: KeyValue::builder("project_root").protected().build(),
+            assets: Value::builder("assets").default_value().build(),
+            user: Value::builder("user").default_value().build(),
+            repository: Value::builder("repository").default_value().build(),
+            remote: Value::builder("git_remote").build(),
+            remote_url: Value::builder("git_remote_url").build(),
+            branch: Value::builder("git_branch").build(),
+            tag_name: Value::builder("release_tag").required_at(PluginStep::Publish).build(),
+            changelog: Value::builder("release_notes").required_at(PluginStep::Publish).build(),
+            draft: Value::builder("draft").default_value().build(),
+            pre_release: Value::builder("draft").value(true).build(),
+            project_root: Value::builder("project_root").protected().build(),
+            token: Value::builder("GH_TOKEN").from_env().build(),
         }
     }
 }
@@ -105,31 +107,39 @@ impl PluginInterface for GithubPlugin {
         PluginResponse::from_ok("github".into())
     }
 
-    fn get_default_config(&self) -> response::Config {
-        unimplemented!()
+    fn provision_capabilities(&self) -> response::ProvisionCapabilities {
+        PluginResponse::from_ok(vec![])
     }
 
-    fn set_config(&mut self, _req: request::Config) -> response::Null {
-        unimplemented!()
+    fn get_value(&self, key: &str) -> response::GetValue {
+        PluginResponse::from_error(FlowError::KeyNotSupported(key.to_owned()).into())
     }
 
-    fn methods(&self, _req: request::Methods) -> response::Methods {
+    fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
+        let config_json = self.get_config()?;
+        let mut config_map: HashMap<String, Value<serde_json::Value>> = serde_json::from_value(config_json)?;
+        config_map.insert(key.to_owned(), value);
+        let config_json = serde_json::to_value(config_map)?;
+        self.config = serde_json::from_value(config_json)?;
+        PluginResponse::from_ok(())
+    }
+
+    fn get_config(&self) -> response::Config {
+        PluginResponse::from_ok(serde_json::to_value(&self.config)?)
+    }
+
+    fn methods(&self) -> response::Methods {
         let methods = vec![PluginStep::PreFlight, PluginStep::Publish];
         PluginResponse::from_ok(methods)
     }
 
-    fn pre_flight(&mut self, params: request::PreFlight) -> response::PreFlight {
+    fn pre_flight(&mut self) -> response::Null {
         let mut response = PluginResponse::builder();
-
-        if !params.env.contains_key("GH_TOKEN") {
-            response.error(GithubPluginError::TokenUndefined);
-        }
-
         // Try to parse config
         let config = &self.config;
 
         // Try to parse assets
-        globs_to_assets(config.assets.iter().map(String::as_str))
+        globs_to_assets(config.assets.as_value().iter().map(String::as_str))
             .into_iter()
             .inspect(|asset| {
                 asset.as_ref().ok().map(|a| {
@@ -146,21 +156,19 @@ impl PluginInterface for GithubPlugin {
         response.body(()).build()
     }
 
-    fn publish(&mut self, params: request::Publish) -> response::Publish {
+    fn publish(&mut self) -> response::Null {
         let cfg = &self.config;
         let project_root = Path::new(cfg.project_root.as_value());
 
-        let repo = git2::Repository::open(project_root)?;
-        let remote = repo.find_remote(&cfg.remote)?;
-        let remote_url = remote.url().ok_or(GithubPluginError::GitRemoteUndefined)?;
+        let remote_url = self.config.remote_url.as_value();
 
         let (derived_name, derived_repo) = user_repo_from_url(remote_url)?;
 
-        let user = cfg.user.as_ref().unwrap_or(&derived_name);
-        let repo_name = cfg.repository.as_ref().unwrap_or(&derived_repo);
-        let branch = &cfg.branch;
-        let tag_name = &params.data.tag_name;
-        let changelog = &params.data.changelog;
+        let user = cfg.user.as_value().as_ref().unwrap_or(&derived_name);
+        let repo_name = cfg.repository.as_value().as_ref().unwrap_or(&derived_repo);
+        let branch = cfg.branch.as_value();
+        let tag_name = cfg.tag_name.as_value();
+        let changelog = cfg.changelog.as_value();
         let token = std::env::var("GH_TOKEN").map_err(|_| GithubPluginError::TokenUndefined)?;
 
         // Create release
@@ -170,8 +178,8 @@ impl PluginInterface for GithubPlugin {
             .name(tag_name)
             .body(changelog)
             .commitish(branch)
-            .draft(cfg.draft)
-            .prerelease(cfg.pre_release)
+            .draft(*cfg.draft.as_value())
+            .prerelease(*cfg.pre_release.as_value())
             .build();
 
         let release = block_on_all(futures::lazy(move || {
@@ -187,7 +195,7 @@ impl PluginInterface for GithubPlugin {
 
         let mut errored = false;
 
-        let assets = globs_to_assets(cfg.assets.iter().map(String::as_str))
+        let assets = globs_to_assets(cfg.assets.as_value().iter().map(String::as_str))
             .into_iter()
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -200,11 +208,7 @@ impl PluginInterface for GithubPlugin {
                 asset.name(),
             );
 
-            log::info!(
-                "Uploading {}, mime-type {}",
-                asset.name(),
-                asset.content_type()
-            );
+            log::info!("Uploading {}, mime-type {}", asset.name(), asset.content_type());
             log::debug!("Upload url: {}", endpoint);
 
             let body = std::fs::read(asset.path())?;
@@ -248,18 +252,12 @@ impl Asset {
 
         // Check if path exists
         if !path.exists() {
-            return Err(failure::format_err!(
-                "asset file not found at {}",
-                path.display()
-            ));
+            return Err(failure::format_err!("asset file not found at {}", path.display()));
         }
 
         // Check is asset is file
         if !path.is_file() {
-            return Err(failure::format_err!(
-                "asset at {} is not a file",
-                path.display()
-            ));
+            return Err(failure::format_err!("asset at {} is not a file", path.display()));
         }
 
         // Create a name from the file path
@@ -267,9 +265,7 @@ impl Asset {
             .file_name()
             .ok_or_else(|| failure::format_err!("couldn't get a file stem for {}", path.display()))?
             .to_str()
-            .ok_or_else(|| {
-                failure::format_err!("{} is not a valid utf-8 path name", path.display())
-            })?
+            .ok_or_else(|| failure::format_err!("{} is not a valid utf-8 path name", path.display()))?
             .to_owned();
 
         // Extract the content type
@@ -314,11 +310,7 @@ pub fn user_repo_from_url(url: &str) -> Result<(String, String), failure::Error>
 
     let path = match path {
         Some(ref path) if path.len() == 2 => path,
-        _ => {
-            return Err(failure::err_msg(
-                "Remote URL should contain user and repository",
-            ))
-        }
+        _ => return Err(failure::err_msg("Remote URL should contain user and repository")),
     };
 
     let user = path[0].clone();
@@ -364,11 +356,7 @@ mod test {
 
     #[test]
     fn parses_other_urls() {
-        let urls = [(
-            "https://github.com/user/repo.git.repo",
-            "user",
-            "repo.git.repo",
-        )];
+        let urls = [("https://github.com/user/repo.git.repo", "user", "repo.git.repo")];
 
         for &(url, exp_user, exp_repo) in &urls {
             println!("Testing '{:?}'", url);
