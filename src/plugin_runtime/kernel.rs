@@ -33,12 +33,13 @@ pub struct Kernel {
     plugins: Vec<Plugin>,
     data_mgr: DataManager,
     sequence: PluginSequence,
+    hooks: Hooks,
     is_dry_run: bool,
 }
 
 impl Kernel {
     pub fn builder(config: Config) -> KernelBuilder {
-        KernelBuilder { config }
+        KernelBuilder { config, hooks: Hooks::default() }
     }
 
     pub fn run(mut self) -> Result<(), failure::Error> {
@@ -108,6 +109,8 @@ impl Kernel {
                         .as_interface()
                         .set_value(&dst_key, value)?;
                 }
+                Action::PreStepHook(step) => self.hooks.exec_before(step, &mut self.data_mgr)?,
+                Action::PostStepHook(step) => self.hooks.exec_after(step, &mut self.data_mgr)?,
             }
         }
 
@@ -124,11 +127,71 @@ impl Kernel {
     }
 }
 
+pub type Hook = Box<dyn Fn(PluginStep, &mut DataManager) -> Result<(), failure::Error>>;
+
+pub enum HookTarget {
+    BeforeStep(PluginStep),
+    AfterStep(PluginStep),
+    BeforeAnyStep,
+    AfterAnyStep,
+}
+
+#[derive(Default)]
+pub struct Hooks {
+    before: Map<PluginStep, Vec<Hook>>,
+    after: Map<PluginStep, Vec<Hook>>,
+    before_any: Vec<Hook>,
+    after_any: Vec<Hook>,
+}
+
+impl Hooks {
+    pub fn exec_before(&self, step: PluginStep, data_mgr: &mut DataManager) -> Result<(), failure::Error> {
+        let hooks = self.before.get(&step)
+            .into_iter()
+            .flat_map(|hooks| hooks.iter())
+            .chain(self.before_any.iter());
+
+        for hook in hooks {
+            hook(step, data_mgr)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn exec_after(&self, step: PluginStep, data_mgr: &mut DataManager) -> Result<(), failure::Error> {
+        let hooks = self.after.get(&step)
+            .into_iter()
+            .flat_map(|hooks| hooks.iter())
+            .chain(self.after_any.iter());
+
+        for hook in hooks {
+            hook(step, data_mgr)?;
+        }
+
+        Ok(())
+    }
+}
+
 pub struct KernelBuilder {
     config: Config,
+    hooks: Hooks,
 }
 
 impl KernelBuilder {
+    pub fn hook<H>(&mut self, target: HookTarget, hook: H) -> &mut Self
+        where H: Fn(PluginStep, &mut DataManager) -> Result<(), failure::Error> + 'static
+    {
+        let hook = Box::new(hook);
+        match target {
+            HookTarget::BeforeStep(step) => self.hooks.before.entry(step).or_insert_with(Vec::new).push(hook),
+            HookTarget::AfterStep(step) => self.hooks.after.entry(step).or_insert_with(Vec::new).push(hook),
+            HookTarget::BeforeAnyStep => self.hooks.before_any.push(hook),
+            HookTarget::AfterAnyStep => self.hooks.after_any.push(hook),
+        }
+
+        self
+    }
+
     pub fn build(&mut self) -> Result<Kernel, failure::Error> {
         // Convert KeyValueDefinitionMap into KeyValue<JsonValue> map
         let cfg = self.config.cfg.clone();
@@ -140,7 +203,7 @@ impl KernelBuilder {
 
         // Move PluginDefinitions out of config and convert them to Plugins
         let plugins = self.config.plugins.clone();
-        let mut plugins = Self::plugin_def_map_to_vec(plugins);
+        let plugins = Self::plugin_def_map_to_vec(plugins);
 
         // Resolve stage
         let plugins = Self::resolve_plugins(plugins)?;
@@ -162,10 +225,14 @@ impl KernelBuilder {
             &self.config,
         );
 
+        // Move out hooks
+        let hooks = mem::replace(&mut self.hooks, Hooks::default());
+
         Ok(Kernel {
             plugins,
             data_mgr,
             sequence,
+            hooks,
             is_dry_run,
         })
     }
@@ -253,6 +320,8 @@ pub enum KernelError {
     MissingRequiredData(&'static str),
     #[fail(display = "'{}' is undefined in releaserc.toml", _0)]
     ConfigEntryUndefined(String),
+    #[fail(display = "cannot determine current version due to value conflict {:?}", _0)]
+    CurrentVersionConflict(Vec<serde_json::Value>),
     #[fail(display = "Kernel finished early")]
     EarlyExit,
 }

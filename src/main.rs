@@ -18,6 +18,9 @@ use env_logger::fmt::Formatter;
 use log::Record;
 use plugin_runtime::{Kernel, KernelError};
 use std::env;
+use crate::plugin_runtime::kernel::{KernelBuilder, HookTarget};
+use crate::plugin_support::PluginStep;
+use crate::plugin_support::proto::Version;
 
 fn main() {
     if let Err(err) = run() {
@@ -46,7 +49,10 @@ fn run() -> Result<(), failure::Error> {
     let is_dry_run = clap_args.is_present("dry");
 
     let config = Config::from_toml("./releaserc.toml", is_dry_run)?;
-    let kernel = Kernel::builder(config).build()?;
+
+    let mut kernel_builder = Kernel::builder(config);
+    setup_kernel_hooks(&mut kernel_builder);
+    let kernel = kernel_builder.build()?;
 
     if let Err(err) = kernel.run() {
         macro_rules! log_error_and_die {
@@ -68,6 +74,38 @@ fn run() -> Result<(), failure::Error> {
     }
 
     Ok(())
+}
+
+fn setup_kernel_hooks(builder: &mut KernelBuilder) {
+    // Exit hook for no version change
+    builder.hook(HookTarget::BeforeStep(PluginStep::GenerateNotes), move |step, data_mgr| {
+        let current_version = data_mgr.get_global("current_version");
+        let next_version = data_mgr.get_global("next_version");
+
+        if let Some(currents) = current_version {
+            if let Some(nexts) = next_version {
+                // Check that current version is a single value
+                let current: Version = match &currents[..] {
+                    [single] => serde_json::from_value(single.clone())?,
+                    multiple => return Err(KernelError::CurrentVersionConflict(multiple.to_vec()).into()),
+                };
+
+                // Check that next version is a single value
+                // If it's not -- then state have changed and version bump is in order
+                let next: semver::Version = match &nexts[..]{
+                    [single] => serde_json::from_value(single.clone())?,
+                    multiple => return Ok(())
+                };
+
+                if current.semver.map(|s| s == next).unwrap_or(false) {
+                    log::info!("No version bump is required, you're all set!");
+                    return Err(KernelError::EarlyExit.into())
+                }
+            }
+        }
+
+        Ok(())
+    });
 }
 
 fn init_logger() {

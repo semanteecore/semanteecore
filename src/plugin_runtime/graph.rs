@@ -18,6 +18,8 @@ pub enum Action {
     Set(PluginId, DestKey, SourceKey),
     SetValue(PluginId, DestKey, serde_json::Value),
     RequireConfigEntry(PluginId, DestKey),
+    PreStepHook(PluginStep),
+    PostStepHook(PluginStep),
 }
 
 #[derive(Debug)]
@@ -379,11 +381,13 @@ impl<'a> StepSequenceBuilder<'a> {
     ) {
         // First option: every key is resolved. Then we just generate a number of Call actions.
         if unresolved.iter().all(Vec::is_empty) {
+            seq.push_back(Action::PreStepHook(self.step));
             seq.extend(
                 (0..self.names.len())
                     .filter(|&id| self.is_enabled(id))
                     .map(|id| Action::Call(id, self.step)),
             );
+            seq.push_back(Action::PostStepHook(self.step));
             return;
         }
 
@@ -450,8 +454,14 @@ impl<'a> StepSequenceBuilder<'a> {
                 }
             }
 
+            if dest_id == 0 {
+                seq.push_back(Action::PreStepHook(self.step))
+            }
+
             seq.push_back(Action::Call(dest_id, self.step));
         }
+
+        seq.push_back(Action::PostStepHook(self.step))
     }
 
     fn is_enabled_for_step(&self, plugin_id: PluginId, step: PluginStep) -> bool {

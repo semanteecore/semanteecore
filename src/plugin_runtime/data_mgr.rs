@@ -34,6 +34,10 @@ impl DataManager {
         }
     }
 
+    pub fn get_global(&self, key: &str) -> Option<&Vec<serde_json::Value>> {
+        self.global.get(key)
+    }
+
     // TODO: merging techniques agnostic of destination data type
     pub fn prepare_value(
         &self,
