@@ -109,6 +109,11 @@ fn setup_kernel_hooks(builder: &mut KernelBuilder) {
             Ok(())
         },
     );
+    // Step INFO level reporting
+    builder.hook(HookTarget::BeforeAnyStep, |step, _| {
+        log::info!("Executing step '{}'", step.as_str());
+        Ok(())
+    });
 }
 
 fn init_logger() {
