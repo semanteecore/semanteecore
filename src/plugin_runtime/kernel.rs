@@ -1,32 +1,16 @@
 use std::mem;
-use std::ops::Try;
 
 use failure::Fail;
 use strum::IntoEnumIterator;
 
-use crate::config::{Config, Map, PluginDefinitionMap, StepDefinition};
+use crate::config::{Config, Map, PluginDefinitionMap};
 use crate::plugin_runtime::data_mgr::DataManager;
-use crate::plugin_runtime::discovery::CapabilitiesDiscovery;
 use crate::plugin_runtime::graph::{collect_plugins_initial_configuration, Action, PluginSequence};
 use crate::plugin_runtime::resolver::PluginResolver;
 use crate::plugin_runtime::starter::PluginStarter;
-use crate::plugin_support::flow::kv::ValueDefinitionMap;
 use crate::plugin_support::flow::Value;
-use crate::plugin_support::proto::response::PluginResponse;
-use crate::plugin_support::proto::Version;
 use crate::plugin_support::{Plugin, PluginStep, RawPlugin, RawPluginState};
 use std::collections::HashMap;
-
-const STEPS_DRY: &[PluginStep] = &[
-    PluginStep::PreFlight,
-    PluginStep::GetLastRelease,
-    PluginStep::DeriveNextVersion,
-    PluginStep::GenerateNotes,
-    PluginStep::Prepare,
-    PluginStep::VerifyRelease,
-];
-
-const STEPS_WET: &[PluginStep] = &[PluginStep::Commit, PluginStep::Publish, PluginStep::Notify];
 
 pub type PluginId = usize;
 
@@ -265,7 +249,7 @@ impl KernelBuilder {
     fn list_not_resolved_plugins(plugins: &[RawPlugin]) -> Vec<String> {
         Self::list_all_plugins_that(plugins, |plugin| match plugin.state() {
             RawPluginState::Unresolved(_) => true,
-            RawPluginState::Resolved(_) | RawPluginState::Started(_) => false,
+            RawPluginState::Resolved(_) => false,
         })
     }
 
@@ -287,19 +271,6 @@ impl KernelBuilder {
 pub enum KernelError {
     #[fail(display = "failed to resolve some modules: \n{:#?}", _0)]
     FailedToResolvePlugins(Vec<String>),
-    #[fail(display = "failed to start some modules: \n{:#?}", _0)]
-    FailedToStartPlugins(Vec<String>),
-    #[fail(display = "no plugins is capable of satisfying a non-null step {:?}", _0)]
-    NoPluginsForStep(PluginStep),
-    #[fail(
-        display = "step {:?} requested plugin {:?}, but it does not implement this step",
-        _0, 1
-    )]
-    PluginDoesNotImplementStep(PluginStep, String),
-    #[fail(display = "required data '{}' was not provided by the previous steps", _0)]
-    MissingRequiredData(&'static str),
-    #[fail(display = "'{}' is undefined in releaserc.toml", _0)]
-    ConfigEntryUndefined(String),
     #[fail(display = "cannot determine current version due to value conflict {:?}", _0)]
     CurrentVersionConflict(Vec<serde_json::Value>),
     #[fail(display = "environment value must be set: {}", _0)]

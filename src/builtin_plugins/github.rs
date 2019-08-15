@@ -2,7 +2,6 @@ use std::ops::Try;
 use std::path::{Path, PathBuf};
 
 use failure::Error;
-use failure::Fail;
 use http::header::HeaderValue;
 use hubcaps::releases::ReleaseOptions;
 use hubcaps::{Credentials, Github};
@@ -63,14 +62,6 @@ impl Default for Config {
             token: Value::builder("GH_TOKEN").from_env().build(),
         }
     }
-}
-
-fn default_remote() -> String {
-    "origin".into()
-}
-
-fn default_branch() -> String {
-    "master".into()
 }
 
 fn globs_to_assets<'a>(globs: impl Iterator<Item = &'a str>) -> Vec<Result<Asset, failure::Error>> {
@@ -158,7 +149,6 @@ impl PluginInterface for GithubPlugin {
 
     fn publish(&mut self) -> response::Null {
         let cfg = &self.config;
-        let project_root = Path::new(cfg.project_root.as_value());
 
         let remote_url = self.config.remote_url.as_value();
 
@@ -169,7 +159,7 @@ impl PluginInterface for GithubPlugin {
         let branch = cfg.branch.as_value();
         let tag_name = cfg.tag_name.as_value();
         let changelog = cfg.changelog.as_value();
-        let token = std::env::var("GH_TOKEN").map_err(|_| GithubPluginError::TokenUndefined)?;
+        let token = cfg.token.as_value();
 
         // Create release
         let credentials = Credentials::Token(token.to_owned());
@@ -380,12 +370,4 @@ mod test {
             assert!(user_repo_from_url(url).is_err());
         }
     }
-}
-
-#[derive(Fail, Debug)]
-pub enum GithubPluginError {
-    #[fail(display = "the GH_TOKEN environment variable is not configured")]
-    TokenUndefined,
-    #[fail(display = "failed to determine git remote url")]
-    GitRemoteUndefined,
 }

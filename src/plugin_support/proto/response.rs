@@ -2,7 +2,7 @@ use std::ops::Try;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Error, ReleaseNotes, Version, Warning};
+use super::{Error, Warning};
 use crate::plugin_support::flow::ProvisionCapability;
 use crate::plugin_support::PluginStep;
 
@@ -86,15 +86,6 @@ impl<T> PluginResponseBuilder<T> {
 
     pub fn error<E: Into<failure::Error>>(&mut self, new: E) -> &mut Self {
         self.errors.push(format!("{}", new.into()));
-        self
-    }
-
-    pub fn errors<'a, E>(&mut self, new: &'a [E]) -> &mut Self
-    where
-        failure::Error: From<&'a E>,
-    {
-        let new_errors = new.iter().map(failure::Error::from).map(|err| format!("{}", err));
-        self.errors.extend(new_errors);
         self
     }
 

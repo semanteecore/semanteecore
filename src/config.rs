@@ -89,10 +89,10 @@ impl Config {
                 StepDefinition::Singleton(_) => (),
                 StepDefinition::Shared(_) | StepDefinition::Discover => match step.kind() {
                     PluginStepKind::Shared => (),
-                    PluginStepKind::Singleton => Err(ConfigError::WrongStepKind {
+                    PluginStepKind::Singleton => return Err(ConfigError::WrongStepKind {
                         expected: PluginStepKind::Singleton,
                         got: PluginStepKind::Shared,
-                    })?,
+                    }.into()),
                 },
             }
         }
@@ -109,14 +109,6 @@ pub enum ConfigError {
         expected: PluginStepKind,
         got: PluginStepKind,
     },
-    #[fail(display = "project root path is not set")]
-    MissingProjectRootPath,
-    #[fail(display = "expected a table for key {}, found {}", _0, _1)]
-    PluginConfigIsNotTable(String, String),
-    #[fail(display = "dry run flag is not set")]
-    MissingDryRunFlag,
-    #[fail(display = "changelog path is undefined")]
-    MissingChangelogPath,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]

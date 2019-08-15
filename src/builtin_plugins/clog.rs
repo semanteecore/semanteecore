@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 
 use clog::fmt::MarkdownWriter;
 use clog::Clog;
-use failure::Fail;
 use git2::{Commit, Repository};
 use serde::{Deserialize, Serialize};
 
@@ -352,12 +351,6 @@ pub fn generate_changelog(
         Some(newline_offset) => Ok(changelog[newline_offset + 1..].into()),
         None => Ok(changelog),
     }
-}
-
-#[derive(Fail, Debug)]
-enum ClogPluginError {
-    #[fail(display = "state is missing, forgot to run pre_flight step?")]
-    MissingState,
 }
 
 #[cfg(test)]

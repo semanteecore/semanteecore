@@ -80,7 +80,7 @@ fn setup_kernel_hooks(builder: &mut KernelBuilder) {
     // Exit hook for no version change
     builder.hook(
         HookTarget::BeforeStep(PluginStep::GenerateNotes),
-        move |step, data_mgr| {
+        move |_step, data_mgr| {
             let current_version = data_mgr.get_global("current_version");
             let next_version = data_mgr.get_global("next_version");
 
@@ -96,7 +96,7 @@ fn setup_kernel_hooks(builder: &mut KernelBuilder) {
                     // If it's not -- then state have changed and version bump is in order
                     let next: semver::Version = match &nexts[..] {
                         [single] => serde_json::from_value(single.clone())?,
-                        multiple => return Ok(()),
+                        _multiple => return Ok(()),
                     };
 
                     if current.semver.map(|s| s == next).unwrap_or(false) {
@@ -126,16 +126,14 @@ fn init_logger() {
     let with_prefix = |record: &Record, prefix: &'static str, verbose: bool, fmt: &mut Formatter| {
         if !verbose {
             writeln!(fmt, "{}{}", prefix, record.args())
-        } else {
-            if let Some(module) = record.module_path() {
-                if let Some(line) = record.line() {
-                    writeln!(fmt, "{}{}:{}\t{}", prefix, module, line, record.args())
-                } else {
-                    writeln!(fmt, "{}{}\t{}", prefix, module, record.args())
-                }
+        } else if let Some(module) = record.module_path() {
+            if let Some(line) = record.line() {
+                writeln!(fmt, "{}{}:{}\t{}", prefix, module, line, record.args())
             } else {
-                writeln!(fmt, "{}{}", prefix, record.args())
+                writeln!(fmt, "{}{}\t{}", prefix, module, record.args())
             }
+        } else {
+            writeln!(fmt, "{}{}", prefix, record.args())
         }
     };
 

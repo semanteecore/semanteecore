@@ -89,6 +89,7 @@ impl<T> ValueBuilder<T> {
         self
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn from_env(&mut self) -> &mut Self {
         self.from_env = true;
         self

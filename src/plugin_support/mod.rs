@@ -33,7 +33,6 @@ impl RawPlugin {
 pub enum RawPluginState {
     Unresolved(UnresolvedPlugin),
     Resolved(ResolvedPlugin),
-    Started(Plugin),
 }
 
 pub struct Plugin {
@@ -60,20 +59,6 @@ impl RawPluginState {
     pub fn is_resolved(&self) -> bool {
         match self {
             RawPluginState::Resolved(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_unresolved(&self) -> bool {
-        match self {
-            RawPluginState::Unresolved(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_started(&self) -> bool {
-        match self {
-            RawPluginState::Started(_) => true,
             _ => false,
         }
     }

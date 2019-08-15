@@ -14,7 +14,7 @@ pub trait PluginInterface {
         PluginResponse::from_error(FlowError::KeyNotSupported(key.to_owned()).into())
     }
 
-    fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
+    fn set_value(&mut self, key: &str, _value: Value<serde_json::Value>) -> response::Null {
         PluginResponse::from_error(FlowError::KeyNotSupported(key.to_owned()).into())
     }
 

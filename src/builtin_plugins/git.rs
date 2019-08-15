@@ -345,7 +345,7 @@ impl PluginInterface for GitPlugin {
                 }
             }
             "current_version" => {
-                serde_json::to_value(self.state.as_ref().and_then(|s| s.current_version.as_ref()).ok_or(
+                serde_json::to_value(self.state.as_ref().and_then(|s| s.current_version.as_ref()).ok_or_else(||
                     FlowError::DataNotAvailableYet(key.to_owned(), Availability::AfterStep(PluginStep::GetLastRelease)),
                 )?)?
             }

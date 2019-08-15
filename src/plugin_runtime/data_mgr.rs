@@ -2,8 +2,7 @@ use failure::Fail;
 
 use crate::config::{Config, Map};
 use crate::plugin_runtime::graph::{DestKey, SourceKey};
-use crate::plugin_support::flow::{FlowError, Value};
-use std::collections::HashSet;
+use crate::plugin_support::flow::Value;
 
 pub struct DataManager {
     configs: Vec<Map<String, Value<serde_json::Value>>>,
@@ -41,8 +40,8 @@ impl DataManager {
     // TODO: merging techniques agnostic of destination data type
     pub fn prepare_value(
         &self,
-        dst_id: usize,
-        dst_key: &DestKey,
+        _dst_id: usize,
+        _dst_key: &DestKey,
         src_key: &SourceKey,
     ) -> Result<Value<serde_json::Value>, failure::Error> {
         let values = self
@@ -52,7 +51,7 @@ impl DataManager {
 
         let value = match values.len() {
             0 => None,
-            1 => Some(values.iter().nth(0).unwrap().clone()),
+            1 => Some(values.get(0).unwrap().clone()),
             multiple => Some(serde_json::to_value(multiple)?),
         };
 
