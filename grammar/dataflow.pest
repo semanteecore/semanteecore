@@ -1,6 +1,6 @@
 value_def = {
     SOI ~
-    ( ( from ~ delim ~ ( from_env ~ delim ) ~ (required_at ~ delim)? ~ key ) | value ) ~
+    ( ( from ~ delim ~ ( from_env ~ delim )? ~ (required_at ~ delim)? ~ key ) | value ) ~
     EOI
 }
 

@@ -640,6 +640,7 @@ mod tests {
             dest_key_value.state,
             ValueState::NeedsProvision(ProvisionRequest {
                 required_at: None,
+                from_env: false,
                 key: "source_key".to_string()
             })
         );
@@ -1106,10 +1107,12 @@ mod tests {
                 assert_eq!(
                     Vec::from(seq),
                     vec![
+                        Action::PreStepHook(PluginStep::PreFlight),
                         Action::Call(0, PluginStep::PreFlight),
                         Action::Get(0, "one_src".into()),
                         Action::Set(1, "two_dst".into(), "one_src".into()),
                         Action::Call(1, PluginStep::PreFlight),
+                        Action::PostStepHook(PluginStep::PreFlight),
                     ]
                 )
             }
@@ -1153,8 +1156,10 @@ mod tests {
                     Vec::from(seq),
                     vec![
                         Action::RequireConfigEntry(0, "one_dst".into()),
+                        Action::PreStepHook(PluginStep::PreFlight),
                         Action::Call(0, PluginStep::PreFlight),
                         Action::Call(1, PluginStep::PreFlight),
+                        Action::PostStepHook(PluginStep::PreFlight),
                     ]
                 )
             }

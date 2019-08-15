@@ -269,6 +269,7 @@ mod tests {
             kv.state,
             ValueState::NeedsProvision(ProvisionRequest {
                 required_at: None,
+                from_env: false,
                 key: "key".to_string()
             })
         );
@@ -283,6 +284,7 @@ mod tests {
             kv.state,
             ValueState::NeedsProvision(ProvisionRequest {
                 required_at: None,
+                from_env: false,
                 key: "key".to_string()
             })
         );
@@ -297,6 +299,7 @@ mod tests {
             kv.state,
             ValueState::NeedsProvision(ProvisionRequest {
                 required_at: Some(PluginStep::Commit),
+                from_env: false,
                 key: "key".to_string()
             })
         );
@@ -316,6 +319,21 @@ mod tests {
         assert_eq!(kv.protected, false);
         assert_eq!(kv.key, "key");
         assert_eq!(kv.state, ValueState::Ready("value"));
+    }
+
+    #[test]
+    fn build_from_env() {
+        let kv: Value<()> = Value::builder("key").from_env().build();
+        assert_eq!(kv.protected, false);
+        assert_eq!(kv.key, "key");
+        assert_eq!(
+            kv.state,
+            ValueState::NeedsProvision(ProvisionRequest {
+                required_at: None,
+                from_env: true,
+                key: "key".to_string()
+            })
+        );
     }
 
     #[test]
@@ -382,6 +400,39 @@ mod tests {
             v,
             ValueDefinition::From {
                 required_at: None,
+                from_env: false,
+                key: "key".into()
+            }
+        );
+    }
+
+    #[test]
+    fn parse_value_definition_from_env() {
+        let v: ValueDefinition = parse_value_definition(r#"from:env:key"#)
+            .map_err(pretty_print_error_and_panic)
+            .unwrap();
+
+        assert_eq!(
+            v,
+            ValueDefinition::From {
+                required_at: None,
+                from_env: true,
+                key: "key".into()
+            }
+        );
+    }
+
+    #[test]
+    fn parse_value_definition_from_env_required_at() {
+        let v: ValueDefinition = parse_value_definition(r#"from:env:required_at=commit:key"#)
+            .map_err(pretty_print_error_and_panic)
+            .unwrap();
+
+        assert_eq!(
+            v,
+            ValueDefinition::From {
+                required_at: Some(PluginStep::Commit),
+                from_env: true,
                 key: "key".into()
             }
         );
@@ -397,6 +448,7 @@ mod tests {
             v,
             ValueDefinition::From {
                 required_at: Some(PluginStep::Commit),
+                from_env: false,
                 key: "key".into()
             }
         );
