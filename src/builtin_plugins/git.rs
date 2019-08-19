@@ -344,11 +344,17 @@ impl PluginInterface for GitPlugin {
                     return PluginResponse::from_error(GitPluginError::GitRemoteUndefined.into());
                 }
             }
-            "current_version" => {
-                serde_json::to_value(self.state.as_ref().and_then(|s| s.current_version.as_ref()).ok_or_else(||
-                    FlowError::DataNotAvailableYet(key.to_owned(), Availability::AfterStep(PluginStep::GetLastRelease)),
-                )?)?
-            }
+            "current_version" => serde_json::to_value(
+                self.state
+                    .as_ref()
+                    .and_then(|s| s.current_version.as_ref())
+                    .ok_or_else(|| {
+                        FlowError::DataNotAvailableYet(
+                            key.to_owned(),
+                            Availability::AfterStep(PluginStep::GetLastRelease),
+                        )
+                    })?,
+            )?,
             "release_tag" => serde_json::to_value(format!("v{}", self.config.next_version.as_value()))?,
             other => return PluginResponse::from_error(FlowError::KeyNotSupported(other.to_owned()).into()),
         };

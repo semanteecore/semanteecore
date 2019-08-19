@@ -554,7 +554,7 @@ fn build_steps_to_plugins_map(
                 let names = capabilities.get(&step).ok_or(GraphError::NoPluginsForStep(*step))?;
 
                 if !names.contains(&plugin) {
-                    return Err(GraphError::PluginDoesNotImplementStep(*step, plugin.to_string()).into())
+                    return Err(GraphError::PluginDoesNotImplementStep(*step, plugin.to_string()).into());
                 }
 
                 let ids = collect_ids_of_plugins_matching(&plugins, &[plugin]);
@@ -571,7 +571,7 @@ fn build_steps_to_plugins_map(
 
                 for plugin in list {
                     if !names.contains(&plugin) {
-                        return Err(GraphError::PluginDoesNotImplementStep(*step, plugin.to_string()).into())
+                        return Err(GraphError::PluginDoesNotImplementStep(*step, plugin.to_string()).into());
                     }
                 }
 

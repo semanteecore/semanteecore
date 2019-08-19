@@ -89,10 +89,13 @@ impl Config {
                 StepDefinition::Singleton(_) => (),
                 StepDefinition::Shared(_) | StepDefinition::Discover => match step.kind() {
                     PluginStepKind::Shared => (),
-                    PluginStepKind::Singleton => return Err(ConfigError::WrongStepKind {
-                        expected: PluginStepKind::Singleton,
-                        got: PluginStepKind::Shared,
-                    }.into()),
+                    PluginStepKind::Singleton => {
+                        return Err(ConfigError::WrongStepKind {
+                            expected: PluginStepKind::Singleton,
+                            got: PluginStepKind::Shared,
+                        }
+                        .into())
+                    }
                 },
             }
         }
