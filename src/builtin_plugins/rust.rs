@@ -5,13 +5,12 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use failure::Fail;
+use serde::{Deserialize, Serialize};
 
-use crate::plugin::proto::{
-    request,
-    response::{self, PluginResponse},
-};
-use crate::plugin::{PluginInterface, PluginStep};
-use crate::plugin::flow::KeyValue;
+use crate::plugin_support::flow::{FlowError, ProvisionCapability, Value};
+use crate::plugin_support::proto::response::{self, PluginResponse};
+use crate::plugin_support::{PluginInterface, PluginStep};
+use std::collections::HashMap;
 
 pub struct RustPlugin {
     dry_run_guard: Option<DryRunGuard>,
@@ -27,16 +26,24 @@ impl RustPlugin {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 struct Config {
-    project_root: KeyValue<String>,
-    is_dry_run: KeyValue<bool>,
+    project_root: Value<String>,
+    dry_run: Value<bool>,
+    token: Value<String>,
+    next_version: Value<semver::Version>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
-            project_root: KeyValue::builder("project_root").protected().build(),
-            is_dry_run: KeyValue::builder("is_dry_run").protected().build(),
+            project_root: Value::builder("project_root").protected().build(),
+            dry_run: Value::builder("dry_run").protected().build(),
+            token: Value::builder("CARGO_TOKEN").from_env().build(),
+            next_version: Value::builder("next_version")
+                .required_at(PluginStep::Prepare)
+                .protected()
+                .build(),
         }
     }
 }
@@ -67,40 +74,49 @@ impl PluginInterface for RustPlugin {
         PluginResponse::from_ok("rust".into())
     }
 
-    fn get_default_config(&self) -> response::Config {
-        unimplemented!()
+    fn provision_capabilities(&self) -> response::ProvisionCapabilities {
+        PluginResponse::from_ok(vec![ProvisionCapability::builder("files_to_commit")
+            .after_step(PluginStep::Prepare)
+            .build()])
     }
 
-    fn set_config(&mut self, _req: request::Config) -> response::Null {
-        unimplemented!()
+    fn get_value(&self, key: &str) -> response::GetValue {
+        let value = match key {
+            "files_to_commit" => serde_json::to_value(vec!["Cargo.toml", "Cargo.lock"])?,
+            _other => return PluginResponse::from_error(FlowError::KeyNotSupported(key.to_owned()).into()),
+        };
+        PluginResponse::from_ok(value)
     }
 
-    fn methods(&self, _req: request::Methods) -> response::Methods {
-        let methods = vec![
-            PluginStep::PreFlight,
-            PluginStep::Prepare,
-            PluginStep::VerifyRelease,
-        ];
+    fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
+        log::trace!("Setting {:?} = {:?}", key, value);
+        let config_json = self.get_config()?;
+        let mut config_map: HashMap<String, Value<serde_json::Value>> = serde_json::from_value(config_json)?;
+        config_map.insert(key.to_owned(), value);
+        let config_json = serde_json::to_value(config_map)?;
+        self.config = serde_json::from_value(config_json)?;
+        PluginResponse::from_ok(())
+    }
+
+    fn get_config(&self) -> response::Config {
+        PluginResponse::from_ok(serde_json::to_value(&self.config)?)
+    }
+
+    fn methods(&self) -> response::Methods {
+        let methods = vec![PluginStep::PreFlight, PluginStep::Prepare, PluginStep::VerifyRelease];
         PluginResponse::from_ok(methods)
     }
 
-    fn pre_flight(&mut self, params: request::PreFlight) -> response::PreFlight {
+    fn pre_flight(&mut self) -> response::Null {
         let mut response = PluginResponse::builder();
-        if !params.env.contains_key("CARGO_TOKEN") {
-            response.error(RustPluginError::TokenUndefined);
-        }
         response.body(()).build()
     }
 
-    fn prepare(&mut self, params: request::Prepare) -> response::Prepare {
+    fn prepare(&mut self) -> response::Null {
         let project_root = self.config.project_root.as_value();
-        let is_dry_run = *self.config.is_dry_run.as_value();
+        let is_dry_run = *self.config.dry_run.as_value();
 
-        let token = params
-            .env
-            .get("CARGO_TOKEN")
-            .ok_or(RustPluginError::TokenUndefined)?;
-
+        let token = self.config.token.as_value();
         let cargo = Cargo::new(project_root, token)?;
 
         // If we're in the dry-run mode, we don't wanna change the Cargo.toml manifest,
@@ -116,18 +132,16 @@ impl PluginInterface for RustPlugin {
             self.dry_run_guard.replace(guard);
         }
 
-        cargo.set_version(params.data.clone())?;
+        let next_version = self.config.next_version.as_value();
+        cargo.set_version(next_version)?;
 
-        PluginResponse::from_ok(vec!["Cargo.toml".into(), "Cargo.lock".into()])
+        PluginResponse::from_ok(())
     }
 
-    fn verify_release(&mut self, params: request::VerifyRelease) -> response::VerifyRelease {
+    fn verify_release(&mut self) -> response::Null {
         let project_root = self.config.project_root.as_value();
 
-        let token = params
-            .env
-            .get("CARGO_TOKEN")
-            .ok_or(RustPluginError::TokenUndefined)?;
+        let token = self.config.token.as_value();
 
         let cargo = Cargo::new(project_root, token)?;
 
@@ -175,10 +189,7 @@ impl Cargo {
 
     pub fn update_lockfile(&self) -> Result<(), failure::Error> {
         let mut command = Command::new("cargo");
-        let command = command
-            .arg("fetch")
-            .arg("--manifest-path")
-            .arg(&self.manifest_path);
+        let command = command.arg("fetch").arg("--manifest-path").arg(&self.manifest_path);
 
         Self::run_command(command)?;
 
@@ -234,7 +245,7 @@ impl Cargo {
         self.write_manifest_raw(contents.as_bytes())
     }
 
-    pub fn set_version(&self, version: semver::Version) -> Result<(), failure::Error> {
+    pub fn set_version(&self, version: &semver::Version) -> Result<(), failure::Error> {
         log::info!("Setting new version '{}' in Cargo.toml", version);
 
         let mut manifest = self.load_manifest()?;
@@ -248,19 +259,12 @@ impl Cargo {
 
             let package = root
                 .get_mut("package")
-                .ok_or(RustPluginError::InvalidManifest(
-                    "package section not present",
-                ))?;
-            let package = package
-                .as_table_mut()
-                .ok_or(RustPluginError::InvalidManifest(
-                    "package section is expected to be map",
-                ))?;
+                .ok_or(RustPluginError::InvalidManifest("package section not present"))?;
+            let package = package.as_table_mut().ok_or(RustPluginError::InvalidManifest(
+                "package section is expected to be map",
+            ))?;
 
-            package.insert(
-                "version".into(),
-                toml::Value::String(format!("{}", version)),
-            );
+            package.insert("version".into(), toml::Value::String(format!("{}", version)));
         }
 
         log::debug!("writing update to Cargo.toml");
@@ -277,10 +281,7 @@ pub enum RustPluginError {
     TokenUndefined,
     #[fail(display = "Cargo.toml not found in {}", _0)]
     CargoTomlNotFound(String),
-    #[fail(
-        display = "failed to invoke cargo:\n\t\tSTDOUT:\n{}\n\t\tSTDERR:\n{}",
-        _0, _1
-    )]
+    #[fail(display = "failed to invoke cargo:\n\t\tSTDOUT:\n{}\n\t\tSTDERR:\n{}", _0, _1)]
     CargoCommandFailed(String, String),
     #[fail(display = "ill-formed Cargo.toml manifest: {}", _0)]
     InvalidManifest(&'static str),
