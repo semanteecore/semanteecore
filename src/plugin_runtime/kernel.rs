@@ -5,7 +5,7 @@ use strum::IntoEnumIterator;
 
 use crate::config::{Config, Map, PluginDefinitionMap};
 use crate::plugin_runtime::data_mgr::DataManager;
-use crate::plugin_runtime::graph::{collect_plugins_initial_configuration, Action, PluginSequence};
+use crate::plugin_runtime::graph::{Action, PluginSequence};
 use crate::plugin_runtime::resolver::PluginResolver;
 use crate::plugin_runtime::starter::PluginStarter;
 use crate::plugin_support::flow::Value;
@@ -99,6 +99,7 @@ impl Kernel {
 
 pub type Hook = Box<dyn Fn(PluginStep, &mut DataManager) -> Result<(), failure::Error>>;
 
+#[allow(dead_code)]
 pub enum HookTarget {
     BeforeStep(PluginStep),
     AfterStep(PluginStep),
@@ -195,7 +196,7 @@ impl KernelBuilder {
         log::trace!("graph: {:#?}", sequence);
 
         // Create data manager
-        let data_mgr = DataManager::new(collect_plugins_initial_configuration(&plugins)?, &self.config);
+        let data_mgr = DataManager::new(&self.config);
 
         // Move out hooks
         let hooks = mem::replace(&mut self.hooks, Hooks::default());

@@ -180,7 +180,7 @@ impl Cargo {
         log::debug!("searching for manifest in {}", manifest_path.display());
 
         if !manifest_path.exists() || !manifest_path.is_file() {
-            Err(RustPluginError::CargoTomlNotFound(project_root.to_owned()))?;
+            return Err(RustPluginError::CargoTomlNotFound(project_root.to_owned()).into());
         }
 
         Ok(Cargo {
@@ -199,15 +199,6 @@ impl Cargo {
         } else {
             Ok((stdout, stderr))
         }
-    }
-
-    pub fn update_lockfile(&self) -> Result<(), failure::Error> {
-        let mut command = Command::new("cargo");
-        let command = command.arg("fetch").arg("--manifest-path").arg(&self.manifest_path);
-
-        Self::run_command(command)?;
-
-        Ok(())
     }
 
     pub fn package(&self) -> Result<(), failure::Error> {
@@ -291,8 +282,6 @@ impl Cargo {
 
 #[derive(Fail, Debug)]
 pub enum RustPluginError {
-    #[fail(display = "the CARGO_TOKEN environment variable is not configured")]
-    TokenUndefined,
     #[fail(display = "Cargo.toml not found in {}", _0)]
     CargoTomlNotFound(String),
     #[fail(display = "failed to invoke cargo:\n\t\tSTDOUT:\n{}\n\t\tSTDERR:\n{}", _0, _1)]

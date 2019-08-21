@@ -190,7 +190,7 @@ fn docker_info() -> Result<(), failure::Error> {
         .map_err(|_| DockerPluginError::DockerNotFound)?;
 
     if !status.success() {
-        Err(DockerPluginError::DockerReturnedError(status.code()))?
+        return Err(DockerPluginError::DockerReturnedError(status.code()).into())
     }
 
     Ok(())
@@ -223,7 +223,7 @@ fn build_image(config: &Config, image: &Image) -> Result<(), failure::Error> {
 
     let status = cmd.status()?;
     if !status.success() {
-        Err(DockerPluginError::DockerReturnedError(status.code()))?
+        return Err(DockerPluginError::DockerReturnedError(status.code()).into())
     }
 
     log::info!("Built image {}:{}", image.name, image.tag);
@@ -239,7 +239,7 @@ fn tag_image(from: &str, to: &str) -> Result<(), failure::Error> {
     let status = cmd.arg("tag").arg(from).arg(to).status()?;
 
     if !status.success() {
-        Err(DockerPluginError::DockerReturnedError(status.code()))?
+        return Err(DockerPluginError::DockerReturnedError(status.code()).into())
     }
 
     Ok(())
@@ -269,7 +269,7 @@ fn login(registry_url: Option<&str>, credentials: &Credentials) -> Result<(), fa
     let status = child.wait()?;
 
     if !status.success() {
-        Err(DockerPluginError::DockerReturnedError(status.code()))?
+        return Err(DockerPluginError::DockerReturnedError(status.code()).into())
     }
 
     Ok(())
@@ -287,7 +287,7 @@ fn push_image(image: &Image, tag: &str) -> Result<(), failure::Error> {
     let status = cmd.status()?;
 
     if !status.success() {
-        Err(DockerPluginError::DockerReturnedError(status.code()))?
+        return Err(DockerPluginError::DockerReturnedError(status.code()).into())
     }
 
     Ok(())

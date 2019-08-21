@@ -1,18 +1,15 @@
 use failure::Fail;
 
 use crate::config::{Config, Map};
-use crate::plugin_runtime::graph::{DestKey, SourceKey};
 use crate::plugin_support::flow::Value;
 
 pub struct DataManager {
-    configs: Vec<Map<String, Value<serde_json::Value>>>,
     global: Map<String, Vec<serde_json::Value>>,
 }
 
 impl DataManager {
-    pub fn new(configs: Vec<Map<String, Value<serde_json::Value>>>, releaserc: &Config) -> Self {
+    pub fn new(releaserc: &Config) -> Self {
         DataManager {
-            configs,
             global: releaserc
                 .cfg
                 .iter()
@@ -41,13 +38,13 @@ impl DataManager {
     pub fn prepare_value(
         &self,
         _dst_id: usize,
-        _dst_key: &DestKey,
-        src_key: &SourceKey,
+        _dst_key: &str,
+        src_key: &str,
     ) -> Result<Value<serde_json::Value>, failure::Error> {
         let values = self
             .global
             .get(src_key)
-            .ok_or_else(|| DataManagerError::DataNotAvailable(src_key.clone()))?;
+            .ok_or_else(|| DataManagerError::DataNotAvailable(src_key.to_owned()))?;
 
         let value = match values.len() {
             0 => None,
@@ -58,14 +55,14 @@ impl DataManager {
         if let Some(value) = value {
             Ok(Value::builder(&src_key).value(value).build())
         } else {
-            Err(DataManagerError::DataNotAvailable(src_key.clone()).into())
+            Err(DataManagerError::DataNotAvailable(src_key.to_owned()).into())
         }
     }
 
     pub fn prepare_value_same_key(
         &self,
         dst_id: usize,
-        dst_key: &DestKey,
+        dst_key: &str,
     ) -> Result<Value<serde_json::Value>, failure::Error> {
         self.prepare_value(dst_id, dst_key, dst_key)
     }

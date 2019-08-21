@@ -63,7 +63,7 @@ name = "semantic-rs"
 tag = "latest"
 binary_path = "target/release/semantic-rs"
 cleanup = true
-build_cmd = "from:language:build_cmd"
+build_cmd = "cargo build --release"
 exec_cmd = "/bin/semantic-rs"
 
 

@@ -38,6 +38,7 @@ impl<T> Value<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn as_value_mut(&mut self) -> &mut T {
         match &mut self.state {
             ValueState::Ready(v) => v,

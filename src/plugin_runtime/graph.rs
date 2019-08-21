@@ -48,6 +48,7 @@ impl PluginSequence {
         builder.build(is_dry_run)
     }
 
+    #[allow(dead_code)]
     pub fn iter(&self) -> impl Iterator<Item = &Action> {
         self.seq.iter()
     }

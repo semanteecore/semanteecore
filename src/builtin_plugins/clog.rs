@@ -9,8 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::plugin_support::flow::{Availability, FlowError, ProvisionCapability, Value};
 use crate::plugin_support::proto::{
-    response::{self, PluginResponse},
-    GitRevision, Version,
+    response::{self, PluginResponse}, Version,
 };
 use crate::plugin_support::{PluginInterface, PluginStep};
 use std::collections::HashMap;
@@ -264,7 +263,7 @@ impl PluginInterface for ClogPlugin {
     }
 }
 
-fn version_bump_since_rev(path: &str, rev: &GitRevision, ignore: &[String]) -> Result<CommitType, failure::Error> {
+fn version_bump_since_rev(path: &str, rev: &str, ignore: &[String]) -> Result<CommitType, failure::Error> {
     let repo = Repository::open(path)?;
     let range = format!("{}..HEAD", rev);
     log::debug!("analyzing commits {} to determine version bump", range);

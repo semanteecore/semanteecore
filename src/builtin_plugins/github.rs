@@ -222,7 +222,7 @@ impl PluginInterface for GithubPlugin {
         }
 
         if errored {
-            Err(failure::err_msg("failed to upload some assets"))?;
+            return PluginResponse::from_error(failure::err_msg("failed to upload some assets"));
         }
 
         PluginResponse::from_ok(())
