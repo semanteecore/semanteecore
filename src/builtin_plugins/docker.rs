@@ -7,6 +7,7 @@ use std::process::{Command, Stdio};
 use failure::Fail;
 
 use crate::plugin_support::flow::{FlowError, Value};
+use crate::plugin_support::keys::{GIT_BRANCH, GIT_REMOTE_URL, NEXT_VERSION};
 use crate::plugin_support::proto::response::{self, PluginResponse};
 use crate::plugin_support::{PluginInterface, PluginStep};
 use serde::{Deserialize, Serialize};
@@ -38,11 +39,9 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            repo_url: Value::builder("git_remote_url")
-                .required_at(PluginStep::Publish)
-                .build(),
-            repo_branch: Value::builder("git_branch").required_at(PluginStep::Publish).build(),
-            next_version: Value::builder("git_branch").required_at(PluginStep::Publish).build(),
+            repo_url: Value::builder(GIT_REMOTE_URL).required_at(PluginStep::Publish).build(),
+            repo_branch: Value::builder(GIT_BRANCH).required_at(PluginStep::Publish).build(),
+            next_version: Value::builder(NEXT_VERSION).required_at(PluginStep::Publish).build(),
             images: Value::builder("images").default_value().build(),
             docker_user: Value::builder("DOCKER_USER").from_env().default_value().build(),
             docker_password: Value::builder("DOCKER_PASSWORD").from_env().default_value().build(),

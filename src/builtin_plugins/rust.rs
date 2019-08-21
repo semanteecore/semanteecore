@@ -8,6 +8,7 @@ use failure::Fail;
 use serde::{Deserialize, Serialize};
 
 use crate::plugin_support::flow::{FlowError, ProvisionCapability, Value};
+use crate::plugin_support::keys::{DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_ROOT};
 use crate::plugin_support::proto::response::{self, PluginResponse};
 use crate::plugin_support::{PluginInterface, PluginStep};
 use std::collections::HashMap;
@@ -37,10 +38,10 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            project_root: Value::builder("project_root").protected().build(),
-            dry_run: Value::builder("dry_run").protected().build(),
+            project_root: Value::builder(PROJECT_ROOT).protected().build(),
+            dry_run: Value::builder(DRY_RUN).protected().build(),
             token: Value::builder("CARGO_TOKEN").from_env().build(),
-            next_version: Value::builder("next_version")
+            next_version: Value::builder(NEXT_VERSION)
                 .required_at(PluginStep::Prepare)
                 .protected()
                 .build(),
@@ -75,7 +76,7 @@ impl PluginInterface for RustPlugin {
     }
 
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
-        PluginResponse::from_ok(vec![ProvisionCapability::builder("files_to_commit")
+        PluginResponse::from_ok(vec![ProvisionCapability::builder(FILES_TO_COMMIT)
             .after_step(PluginStep::Prepare)
             .build()])
     }

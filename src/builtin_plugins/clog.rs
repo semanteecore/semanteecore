@@ -8,6 +8,9 @@ use git2::{Commit, Repository};
 use serde::{Deserialize, Serialize};
 
 use crate::plugin_support::flow::{Availability, FlowError, ProvisionCapability, Value};
+use crate::plugin_support::keys::{
+    CURRENT_VERSION, DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_ROOT, RELEASE_NOTES,
+};
 use crate::plugin_support::proto::{
     response::{self, PluginResponse},
     Version,
@@ -81,12 +84,12 @@ impl Default for ClogPluginConfig {
         ClogPluginConfig {
             changelog: Value::builder("changelog").value("Changelog.md".into()).build(),
             ignore: Value::builder("ignore").default_value().build(),
-            project_root: Value::builder("project_root").protected().build(),
-            dry_run: Value::builder("dry_run").protected().build(),
-            current_version: Value::builder("current_version")
+            project_root: Value::builder(PROJECT_ROOT).protected().build(),
+            dry_run: Value::builder(DRY_RUN).protected().build(),
+            current_version: Value::builder(CURRENT_VERSION)
                 .required_at(PluginStep::DeriveNextVersion)
                 .build(),
-            next_version: Value::builder("next_version")
+            next_version: Value::builder(NEXT_VERSION)
                 .required_at(PluginStep::GenerateNotes)
                 .protected()
                 .build(),
@@ -101,13 +104,13 @@ impl PluginInterface for ClogPlugin {
 
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
         PluginResponse::from_ok(vec![
-            ProvisionCapability::builder("release_notes")
+            ProvisionCapability::builder(RELEASE_NOTES)
                 .after_step(PluginStep::GenerateNotes)
                 .build(),
-            ProvisionCapability::builder("next_version")
+            ProvisionCapability::builder(NEXT_VERSION)
                 .after_step(PluginStep::DeriveNextVersion)
                 .build(),
-            ProvisionCapability::builder("files_to_commit")
+            ProvisionCapability::builder(FILES_TO_COMMIT)
                 .after_step(PluginStep::Prepare)
                 .build(),
         ])

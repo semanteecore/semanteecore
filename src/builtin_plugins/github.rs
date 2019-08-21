@@ -10,6 +10,7 @@ use tokio::runtime::current_thread::block_on_all;
 use url::{ParseError, Url};
 
 use crate::plugin_support::flow::{FlowError, Value};
+use crate::plugin_support::keys::{GIT_BRANCH, GIT_REMOTE, GIT_REMOTE_URL, PROJECT_ROOT};
 use crate::plugin_support::proto::response::{self, PluginResponse};
 use crate::plugin_support::{PluginInterface, PluginStep};
 use crate::utils::ResultExt;
@@ -51,14 +52,14 @@ impl Default for Config {
             assets: Value::builder("assets").default_value().build(),
             user: Value::builder("user").default_value().build(),
             repository: Value::builder("repository").default_value().build(),
-            remote: Value::builder("git_remote").build(),
-            remote_url: Value::builder("git_remote_url").build(),
-            branch: Value::builder("git_branch").build(),
+            remote: Value::builder(GIT_REMOTE).build(),
+            remote_url: Value::builder(GIT_REMOTE_URL).build(),
+            branch: Value::builder(GIT_BRANCH).build(),
             tag_name: Value::builder("release_tag").required_at(PluginStep::Publish).build(),
             changelog: Value::builder("release_notes").required_at(PluginStep::Publish).build(),
             draft: Value::builder("draft").default_value().build(),
             pre_release: Value::builder("draft").value(true).build(),
-            project_root: Value::builder("project_root").protected().build(),
+            project_root: Value::builder(PROJECT_ROOT).protected().build(),
             token: Value::builder("GH_TOKEN").from_env().build(),
         }
     }

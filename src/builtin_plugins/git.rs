@@ -6,6 +6,9 @@ use git2::{self, Cred, Oid, PushOptions, RemoteCallbacks, Repository, Signature}
 use serde::{Deserialize, Serialize};
 
 use crate::plugin_support::flow::{Availability, FlowError, ProvisionCapability, Value};
+use crate::plugin_support::keys::{
+    CURRENT_VERSION, FILES_TO_COMMIT, GIT_BRANCH, GIT_REMOTE, GIT_REMOTE_URL, NEXT_VERSION, PROJECT_ROOT, RELEASE_NOTES,
+};
 use crate::plugin_support::proto::response::{self, PluginResponse, PluginResponseBuilder};
 use crate::plugin_support::proto::{GitRevision, Version};
 use crate::plugin_support::{PluginInterface, PluginStep};
@@ -45,16 +48,16 @@ impl Default for Config {
             branch: Value::builder("branch").value(default_branch()).build(),
             remote: Value::builder("remote").value(default_remote()).build(),
             force_https: Value::builder("force_https").default_value().build(),
-            project_root: Value::builder("project_root").protected().build(),
-            next_version: Value::builder("next_version")
+            project_root: Value::builder(PROJECT_ROOT).protected().build(),
+            next_version: Value::builder(NEXT_VERSION)
                 .protected()
                 .required_at(PluginStep::Commit)
                 .build(),
-            files_to_commit: Value::builder("files_to_commit")
+            files_to_commit: Value::builder(FILES_TO_COMMIT)
                 .protected()
                 .required_at(PluginStep::Commit)
                 .build(),
-            changelog: Value::builder("release_notes")
+            changelog: Value::builder(RELEASE_NOTES)
                 .protected()
                 .required_at(PluginStep::Commit)
                 .build(),
@@ -313,16 +316,16 @@ impl PluginInterface for GitPlugin {
 
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
         PluginResponse::from_ok(vec![
-            ProvisionCapability::builder("git_branch")
+            ProvisionCapability::builder(GIT_BRANCH)
                 .after_step(PluginStep::PreFlight)
                 .build(),
-            ProvisionCapability::builder("git_remote")
+            ProvisionCapability::builder(GIT_REMOTE)
                 .after_step(PluginStep::PreFlight)
                 .build(),
-            ProvisionCapability::builder("git_remote_url")
+            ProvisionCapability::builder(GIT_REMOTE_URL)
                 .after_step(PluginStep::PreFlight)
                 .build(),
-            ProvisionCapability::builder("current_version")
+            ProvisionCapability::builder(CURRENT_VERSION)
                 .after_step(PluginStep::GetLastRelease)
                 .build(),
             ProvisionCapability::builder("release_tag")
