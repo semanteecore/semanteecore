@@ -1,4 +1,4 @@
-use std::fmt::{Display};
+use std::fmt::Display;
 use std::io::Write;
 use std::ops::Try;
 use std::path::PathBuf;
@@ -6,10 +6,10 @@ use std::process::{Command, Stdio};
 
 use failure::Fail;
 
+use crate::plugin_support::flow::{FlowError, Value};
 use crate::plugin_support::proto::response::{self, PluginResponse};
 use crate::plugin_support::{PluginInterface, PluginStep};
-use crate::plugin_support::flow::{Value, FlowError};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -38,7 +38,9 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            repo_url: Value::builder("git_remote_url").required_at(PluginStep::Publish).build(),
+            repo_url: Value::builder("git_remote_url")
+                .required_at(PluginStep::Publish)
+                .build(),
             repo_branch: Value::builder("git_branch").required_at(PluginStep::Publish).build(),
             next_version: Value::builder("git_branch").required_at(PluginStep::Publish).build(),
             images: Value::builder("images").default_value().build(),
@@ -83,11 +85,7 @@ impl PluginInterface for DockerPlugin {
     }
 
     fn methods(&self) -> response::Methods {
-        PluginResponse::from_ok(vec![
-            PluginStep::PreFlight,
-            PluginStep::Prepare,
-            PluginStep::Publish,
-        ])
+        PluginResponse::from_ok(vec![PluginStep::PreFlight, PluginStep::Prepare, PluginStep::Publish])
     }
 
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
@@ -122,9 +120,7 @@ impl PluginInterface for DockerPlugin {
         };
 
         if credentials.is_none() {
-            response.warning(
-                "Docker registry credentials are undefined: won't be able to push the image",
-            );
+            response.warning("Docker registry credentials are undefined: won't be able to push the image");
             response.warning("Please set DOCKER_USER and DOCKER_PASSWORD env vars");
         }
 
@@ -133,9 +129,7 @@ impl PluginInterface for DockerPlugin {
             response.error(err);
         }
 
-        self.state.replace(State {
-            credentials,
-        });
+        self.state.replace(State { credentials });
 
         response.body(()).build()
     }
@@ -190,7 +184,7 @@ fn docker_info() -> Result<(), failure::Error> {
         .map_err(|_| DockerPluginError::DockerNotFound)?;
 
     if !status.success() {
-        return Err(DockerPluginError::DockerReturnedError(status.code()).into())
+        return Err(DockerPluginError::DockerReturnedError(status.code()).into());
     }
 
     Ok(())
@@ -223,7 +217,7 @@ fn build_image(config: &Config, image: &Image) -> Result<(), failure::Error> {
 
     let status = cmd.status()?;
     if !status.success() {
-        return Err(DockerPluginError::DockerReturnedError(status.code()).into())
+        return Err(DockerPluginError::DockerReturnedError(status.code()).into());
     }
 
     log::info!("Built image {}:{}", image.name, image.tag);
@@ -239,7 +233,7 @@ fn tag_image(from: &str, to: &str) -> Result<(), failure::Error> {
     let status = cmd.arg("tag").arg(from).arg(to).status()?;
 
     if !status.success() {
-        return Err(DockerPluginError::DockerReturnedError(status.code()).into())
+        return Err(DockerPluginError::DockerReturnedError(status.code()).into());
     }
 
     Ok(())
@@ -269,7 +263,7 @@ fn login(registry_url: Option<&str>, credentials: &Credentials) -> Result<(), fa
     let status = child.wait()?;
 
     if !status.success() {
-        return Err(DockerPluginError::DockerReturnedError(status.code()).into())
+        return Err(DockerPluginError::DockerReturnedError(status.code()).into());
     }
 
     Ok(())
@@ -287,7 +281,7 @@ fn push_image(image: &Image, tag: &str) -> Result<(), failure::Error> {
     let status = cmd.status()?;
 
     if !status.success() {
-        return Err(DockerPluginError::DockerReturnedError(status.code()).into())
+        return Err(DockerPluginError::DockerReturnedError(status.code()).into());
     }
 
     Ok(())

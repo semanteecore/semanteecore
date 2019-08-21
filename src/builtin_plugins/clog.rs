@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::plugin_support::flow::{Availability, FlowError, ProvisionCapability, Value};
 use crate::plugin_support::proto::{
-    response::{self, PluginResponse}, Version,
+    response::{self, PluginResponse},
+    Version,
 };
 use crate::plugin_support::{PluginInterface, PluginStep};
 use std::collections::HashMap;

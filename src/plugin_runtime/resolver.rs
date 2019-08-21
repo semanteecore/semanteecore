@@ -46,7 +46,7 @@ impl BuiltinResolver {
 
 impl Resolver for BuiltinResolver {
     fn resolve(&self, name: &str, _meta: &UnresolvedPlugin) -> Result<ResolvedPlugin, failure::Error> {
-        use crate::builtin_plugins::{ClogPlugin, GitPlugin, GithubPlugin, RustPlugin, DockerPlugin};
+        use crate::builtin_plugins::{ClogPlugin, DockerPlugin, GitPlugin, GithubPlugin, RustPlugin};
         let plugin: Box<dyn PluginInterface> = match name {
             "git" => Box::new(GitPlugin::new()),
             "clog" => Box::new(ClogPlugin::new()),
