@@ -151,6 +151,20 @@ impl PluginInterface for RustPlugin {
 
         PluginResponse::from_ok(())
     }
+
+    fn publish(&mut self) -> response::Null {
+        let project_root = self.config.project_root.as_value();
+
+        let token = self.config.token.as_value();
+
+        let cargo = Cargo::new(project_root, token)?;
+
+        log::info!("Publishing new version, please wait...");
+        cargo.publish()?;
+        log::info!("Package published successfully");
+
+        PluginResponse::from_ok(())
+    }
 }
 
 #[derive(Clone, Debug)]
