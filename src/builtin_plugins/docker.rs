@@ -37,12 +37,12 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            repo_url: Value::builder(GIT_REMOTE_URL).required_at(PluginStep::Publish).build(),
-            repo_branch: Value::builder(GIT_BRANCH).required_at(PluginStep::Publish).build(),
-            next_version: Value::builder(NEXT_VERSION).required_at(PluginStep::Publish).build(),
-            images: Value::builder("images").default_value().build(),
-            docker_user: Value::builder("DOCKER_USER").load_from_env().build(),
-            docker_password: Value::builder("DOCKER_PASSWORD").load_from_env().build(),
+            repo_url: Value::required_at(GIT_REMOTE_URL, PluginStep::Publish),
+            repo_branch: Value::required_at(GIT_BRANCH, PluginStep::Publish),
+            next_version: Value::required_at(NEXT_VERSION, PluginStep::Publish),
+            images: Value::with_default_value("images"),
+            docker_user: Value::load_from_env("DOCKER_USER"),
+            docker_password: Value::load_from_env("DOCKER_PASSWORD"),
         }
     }
 }
