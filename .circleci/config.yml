@@ -39,9 +39,7 @@ aliases:
   - &filter-only-master
     branches:
       only: master
-  - &filter-only-semantic-pr
-    branches:
-      only:  /^(pull|fix|feat|chore)\/.*$/
+
   # -------------------------
   # ALIASES: Utility commands DRY
   - &get-latest-toolchain
@@ -233,22 +231,14 @@ workflows:
   version: 2
   analysis:
     jobs:
-      - codecov:
-          filters: *filter-only-semantic-pr
-      - test-linux:
-          filters: *filter-only-semantic-pr
-      - test-macos:
-          filters: *filter-only-semantic-pr
-      - test-windows:
-          filters: *filter-only-semantic-pr
-      - build-linux:
-          filters: *filter-only-semantic-pr
-      - build-macos:
-          filters: *filter-only-semantic-pr
-      - build-windows:
-          filters: *filter-only-semantic-pr
+      - codecov
+      - test-linux
+      - test-macos
+      - test-windows
+      - build-linux
+      - build-macos
+      - build-windows
       - release-dry:
-          filters: *filter-only-semantic-pr
           requires:
             - build-linux
             - build-macos
