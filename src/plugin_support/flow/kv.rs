@@ -54,6 +54,38 @@ impl<T> Value<T> {
             ValueState::NeedsProvision(_) => false,
         }
     }
+    
+    // Convenience constructors
+    
+    /// Makes a protected `Value` with a given key which requires provision.
+    pub fn protected(key: &str) -> Self {
+        ValueBuilder::new(key).protected().build()
+    }
+    
+    /// Makes a `Value` with default content.
+    /// Resulting `Value` doesn't require provision.
+    pub fn with_default_value(key: &str) -> Self
+    where
+        T: Default
+    {
+        ValueBuilder::new(key).default_value().build()
+    }
+    
+    /// Makes a `Value` with a given key which requires provision at given step.
+    pub fn required_at(key: &str, step: PluginStep) -> Self {
+        ValueBuilder::new(key).required_at(step).build()
+    }
+    
+    /// Makes a `Value` with a given key and given underlying `T`.
+    /// Resulting `Value` doesn't require provision.
+    pub fn with_value(key: &str, value: T) -> Self {
+        ValueBuilder::new(key).value(value).build()
+    }
+    
+    /// Makes a `Value` with a given key and with contents to be resolved from evironment.
+    pub fn load_from_env(key: &str) -> Self {
+        ValueBuilder::new(key).load_from_env().build()
+    }
 }
 
 pub struct ValueBuilder<T> {
