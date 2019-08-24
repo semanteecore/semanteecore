@@ -81,13 +81,11 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            changelog: Value::builder("changelog").value("Changelog.md".into()).build(),
-            ignore: Value::builder("ignore").default_value().build(),
-            project_root: Value::builder(PROJECT_ROOT).protected().build(),
-            dry_run: Value::builder(DRY_RUN).protected().build(),
-            current_version: Value::builder(CURRENT_VERSION)
-                .required_at(PluginStep::DeriveNextVersion)
-                .build(),
+            changelog: Value::with_value("changelog", "Changelog.md".into()),
+            ignore: Value::with_default_value("ignore"),
+            project_root: Value::protected(PROJECT_ROOT),
+            dry_run: Value::protected(DRY_RUN),
+            current_version: Value::required_at(CURRENT_VERSION, PluginStep::DeriveNextVersion),
             next_version: Value::builder(NEXT_VERSION)
                 .required_at(PluginStep::GenerateNotes)
                 .protected()
