@@ -49,18 +49,18 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            assets: Value::builder("assets").default_value().build(),
-            user: Value::builder("user").default_value().build(),
-            repository: Value::builder("repository").default_value().build(),
-            remote: Value::builder(GIT_REMOTE).build(),
-            remote_url: Value::builder(GIT_REMOTE_URL).build(),
-            branch: Value::builder(GIT_BRANCH).build(),
-            tag_name: Value::builder("release_tag").required_at(PluginStep::Publish).build(),
-            changelog: Value::builder("release_notes").required_at(PluginStep::Publish).build(),
-            draft: Value::builder("draft").default_value().build(),
-            pre_release: Value::builder("draft").value(true).build(),
-            project_root: Value::builder(PROJECT_ROOT).protected().build(),
-            token: Value::builder("GH_TOKEN").load_from_env().build(),
+            assets: Value::with_default_value("assets"),
+            user: Value::with_default_value("user"),
+            repository: Value::with_default_value("repository"),
+            remote: Value::from_key(GIT_REMOTE),
+            remote_url: Value::from_key(GIT_REMOTE_URL),
+            branch: Value::from_key(GIT_BRANCH),
+            tag_name: Value::required_at("release_tag", PluginStep::Publish),
+            changelog: Value::required_at("release_notes", PluginStep::Publish),
+            draft: Value::with_default_value("draft"),
+            pre_release: Value::with_value("draft", true),
+            project_root: Value::protected(PROJECT_ROOT),
+            token: Value::load_from_env("GH_TOKEN"),
         }
     }
 }

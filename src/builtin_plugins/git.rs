@@ -41,12 +41,12 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            user_name: Value::builder("user_name").default_value().build(),
-            user_email: Value::builder("user_email").default_value().build(),
-            branch: Value::builder("branch").value(default_branch()).build(),
-            remote: Value::builder("remote").value(default_remote()).build(),
-            force_https: Value::builder("force_https").default_value().build(),
-            project_root: Value::builder(PROJECT_ROOT).protected().build(),
+            user_name: Value::with_default_value("user_name"),
+            user_email: Value::with_default_value("user_email"),
+            branch: Value::with_value("branch", default_branch()),
+            remote: Value::with_value("remote", default_remote()),
+            force_https: Value::with_default_value("force_https"),
+            project_root: Value::protected(PROJECT_ROOT),
             next_version: Value::builder(NEXT_VERSION)
                 .protected()
                 .required_at(PluginStep::Commit)

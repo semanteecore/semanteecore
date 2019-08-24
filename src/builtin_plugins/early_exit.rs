@@ -31,9 +31,7 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            current_version: Value::builder(CURRENT_VERSION)
-                .required_at(PluginStep::DeriveNextVersion)
-                .build(),
+            current_version: Value::required_at(CURRENT_VERSION, PluginStep::DeriveNextVersion),
             next_version: Value::builder(NEXT_VERSION)
                 .required_at(PluginStep::DeriveNextVersion)
                 .protected()
