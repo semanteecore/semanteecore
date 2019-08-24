@@ -37,9 +37,9 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            project_root: Value::builder(PROJECT_ROOT).protected().build(),
-            dry_run: Value::builder(DRY_RUN).protected().build(),
-            token: Value::builder("CARGO_TOKEN").load_from_env().build(),
+            project_root: Value::protected(PROJECT_ROOT),
+            dry_run: Value::protected(DRY_RUN),
+            token: Value::load_from_env("CARGO_TOKEN"),
             next_version: Value::builder(NEXT_VERSION)
                 .required_at(PluginStep::Prepare)
                 .protected()
