@@ -54,9 +54,9 @@ impl<T> Value<T> {
             ValueState::NeedsProvision(_) => false,
         }
     }
-    
+
     // Convenience constructors
-    
+
     /// Makes a `Value` with a given key which requires provision.
     pub fn from_key(key: &str) -> Self {
         ValueBuilder::new(key).build()
@@ -71,7 +71,7 @@ impl<T> Value<T> {
     /// Resulting `Value` doesn't require provision.
     pub fn with_default_value(key: &str) -> Self
     where
-        T: Default
+        T: Default,
     {
         ValueBuilder::new(key).default_value().build()
     }
