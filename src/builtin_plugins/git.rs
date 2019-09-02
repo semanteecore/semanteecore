@@ -275,19 +275,13 @@ impl State {
     fn latest_tag(&self) -> Option<(GitRevision, semver::Version)> {
         let tags = self.repo.tag_names(None).ok()?;
 
-        let opt_version = tags
-            .iter()
+        tags.iter()
+            .filter_map(std::convert::identity)
             .filter_map(|tag| {
-                tag.and_then(|s| semver::Version::parse(if s.starts_with('v') { &s[1..] } else { &s[..] }).ok())
+                let nums = if tag.starts_with('v') { &tag[1..] } else { &tag[..] };
+                semver::Version::parse(nums).ok().map(|v| (tag.to_owned(), v))
             })
-            .max();
-
-        if let Some(version) = opt_version {
-            let tag_name = format!("v{}", version);
-            Some((tag_name, version))
-        } else {
-            None
-        }
+            .max_by(|(_, v1), (_, v2)| v1.cmp(v2))
     }
 
     fn earliest_revision(&self) -> Result<Oid, failure::Error> {
