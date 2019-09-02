@@ -1,3 +1,13 @@
+<a name="v2.9.1"></a>
+## v2.9.1 (2019-09-02)
+
+
+#### Bug Fixes
+
+*   allow git tags to not start with v ([b183969a](b183969a))
+
+
+
 <a name="v2.9.0"></a>
 ## v2.9.0 (2019-08-23)
 
