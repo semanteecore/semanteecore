@@ -1,3 +1,13 @@
+<a name="v2.9.2"></a>
+## v2.9.2 (2019-09-02)
+
+
+#### Bug Fixes
+
+*   fix mistake made in the git tag fix ([e41d7c42](e41d7c42))
+
+
+
 <a name="v2.9.1"></a>
 ## v2.9.1 (2019-09-02)
 
