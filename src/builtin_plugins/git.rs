@@ -277,7 +277,9 @@ impl State {
 
         let opt_version = tags
             .iter()
-            .filter_map(|tag| tag.and_then(|s| semver::Version::parse(&s[1..]).ok()))
+            .filter_map(|tag| {
+                tag.and_then(|s| semver::Version::parse(if s.starts_with('v') { &s[1..] } else { &s[..] }).ok())
+            })
             .max();
 
         if let Some(version) = opt_version {
