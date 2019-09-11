@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use std::io::Write;
 use std::ops::Try;
 use std::path::PathBuf;
@@ -7,7 +6,7 @@ use std::process::{Command, Stdio};
 use failure::Fail;
 
 use crate::plugin_support::flow::{FlowError, Value};
-use crate::plugin_support::keys::{GIT_BRANCH, GIT_REMOTE_URL, NEXT_VERSION};
+use crate::plugin_support::keys::NEXT_VERSION;
 use crate::plugin_support::proto::response::{self, PluginResponse};
 use crate::plugin_support::{PluginInterface, PluginStep};
 use serde::{Deserialize, Serialize};
@@ -128,7 +127,7 @@ impl PluginInterface for DockerPlugin {
 
             login(registry_url, &credentials)?;
 
-            build_image(&config, image)?;
+            build_image(image)?;
 
             // Tag as namespace/name/tag and namespace/name/version
             let from = format!("{}:{}", image.name, image.tag);
@@ -165,13 +164,14 @@ fn docker_info() -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn build_image(config: &Config, image: &Image) -> Result<(), failure::Error> {
+fn build_image(image: &Image) -> Result<(), failure::Error> {
     let mut cmd = Command::new("docker");
 
-    cmd
-        .arg("build")
-        .arg("-f").arg(&image.dockerfile.display().to_string())
-        .arg("-t").arg(&format!("{}:{}", image.name, image.tag))
+    cmd.arg("build")
+        .arg("-f")
+        .arg(&image.dockerfile.display().to_string())
+        .arg("-t")
+        .arg(&format!("{}:{}", image.name, image.tag))
         .arg(".");
 
     log::debug!("exec {:?}", cmd);
