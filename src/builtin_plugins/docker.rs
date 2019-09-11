@@ -26,8 +26,6 @@ impl DockerPlugin {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Config {
-    repo_url: Value<String>,
-    repo_branch: Value<String>,
     next_version: Value<semver::Version>,
     images: Value<Vec<Image>>,
     docker_user: Value<String>,
@@ -37,8 +35,6 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            repo_url: Value::required_at(GIT_REMOTE_URL, PluginStep::Publish),
-            repo_branch: Value::required_at(GIT_BRANCH, PluginStep::Publish),
             next_version: Value::required_at(NEXT_VERSION, PluginStep::Publish),
             images: Value::with_default_value("images"),
             docker_user: Value::load_from_env("DOCKER_USER"),
@@ -50,14 +46,10 @@ impl Default for Config {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Image {
     registry: Registry,
-    dockerfile: PathBuf,
     namespace: Option<String>,
+    dockerfile: PathBuf,
     name: String,
     tag: String,
-    binary_path: String,
-    build_cmd: String,
-    exec_cmd: String,
-    cleanup: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -176,25 +168,11 @@ fn docker_info() -> Result<(), failure::Error> {
 fn build_image(config: &Config, image: &Image) -> Result<(), failure::Error> {
     let mut cmd = Command::new("docker");
 
-    cmd.arg("build").arg(".docker").arg("--no-cache");
-
-    // Set filename of Dockerfile
-    cmd.arg("-f").arg(&image.dockerfile.display().to_string());
-
-    // Set name and tag
-    cmd.arg("-t").arg(&format!("{}:{}", image.name, image.tag));
-
-    let mut set_env_var = |k, v: &dyn Display| {
-        cmd.arg("--build-arg").arg(format!("{}={}", k, v));
-    };
-
-    // Set env vars
-    set_env_var("REPO_URL", &config.repo_url.as_value());
-    set_env_var("REPO_BRANCH", &config.repo_branch.as_value());
-    set_env_var("BUILD_CMD", &image.build_cmd);
-    set_env_var("BINARY_PATH", &image.binary_path);
-    set_env_var("CLEANUP", &image.cleanup);
-    set_env_var("EXEC_CMD", &image.exec_cmd);
+    cmd
+        .arg("build")
+        .arg("-f").arg(&image.dockerfile.display().to_string())
+        .arg("-t").arg(&format!("{}:{}", image.name, image.tag))
+        .arg(".");
 
     log::debug!("exec {:?}", cmd);
 
