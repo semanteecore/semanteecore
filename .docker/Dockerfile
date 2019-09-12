@@ -1,66 +1,50 @@
-FROM rust:latest
-
-# REQUIRED ENV VARS
-
-# git repository url
-ARG REPO_URL
-
-# git repository branch
-ARG REPO_BRANCH
-
-# build command to run
-ARG BUILD_CMD
-
-# command to execute
-ARG EXEC_CMD
-ENV EXEC=$EXEC_CMD
-
-# OPTIONAL ENV VARS
-
-# relative path to the binary file (would be copied to /bin/)
-ARG BINARY_PATH=""
-
-# whether to cleanup the build
-ARG CLEANUP=false
-
-# docker runtime version
-ENV DOCKERVERSION="18.09.6"
+FROM rust:latest as builder
 
 # Install dependencies
-RUN apt-get update && apt-get install -y git cmake
+RUN apt-get update && apt-get install -y cmake
+
+# Install dependency builder for cargo
+RUN cargo install cargo-build-deps
+
+# That would be cached if Cargo.lock haven't been changed
+RUN cd /tmp && USER=root cargo new --bin project
+WORKDIR /tmp/project
+COPY Cargo.toml Cargo.lock rust-toolchain ./
+RUN cargo build-deps --release
+
+# Copy the rest of sources & build
+COPY src/ ./src
+COPY grammar/ ./grammar
+COPY README.md README.md
+RUN cargo build --release
+RUN mkdir /build -p && cp ./target/release/semantic-rs /build/
+
+# Use rust ubuntu base image for maximum flexibility of derived images
+FROM rust:latest
+
+ARG DOCKER_VERSION="18.09.6"
+ENV DOWNLOAD_URL="https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz"
+
+# Set workdir for semantic-rs
+RUN mkdir /root/semantic
+WORKDIR /root/semantic
+
+# Install runtume dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    gcc \
+    git \
+    curl \
+ && rm -rf /var/lib/apt/lists/*
 
 # Install Docker client
-RUN curl -fsSLO https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKERVERSION}.tgz \
-    && tar xzvf docker-${DOCKERVERSION}.tgz --strip 1 -C /usr/local/bin docker/docker \
-    && rm docker-${DOCKERVERSION}.tgz
+RUN mkdir -p /tmp/download \
+    && curl -L $DOWNLOAD_URL | tar -xz -C /tmp/download \
+    && mv /tmp/download/docker/docker /usr/local/bin/ \
+    && rm -rf /tmp/download
 
-# Create user and set workdir
-RUN useradd -ms /bin/bash semantic
-USER semantic
-WORKDIR /home/semantic/
-
-# Clone the repo
-RUN git clone --recursive $REPO_URL project
-WORKDIR /home/semantic/project
-
-# Checkout branch
-RUN git checkout $REPO_BRANCH
-
-# Run build command
-RUN bash -c "$BUILD_CMD"
-
-# Change back to root user
-USER root
-
-# Optionally copy binary to /bin/
-RUN if [ -f $BINARY_PATH ]; then cp $BINARY_PATH /bin/; fi
-
-# Optional cleanup
-RUN if $CLEANUP; then rm -rf /home/semantic/project; fi
-
-# Change workdir to one that would be used when container is executed
-RUN mkdir /home/semantic/workdir
-WORKDIR /home/semantic/workdir
+# Copy build binary
+COPY --from=builder /build/semantic-rs /usr/bin/
 
 # Run cmd
-CMD $EXEC
+CMD /bin/bash -c /usr/bin/semantic-rs

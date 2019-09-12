@@ -6,7 +6,6 @@ use crate::plugin_support::flow::{Availability, ProvisionCapability, Value};
 use crate::plugin_support::{Plugin, PluginStep};
 use failure::Fail;
 use std::collections::VecDeque;
-use strum::IntoEnumIterator;
 
 pub type SourceKey = Key;
 pub type DestKey = Key;
@@ -663,6 +662,7 @@ mod tests {
         PluginInterface,
     };
     use std::ops::Try;
+    use strum::IntoEnumIterator;
 
     fn dependent_provider_plugins() -> Vec<Plugin> {
         vec![
