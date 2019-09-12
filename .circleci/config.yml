@@ -203,7 +203,8 @@ jobs:
     docker:
       - image: rust:latest
     steps:
-      - setup_remote_docker
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run: *setup-docker
       - checkout
       - attach_workspace:
@@ -215,7 +216,8 @@ jobs:
     docker:
       - image: rust:latest
     steps:
-      - setup_remote_docker
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run: *setup-docker
       - checkout
       - attach_workspace:
