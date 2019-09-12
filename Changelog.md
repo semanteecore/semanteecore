@@ -1,3 +1,15 @@
+<a name="v2.10.0"></a>
+## v2.10.0 (2019-09-12)
+
+
+#### Features
+
+* **docker:**
+  *  2-stage Dockerfile with dependency caching ([ca936477](ca936477))
+  *  reduce complexity of using Dockerfiles with semantic-rs ([0c2268dd](0c2268dd))
+
+
+
 <a name="v2.9.2"></a>
 ## v2.9.2 (2019-09-02)
 
