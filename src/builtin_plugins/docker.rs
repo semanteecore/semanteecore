@@ -10,6 +10,7 @@ use crate::plugin_support::keys::NEXT_VERSION;
 use crate::plugin_support::proto::response::{self, PluginResponse};
 use crate::plugin_support::{PluginInterface, PluginStep};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 #[derive(Default)]
 pub struct DockerPlugin {
@@ -51,7 +52,7 @@ struct Image {
     tag: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Debug, Copy, Clone)]
 #[serde(rename_all = "snake_case")]
 enum Registry {
     Dockerhub,
@@ -104,6 +105,31 @@ impl PluginInterface for DockerPlugin {
         log::info!("Checking that docker daemon is running...");
         if let Err(err) = docker_info() {
             response.error(err);
+        }
+
+        if let Some(credentials) = credentials.as_ref() {
+            let registries = self
+                .config
+                .images
+                .as_value()
+                .iter()
+                .map(|image| image.registry)
+                .collect::<HashSet<_>>();
+
+            for registry in registries {
+                let (registry_url, registry_name) = match registry {
+                    Registry::Dockerhub => (None, "DockerHub"),
+                };
+
+                if let Err(err) = login(registry_url, &credentials) {
+                    response.warning(format!(
+                        "login to {} failed, publishing will fail: {}",
+                        registry_name, err
+                    ));
+                }
+            }
+        } else {
+            response.warning("credentials are undefined, publishing will fail");
         }
 
         self.state.replace(State { credentials });
