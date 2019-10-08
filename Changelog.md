@@ -1,3 +1,17 @@
+<a name="v2.10.1"></a>
+## v2.10.1 (2019-10-08)
+
+
+#### Features
+
+* **ci:**  enable docker layer caching ([3821db1d](3821db1d))
+
+#### Bug Fixes
+
+* **docker:**  pre-check that login to docker registries won't fail ([b6849607](b6849607))
+
+
+
 <a name="v2.10.0"></a>
 ## v2.10.0 (2019-09-12)
 
