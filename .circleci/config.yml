@@ -231,7 +231,7 @@ jobs:
 
 workflows:
   version: 2
-  analysis:
+  ci:
     jobs:
       - codecov
       - test-linux
@@ -241,29 +241,6 @@ workflows:
       - build-macos
       - build-windows
       - release-dry:
-          requires:
-            - build-linux
-            - build-macos
-            - build-windows
-
-  release:
-    jobs:
-      - codecov:
-          filters: *filter-only-master
-      - test-linux:
-          filters: *filter-only-master
-      - test-macos:
-          filters: *filter-only-master
-      - test-windows:
-          filters: *filter-only-master
-      - build-linux:
-          filters: *filter-only-master
-      - build-macos:
-          filters: *filter-only-master
-      - build-windows:
-          filters: *filter-only-master
-      - release-dry:
-          filters: *filter-only-master
           requires:
             - build-linux
             - build-macos
