@@ -9,6 +9,8 @@ pub use self::traits::PluginInterface;
 use serde::{Deserialize, Serialize};
 use std::cell::{RefCell, RefMut};
 use strum::IntoEnumIterator;
+use crate::plugin_support::proto::response;
+use crate::plugin_support::flow::Value;
 
 pub struct RawPlugin {
     name: String,
@@ -38,14 +40,59 @@ pub enum RawPluginState {
     Resolved(ResolvedPlugin),
 }
 
-pub struct Plugin {
+pub struct Plugin<'a> {
     pub name: String,
-    call: RefCell<Box<dyn PluginInterface>>,
+    call: MaybeOwnedCallable<'a>>
 }
 
-impl Plugin {
-    pub fn new(plugin: Box<dyn PluginInterface>) -> Result<Self, failure::Error> {
-        let name = plugin.name()?;
+enum MaybeOwnedCallable<'a> {
+    Owned(Box<dyn PluginInterface + 'static>),
+    Borrowed(&'a mut (dyn PluginInterface + 'static))
+}
+
+impl From<Box<dyn PluginInterface>> for MaybeOwnedCallable<'_> {
+    fn from(x: Box<dyn PluginInterface>) -> Self {
+        MaybeOwnedCallable::Owned(x)
+    }
+}
+impl<'a> From<&'a mut (dyn PluginInterface + 'static)> for MaybeOwnedCallable<'a> {
+    fn from(x: &'a mut (dyn PluginInterface + 'static)) -> Self {
+        MaybeOwnedCallable::Borrowed(x)
+    }
+}
+
+impl<'a> AsRef<dyn PluginInterface + 'a> for MaybeOwnedCallable<'a> {
+    fn as_ref(&self) -> &(dyn PluginInterface + 'a) {
+        match self {
+            MaybeOwnedCallable::Owned(call) => &**call,
+            MaybeOwnedCallable::Borrowed(call) => &**call,
+        }
+    }
+}
+
+impl<'a> AsMut<dyn PluginInterface + 'a> for MaybeOwnedCallable<'a> {
+    fn as_mut(&mut self) -> &mut (dyn PluginInterface + 'a) {
+        match self {
+            MaybeOwnedCallable::Owned(call) => &mut **call,
+            MaybeOwnedCallable::Borrowed(call) => *call,
+        }
+    }
+}
+
+impl Plugin<'static> {
+    pub fn from_box(plugin: Box<dyn PluginInterface>) -> Result<Self, failure::Error> {
+        Plugin::construct(plugin)
+    }
+}
+
+impl<'a> Plugin<'a> {
+    pub fn from_ref(plugin: &'a mut (dyn PluginInterface + 'static)) -> Result<Self, failure::Error> {
+        Plugin::construct(plugin)
+    }
+
+    fn construct<T: Into<MaybeOwnedCallable<'a>>>(plugin: T) -> Result<Self, failure::Error> {
+        let plugin = plugin.into();
+        let name = plugin.as_ref().name()?;
         let plugin = Plugin {
             name,
             call: RefCell::new(plugin),
@@ -53,8 +100,56 @@ impl Plugin {
         Ok(plugin)
     }
 
-    pub fn as_interface(&self) -> RefMut<Box<dyn PluginInterface>> {
-        RefCell::borrow_mut(&self.call)
+    /// Get the human-readable name of the plugin
+    pub fn name(&self) -> response::Name {
+        self.map_interface(|x| x.name())
+    }
+
+    /// Get list of keys plugin is capable of provisioning on verious execution steps
+    pub fn provision_capabilities(&self) -> response::ProvisionCapabilities {
+        self.map_interface(|x| x.provision_capabilities())
+    }
+
+    /// Get a value advertised in PluginInterface::provision_capabilities
+    pub fn get_value(&self, key: &str) -> response::GetValue {
+        self.map_interface(|x| x.get_value(key))
+    }
+
+    /// Set a key-value pair in the plugin configuration
+    ///
+    /// This method is provided and uses the PluginInterface::get_config and PluginInterface::set_config
+    /// in order to merge the before and after configuration states
+    pub fn set_value(&self, key: &str, value: Value<serde_json::Value>) -> response::Null {
+        self.map_interface(|x| x.set_value(key, value))
+    }
+
+    /// Returns plugin configuration encoded as JSON object
+    pub fn get_config(&self) -> response::Config {
+        self.map_interface(|x| x.get_config())
+    }
+
+    /// Called to override plugin configuration
+    pub fn set_config(&self, config: serde_json::Value) -> response::Null {
+        self.map_interface(|x| x.set_config(config))
+    }
+
+    /// Called when plugin is required to reset its inner state to initial configuration
+    pub fn reset(&self) -> response::Null {
+        self.map_interface(|x| x.reset())
+    }
+
+    /// Get list of methods this plugin implements
+    pub fn methods(&self) -> response::Methods {
+        self.map_interface(|x| x.methods())
+    }
+
+    fn map_interface<R>(&self, map_fn: impl FnOnce(&mut dyn PluginInterface) -> R) -> R {
+        let mut interface = self.as_interface();
+        map_fn(interface.as_mut())
+    }
+
+    fn as_interface(&self) -> RefMut<impl AsMut<dyn PluginInterface + 'a> + 'a> {
+        self.call.borrow_mut()
     }
 }
 

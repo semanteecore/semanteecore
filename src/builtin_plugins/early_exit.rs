@@ -16,6 +16,12 @@ pub struct EarlyExitPlugin {
 
 impl EarlyExitPlugin {
     pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for EarlyExitPlugin {
+    fn default() -> Self {
         EarlyExitPlugin {
             config: Config::default(),
         }
@@ -52,6 +58,11 @@ impl PluginInterface for EarlyExitPlugin {
 
     fn set_config(&mut self, config: serde_json::Value) -> response::Null {
         self.config = serde_json::from_value(config)?;
+        PluginResponse::from_ok(())
+    }
+
+    fn reset(&mut self) -> response::Null {
+        *self = Self::default();
         PluginResponse::from_ok(())
     }
 

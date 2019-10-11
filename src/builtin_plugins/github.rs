@@ -24,6 +24,12 @@ pub struct GithubPlugin {
 
 impl GithubPlugin {
     pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for GithubPlugin {
+    fn default() -> Self {
         GithubPlugin {
             config: Config::default(),
         }
@@ -109,6 +115,11 @@ impl PluginInterface for GithubPlugin {
 
     fn get_config(&self) -> response::Config {
         PluginResponse::from_ok(serde_json::to_value(&self.config)?)
+    }
+
+    fn reset(&mut self) -> response::Null {
+        *self = Self::default();
+        PluginResponse::from_ok(())
     }
 
     fn set_config(&mut self, config: serde_json::Value) -> response::Null {

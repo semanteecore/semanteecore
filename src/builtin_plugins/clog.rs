@@ -25,6 +25,12 @@ pub struct ClogPlugin {
 
 impl ClogPlugin {
     pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for ClogPlugin {
+    fn default() -> Self {
         ClogPlugin {
             config: Config::default(),
             state: State::default(),
@@ -147,6 +153,11 @@ impl PluginInterface for ClogPlugin {
 
     fn set_config(&mut self, config: serde_json::Value) -> response::Null {
         self.config = serde_json::from_value(config)?;
+        PluginResponse::from_ok(())
+    }
+
+    fn reset(&mut self) -> response::Null {
+        *self = Self::default();
         PluginResponse::from_ok(())
     }
 
