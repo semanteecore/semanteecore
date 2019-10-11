@@ -1,3 +1,13 @@
+<a name="v2.12.0"></a>
+## v2.12.0 (2019-10-11)
+
+
+#### Features
+
+* **logs:**  custom formatting for sub-command piped stderr/stdout ([48e141f0](48e141f0))
+
+
+
 <a name="v2.11.1"></a>
 ## v2.11.1 (2019-10-11)
 
