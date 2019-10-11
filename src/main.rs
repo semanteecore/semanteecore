@@ -1,5 +1,4 @@
 #![feature(try_trait, external_doc)]
-#![deny(missing_docs)]
 #![doc(include = "../README.md")]
 
 #[macro_use]
@@ -7,7 +6,7 @@ extern crate strum_macros;
 #[macro_use]
 extern crate pest_derive;
 
-mod builtin_plugins;
+pub mod builtin_plugins;
 mod config;
 mod logger;
 mod plugin_runtime;

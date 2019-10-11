@@ -2,11 +2,11 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::ops::Try;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use failure::Fail;
 use serde::{Deserialize, Serialize};
 
+use crate::plugin_support::command::PipedCommand;
 use crate::plugin_support::flow::{FlowError, ProvisionCapability, Value};
 use crate::plugin_support::keys::{DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_ROOT};
 use crate::plugin_support::proto::response::{self, PluginResponse};
@@ -184,43 +184,27 @@ impl Cargo {
         })
     }
 
-    fn run_command(command: &mut Command) -> Result<(String, String), failure::Error> {
-        let output = command.output()?;
-        let stdout = String::from_utf8(output.stdout)?;
-        let stderr = String::from_utf8(output.stderr)?;
-
-        if !output.status.success() {
-            Err(Error::CargoCommandFailed(stdout, stderr).into())
-        } else {
-            Ok((stdout, stderr))
-        }
-    }
-
     pub fn package(&self) -> Result<(), failure::Error> {
-        let mut command = Command::new("cargo");
-        let command = command
-            .arg("package")
-            .arg("--allow-dirty")
-            .arg("--manifest-path")
-            .arg(&self.manifest_path);
+        let args = &[
+            "package",
+            "--allow-dirty",
+            "--manifest-path",
+            &self.manifest_path.display().to_string(),
+        ];
 
-        Self::run_command(command)?;
-
-        Ok(())
+        PipedCommand::new("cargo", args).join(log::Level::Debug)
     }
 
     pub fn publish(&self) -> Result<(), failure::Error> {
-        let mut command = Command::new("cargo");
-        let command = command
-            .arg("publish")
-            .arg("--manifest-path")
-            .arg(&self.manifest_path)
-            .arg("--token")
-            .arg(&self.token);
+        let args = &[
+            "publish",
+            "--manifest-path",
+            &self.manifest_path.display().to_string(),
+            "--token",
+            &self.token,
+        ];
 
-        Self::run_command(command)?;
-
-        Ok(())
+        PipedCommand::new("cargo", args).join(log::Level::Debug)
     }
 
     pub fn load_manifest_raw(&self) -> Result<Vec<u8>, failure::Error> {
@@ -279,8 +263,6 @@ impl Cargo {
 enum Error {
     #[fail(display = "Cargo.toml not found in {}", _0)]
     CargoTomlNotFound(String),
-    #[fail(display = "failed to invoke cargo:\n\t\tSTDOUT:\n{}\n\t\tSTDERR:\n{}", _0, _1)]
-    CargoCommandFailed(String, String),
     #[fail(display = "ill-formed Cargo.toml manifest: {}", _0)]
     InvalidManifest(&'static str),
 }

@@ -1,3 +1,4 @@
+pub mod command;
 pub mod flow;
 pub mod keys;
 pub mod proto;

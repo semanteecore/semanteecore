@@ -1,10 +1,9 @@
-use std::io::Write;
 use std::ops::Try;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
 
 use failure::Fail;
 
+use crate::plugin_support::command::PipedCommand;
 use crate::plugin_support::flow::{FlowError, Value};
 use crate::plugin_support::keys::NEXT_VERSION;
 use crate::plugin_support::proto::response::{self, PluginResponse};
@@ -178,34 +177,20 @@ fn get_image_path(image: &Image, tag: &str) -> String {
 }
 
 fn docker_info() -> Result<(), failure::Error> {
-    let status = Command::new("docker")
-        .arg("info")
-        .status()
-        .map_err(|_| Error::DockerNotFound)?;
-
-    if !status.success() {
-        return Err(Error::DockerCommandFailed(status.code()).into());
-    }
-
-    Ok(())
+    PipedCommand::new("docker", &["info"]).join(log::Level::Debug)
 }
 
 fn build_image(image: &Image) -> Result<(), failure::Error> {
-    let mut cmd = Command::new("docker");
+    let args = &[
+        "build",
+        "-f",
+        &image.dockerfile.display().to_string(),
+        "-t",
+        &format!("{}:{}", image.name, image.tag),
+        ".",
+    ];
 
-    cmd.arg("build")
-        .arg("-f")
-        .arg(&image.dockerfile.display().to_string())
-        .arg("-t")
-        .arg(&format!("{}:{}", image.name, image.tag))
-        .arg(".");
-
-    log::debug!("exec {:?}", cmd);
-
-    let status = cmd.status()?;
-    if !status.success() {
-        return Err(Error::DockerCommandFailed(status.code()).into());
-    }
+    PipedCommand::new("docker", args).join(log::Level::Debug)?;
 
     log::info!("Built image {}:{}", image.name, image.tag);
 
@@ -215,63 +200,27 @@ fn build_image(image: &Image) -> Result<(), failure::Error> {
 fn tag_image(from: &str, to: &str) -> Result<(), failure::Error> {
     log::info!("tagging image {} as {}", from, to);
 
-    let mut cmd = Command::new("docker");
-
-    let status = cmd.arg("tag").arg(from).arg(to).status()?;
-
-    if !status.success() {
-        return Err(Error::DockerCommandFailed(status.code()).into());
-    }
-
-    Ok(())
+    PipedCommand::new("docker", &["tag", from, to]).join(log::Level::Info)
 }
 
 fn login(registry_url: Option<&str>, credentials: &Credentials) -> Result<(), failure::Error> {
     log::info!("logging in as {}", credentials.username);
 
-    let mut cmd = Command::new("docker");
-
-    cmd.arg("login")
-        .arg("--username")
-        .arg(&credentials.username)
-        .arg("--password-stdin");
+    let mut args = vec!["login", "--username", &credentials.username, "--password-stdin"];
 
     if let Some(url) = registry_url {
-        cmd.arg(url);
+        args.push(url);
     }
 
-    let mut child = cmd.stdin(Stdio::piped()).spawn()?;
-
-    {
-        let stdin = child.stdin.as_mut().ok_or(Error::StdioPasswordPassingFailed)?;
-        stdin.write_all(credentials.password.as_bytes())?;
-    }
-
-    let status = child.wait()?;
-
-    if !status.success() {
-        return Err(Error::DockerCommandFailed(status.code()).into());
-    }
-
-    Ok(())
+    PipedCommand::new("docker", args)
+        .input(&credentials.password)
+        .join(log::Level::Info)
 }
 
 fn push_image(image: &Image, tag: &str) -> Result<(), failure::Error> {
-    let mut cmd = Command::new("docker");
-
-    cmd.arg("push");
-
     let path = get_image_path(image, tag);
     log::info!("Publishing image {}", path);
-    cmd.arg(path);
-
-    let status = cmd.status()?;
-
-    if !status.success() {
-        return Err(Error::DockerCommandFailed(status.code()).into());
-    }
-
-    Ok(())
+    PipedCommand::new("docker", &["push", &path]).join(log::Level::Info)
 }
 
 #[derive(Fail, Debug)]
@@ -280,10 +229,4 @@ enum Error {
     CredentialsUndefined,
     #[fail(display = "state is missing: forgot to call pre_flight?")]
     MissingState,
-    #[fail(display = "docker command exited with error {:?}", _0)]
-    DockerCommandFailed(Option<i32>),
-    #[fail(display = "stdio error: failed to pass password to docker process via stdin")]
-    StdioPasswordPassingFailed,
-    #[fail(display = "'docker' not found in PATH: make sure you have the docker client installed")]
-    DockerNotFound,
 }
