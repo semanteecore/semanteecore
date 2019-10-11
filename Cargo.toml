@@ -8,7 +8,7 @@ authors = [
 description = 'Automatic crate publishing'
 license = 'MIT'
 edition = '2018'
-version = '2.12.0'
+version = '2.12.1'
 
 [dependencies]
 git2 = '0.9'
@@ -32,7 +32,7 @@ tokio = '0.1'
 pest = '2.1.1'
 pest_derive = '2.1.0'
 lazy_static = '1.4.0'
-subprocess = "0.1.18"
+subprocess = '0.1.18'
 
 [dependencies.semver]
 version = '0.9'

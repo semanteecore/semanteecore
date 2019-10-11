@@ -1,3 +1,13 @@
+<a name="v2.12.1"></a>
+## v2.12.1 (2019-10-11)
+
+
+#### Bug Fixes
+
+*   PipedCommand wasn't streaming the subprocess stdout real-time ([76153b16](76153b16))
+
+
+
 <a name="v2.12.0"></a>
 ## v2.12.0 (2019-10-11)
 
