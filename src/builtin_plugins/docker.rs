@@ -212,7 +212,7 @@ fn login(registry_url: Option<&str>, credentials: &Credentials) -> Result<(), fa
         args.push(url);
     }
 
-    PipedCommand::new("docker", args)
+    PipedCommand::new("docker", &args)
         .input(&credentials.password)
         .join(log::Level::Info)
 }
