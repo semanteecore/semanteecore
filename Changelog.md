@@ -1,3 +1,14 @@
+<a name="v2.11.0"></a>
+## v2.11.0 (2019-10-11)
+
+
+#### Features
+
+*   plugin-system agnostic logs ([387afba9](387afba9))
+* **ci:**  deduplicated pipeline ([c1fc4b1e](c1fc4b1e))
+
+
+
 <a name="v2.10.1"></a>
 ## v2.10.1 (2019-10-08)
 
