@@ -1,3 +1,13 @@
+<a name="v2.11.1"></a>
+## v2.11.1 (2019-10-11)
+
+
+#### Bug Fixes
+
+*   log-out the changelog line-by-line ([8ba9d4ea](8ba9d4ea))
+
+
+
 <a name="v2.11.0"></a>
 ## v2.11.0 (2019-10-11)
 
