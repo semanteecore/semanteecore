@@ -217,7 +217,7 @@ impl PluginInterface for ClogPlugin {
 
             log::info!("Changelog for {}..{}", current_version.rev, next_version);
             log::info!("---------------------------------------------------");
-            log::info!("{}", changelog);
+            changelog.lines().for_each(|line| log::info!("{}", line));
             log::info!("---------------------------------------------------");
 
             changelog
