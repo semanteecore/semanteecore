@@ -190,7 +190,7 @@ fn build_image(image: &Image) -> Result<(), failure::Error> {
         ".",
     ];
 
-    PipedCommand::new("docker", args).join(log::Level::Debug)?;
+    PipedCommand::new("docker", args).join(log::Level::Info)?;
 
     log::info!("Built image {}:{}", image.name, image.tag);
 

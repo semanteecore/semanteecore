@@ -192,7 +192,7 @@ impl Cargo {
             &self.manifest_path.display().to_string(),
         ];
 
-        PipedCommand::new("cargo", args).join(log::Level::Debug)
+        PipedCommand::new("cargo", args).join(log::Level::Info)
     }
 
     pub fn publish(&self) -> Result<(), failure::Error> {
@@ -204,7 +204,7 @@ impl Cargo {
             &self.token,
         ];
 
-        PipedCommand::new("cargo", args).join(log::Level::Debug)
+        PipedCommand::new("cargo", args).join(log::Level::Info)
     }
 
     pub fn load_manifest_raw(&self) -> Result<Vec<u8>, failure::Error> {
