@@ -2,6 +2,7 @@ use failure::Fail;
 use strum::IntoEnumIterator;
 
 use crate::config::{Config, Map, PluginDefinitionMap};
+use crate::logger;
 use crate::plugin_runtime::data_mgr::DataManager;
 use crate::plugin_runtime::graph::{ActionKind, PluginSequence};
 use crate::plugin_runtime::resolver::PluginResolver;
@@ -33,6 +34,7 @@ impl Kernel {
                 ActionKind::Call(step) => {
                     let plugin = &self.plugins[id];
                     log::debug!("call {}::{}", plugin.name, step.as_str());
+                    let _span = logger::span(&plugin.name);
                     let mut callable = plugin.as_interface();
                     match step {
                         PluginStep::PreFlight => callable.pre_flight()?,
@@ -47,7 +49,10 @@ impl Kernel {
                     }
                 }
                 ActionKind::Get(src_key) => {
-                    let value = self.plugins[id].as_interface().get_value(&src_key)?;
+                    let plugin = &self.plugins[id];
+                    let span = logger::span(&plugin.name);
+                    let value = plugin.as_interface().get_value(&src_key)?;
+                    drop(span);
                     log::debug!("get {}::{} ==> {:?}", self.plugins[id].name, src_key, value);
                     let value = Value::builder(&src_key).value(value).build();
                     self.data_mgr.insert_global(src_key, value);
@@ -55,16 +60,22 @@ impl Kernel {
                 ActionKind::Set(dst_key, src_key) => {
                     let value = self.data_mgr.prepare_value(id, &dst_key, &src_key)?;
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
-                    self.plugins[id].as_interface().set_value(&dst_key, value)?;
+                    let plugin = &self.plugins[id];
+                    let _span = logger::span(&plugin.name);
+                    plugin.as_interface().set_value(&dst_key, value)?;
                 }
                 ActionKind::SetValue(dst_key, value) => {
                     let value = Value::builder(&dst_key).value(value).build();
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
+                    let plugin = &self.plugins[id];
+                    let _span = logger::span(&plugin.name);
                     self.plugins[id].as_interface().set_value(&dst_key, value)?;
                 }
                 ActionKind::RequireConfigEntry(dst_key) => {
                     let value = self.data_mgr.prepare_value_same_key(id, &dst_key)?;
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
+                    let plugin = &self.plugins[id];
+                    let _span = logger::span(&plugin.name);
                     self.plugins[id].as_interface().set_value(&dst_key, value)?;
                 }
                 ActionKind::RequireEnvValue(dst_key, src_key) => {
@@ -74,6 +85,8 @@ impl Kernel {
                         .ok_or_else(|| Error::EnvValueUndefined(src_key.clone()))?;
                     let value = Value::builder(&src_key).value(serde_json::to_value(value)?).build();
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
+                    let plugin = &self.plugins[id];
+                    let _span = logger::span(&plugin.name);
                     self.plugins[id].as_interface().set_value(&dst_key, value)?;
                 }
             }
