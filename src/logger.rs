@@ -49,34 +49,36 @@ pub fn init_logger(v_count: u64, is_silent: bool) -> Result<(), failure::Error> 
     logger.format(|fmt, record| {
         let mut with_prefix =
             |record: &log::Record, prefix: &'static str, color: Color, color_whole_line: bool, verbose: bool| {
-                // Set the default color
-                let mut style = fmt.style();
-                style.set_color(color);
+                let mut clean_style = fmt.style();
+                clean_style.set_color(Color::White).set_intense(true);
+
+                let mut accent_style = fmt.style();
+                accent_style.set_color(color);
 
                 // Write span and prefix
                 let span = SPAN.read().unwrap();
-                style.set_bold(true);
-                write!(fmt, "[{}] ", style.value(span))?;
-                write!(fmt, "{}", style.value(prefix))?;
-                style.set_bold(false);
+                accent_style.set_bold(true);
+                write!(fmt, "[{}] ", accent_style.value(span))?;
+                write!(fmt, "{}", accent_style.value(prefix))?;
+                accent_style.set_bold(false);
 
                 // Extended verbosity for TRACE and DEBUG
                 if verbose && record.module_path().is_some() {
                     // Print module path
                     let path = record.module_path().unwrap();
-                    write!(fmt, "{}", style.value(path))?;
+                    write!(fmt, "{}", accent_style.value(path))?;
                     // Print line in the file
                     if let Some(line) = record.line() {
-                        write!(fmt, ":{}", style.value(line))?;
+                        write!(fmt, ":{}", accent_style.value(line))?;
                     }
                     // Add some padding to mitigate the formatting issue a bit
                     write!(fmt, "\t")?;
                 }
 
                 if color_whole_line {
-                    writeln!(fmt, "{}", style.value(record.args()))
+                    writeln!(fmt, "{}", accent_style.value(record.args()))
                 } else {
-                    writeln!(fmt, "{}", record.args())
+                    writeln!(fmt, "{}", clean_style.value(record.args()))
                 }
             };
 
