@@ -19,6 +19,21 @@ pub struct GitPlugin {
     state: Option<State>,
 }
 
+impl GitPlugin {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for GitPlugin {
+    fn default() -> Self {
+        GitPlugin {
+            config: Config::default(),
+            state: None,
+        }
+    }
+}
+
 struct State {
     repo: Repository,
     signature: Signature<'static>,
@@ -294,15 +309,6 @@ impl State {
     }
 }
 
-impl GitPlugin {
-    pub fn new() -> Self {
-        GitPlugin {
-            config: Config::default(),
-            state: None,
-        }
-    }
-}
-
 impl PluginInterface for GitPlugin {
     fn name(&self) -> response::Name {
         PluginResponse::from_ok("git".into())
@@ -365,6 +371,11 @@ impl PluginInterface for GitPlugin {
 
     fn set_config(&mut self, config: serde_json::Value) -> response::Null {
         self.config = serde_json::from_value(config)?;
+        PluginResponse::from_ok(())
+    }
+
+    fn reset(&mut self) -> response::Null {
+        *self = Self::default();
         PluginResponse::from_ok(())
     }
 
