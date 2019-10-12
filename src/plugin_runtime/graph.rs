@@ -1408,6 +1408,11 @@ mod tests {
                 self.config = serde_json::from_value(config)?;
                 PluginResponse::from_ok(())
             }
+
+            fn reset(&mut self) -> response::Null {
+                *self = Self::default();
+                PluginResponse::from_ok(())
+            }
         }
 
         pub struct Provider;
@@ -1439,6 +1444,10 @@ mod tests {
 
             fn set_config(&mut self, _config: serde_json::Value) -> response::Null {
                 unimplemented!()
+            }
+
+            fn reset(&mut self) -> response::Null {
+                PluginResponse::from_ok(())
             }
         }
 
