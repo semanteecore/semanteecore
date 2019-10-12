@@ -3,7 +3,7 @@ use crate::plugin_runtime::discovery::discover;
 use crate::plugin_runtime::{InjectionTarget, PluginId};
 use crate::plugin_support::flow::kv::{Key, ValueDefinition, ValueDefinitionMap, ValueState};
 use crate::plugin_support::flow::{Availability, ProvisionCapability, Value};
-use crate::plugin_support::{Plugin, PluginStep};
+use crate::plugin_support::{Plugin, PluginInterface, PluginStep};
 use failure::Fail;
 use std::collections::VecDeque;
 
@@ -523,7 +523,7 @@ pub fn collect_plugins_initial_configuration(
     let mut configs = Vec::new();
 
     for plugin in plugins.iter() {
-        let plugin_config = serde_json::from_value(plugin.as_interface().get_config()?)?;
+        let plugin_config = serde_json::from_value(plugin.get_config()?)?;
 
         configs.push(plugin_config);
     }
@@ -535,7 +535,7 @@ fn collect_plugins_provision_capabilities(plugins: &[Plugin]) -> Result<Vec<Vec<
     let mut caps = Vec::new();
 
     for plugin in plugins.iter() {
-        let plugin_caps = plugin.as_interface().provision_capabilities()?;
+        let plugin_caps = plugin.provision_capabilities()?;
 
         caps.push(plugin_caps);
     }
@@ -666,8 +666,8 @@ mod tests {
 
     fn dependent_provider_plugins() -> Vec<Plugin> {
         vec![
-            Plugin::new(Box::new(self::test_plugins::Dependent::default())).unwrap(),
-            Plugin::new(Box::new(self::test_plugins::Provider)).unwrap(),
+            Plugin::new(self::test_plugins::Dependent::default()).unwrap(),
+            Plugin::new(self::test_plugins::Provider).unwrap(),
         ]
     }
 
@@ -802,7 +802,7 @@ mod tests {
 
         let config = toml::from_str(toml).unwrap();
         let mut plugins = dependent_provider_plugins();
-        plugins.push(Plugin::new(Box::new(test_plugins::Injected)).unwrap());
+        plugins.push(Plugin::new(test_plugins::Injected).unwrap());
 
         let caps = collect_plugins_methods_capabilities(&plugins).unwrap();
         let injections = vec![(2, InjectionTarget::BeforeStep(PluginStep::PreFlight))];
@@ -829,7 +829,7 @@ mod tests {
 
         let config = toml::from_str(toml).unwrap();
         let mut plugins = dependent_provider_plugins();
-        plugins.push(Plugin::new(Box::new(test_plugins::Injected)).unwrap());
+        plugins.push(Plugin::new(test_plugins::Injected).unwrap());
 
         let caps = collect_plugins_methods_capabilities(&plugins).unwrap();
         let injections = vec![(2, InjectionTarget::BeforeStep(PluginStep::PreFlight))];
@@ -856,7 +856,7 @@ mod tests {
 
         let config = toml::from_str(toml).unwrap();
         let mut plugins = dependent_provider_plugins();
-        plugins.push(Plugin::new(Box::new(test_plugins::Injected)).unwrap());
+        plugins.push(Plugin::new(test_plugins::Injected).unwrap());
 
         let caps = collect_plugins_methods_capabilities(&plugins).unwrap();
         let injections = vec![(2, InjectionTarget::BeforeStep(PluginStep::DeriveNextVersion))];
