@@ -11,6 +11,7 @@ use std::cell::{RefCell, RefMut};
 use strum::IntoEnumIterator;
 use crate::plugin_support::proto::response;
 use crate::plugin_support::flow::Value;
+use crate::logger;
 
 pub struct RawPlugin {
     name: String,
@@ -42,7 +43,7 @@ pub enum RawPluginState {
 
 pub struct Plugin<'a> {
     pub name: String,
-    call: MaybeOwnedCallable<'a>>
+    inner: MaybeOwnedCallable<'a>
 }
 
 enum MaybeOwnedCallable<'a> {
@@ -95,61 +96,89 @@ impl<'a> Plugin<'a> {
         let name = plugin.as_ref().name()?;
         let plugin = Plugin {
             name,
-            call: RefCell::new(plugin),
+            inner: plugin,
         };
         Ok(plugin)
     }
 
-    /// Get the human-readable name of the plugin
-    pub fn name(&self) -> response::Name {
-        self.map_interface(|x| x.name())
+    fn wrap<R>(&self, func: impl FnOnce(&dyn PluginInterface) -> R) -> R {
+        let _span = logger::span(&self.name);
+        func(self.inner.as_ref())
     }
 
-    /// Get list of keys plugin is capable of provisioning on verious execution steps
-    pub fn provision_capabilities(&self) -> response::ProvisionCapabilities {
-        self.map_interface(|x| x.provision_capabilities())
+    fn wrap_mut<R>(&mut self, func: impl FnOnce(&mut dyn PluginInterface) -> R) -> R {
+        let _span = logger::span(&self.name);
+        func(self.inner.as_mut())
+    }
+}
+
+impl<'a> PluginInterface for Plugin<'a> {
+    fn name(&self) -> response::Name {
+        self.wrap(|x| x.name())
     }
 
-    /// Get a value advertised in PluginInterface::provision_capabilities
-    pub fn get_value(&self, key: &str) -> response::GetValue {
-        self.map_interface(|x| x.get_value(key))
+    fn provision_capabilities(&self) -> response::ProvisionCapabilities {
+        self.wrap(|x| x.provision_capabilities())
     }
 
-    /// Set a key-value pair in the plugin configuration
-    ///
-    /// This method is provided and uses the PluginInterface::get_config and PluginInterface::set_config
-    /// in order to merge the before and after configuration states
-    pub fn set_value(&self, key: &str, value: Value<serde_json::Value>) -> response::Null {
-        self.map_interface(|x| x.set_value(key, value))
+    fn get_value(&self, key: &str) -> response::GetValue {
+        self.wrap(|x| x.get_value(key))
     }
 
-    /// Returns plugin configuration encoded as JSON object
-    pub fn get_config(&self) -> response::Config {
-        self.map_interface(|x| x.get_config())
+    fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
+        self.wrap_mut(|x| x.set_value(key, value))
     }
 
-    /// Called to override plugin configuration
-    pub fn set_config(&self, config: serde_json::Value) -> response::Null {
-        self.map_interface(|x| x.set_config(config))
+    fn get_config(&self) -> response::Config {
+        self.wrap(|x| x.get_config())
     }
 
-    /// Called when plugin is required to reset its inner state to initial configuration
-    pub fn reset(&self) -> response::Null {
-        self.map_interface(|x| x.reset())
+    fn set_config(&mut self, config: serde_json::Value) -> response::Null {
+        self.wrap_mut(|x| x.set_config(config))
     }
 
-    /// Get list of methods this plugin implements
-    pub fn methods(&self) -> response::Methods {
-        self.map_interface(|x| x.methods())
+    fn reset(&mut self) -> response::Null {
+        self.wrap_mut(|x| x.reset())
     }
 
-    fn map_interface<R>(&self, map_fn: impl FnOnce(&mut dyn PluginInterface) -> R) -> R {
-        let mut interface = self.as_interface();
-        map_fn(interface.as_mut())
+    fn methods(&self) -> response::Methods {
+        self.wrap(|x| x.methods())
     }
 
-    fn as_interface(&self) -> RefMut<impl AsMut<dyn PluginInterface + 'a> + 'a> {
-        self.call.borrow_mut()
+    fn pre_flight(&mut self) -> response::Null {
+        self.wrap_mut(|x| x.pre_flight())
+    }
+
+    fn get_last_release(&mut self) -> response::Null {
+        self.wrap_mut(|x| x.get_last_release())
+    }
+
+    fn derive_next_version(&mut self) -> response::Null {
+        self.wrap_mut(|x| x.derive_next_version())
+    }
+
+    fn generate_notes(&mut self) -> response::Null {
+        self.wrap_mut(|x| x.generate_notes())
+    }
+
+    fn prepare(&mut self) -> response::Null {
+        self.wrap_mut(|x| x.prepare())
+    }
+
+    fn verify_release(&mut self) -> response::Null {
+        self.wrap_mut(|x| x.verify_release())
+    }
+
+    fn commit(&mut self) -> response::Null {
+        self.wrap_mut(|x| x.commit())
+    }
+
+    fn publish(&mut self) -> response::Null {
+        self.wrap_mut(|x| x.publish())
+    }
+
+    fn notify(&self) -> response::Null {
+        self.wrap(|x| x.notify())
     }
 }
 

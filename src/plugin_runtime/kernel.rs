@@ -35,27 +35,23 @@ impl<'a> Kernel<'a> {
             let id = action.id();
             match action.into_kind() {
                 ActionKind::Call(step) => {
-                    let plugin = &self.plugins[id];
+                    let plugin = &mut self.plugins[id];
                     log::debug!("call {}::{}", plugin.name, step.as_str());
-                    let _span = logger::span(&plugin.name);
-//                    let mut callable = plugin.as_interface();
-//                    match step {
-//                        PluginStep::PreFlight => callable.pre_flight()?,
-//                        PluginStep::GetLastRelease => callable.get_last_release()?,
-//                        PluginStep::DeriveNextVersion => callable.derive_next_version()?,
-//                        PluginStep::GenerateNotes => callable.generate_notes()?,
-//                        PluginStep::Prepare => callable.prepare()?,
-//                        PluginStep::VerifyRelease => callable.verify_release()?,
-//                        PluginStep::Commit => callable.commit()?,
-//                        PluginStep::Publish => callable.publish()?,
-//                        PluginStep::Notify => callable.notify()?,
-//                    }
+                    match step {
+                        PluginStep::PreFlight => plugin.pre_flight()?,
+                        PluginStep::GetLastRelease => plugin.get_last_release()?,
+                        PluginStep::DeriveNextVersion => plugin.derive_next_version()?,
+                        PluginStep::GenerateNotes => plugin.generate_notes()?,
+                        PluginStep::Prepare => plugin.prepare()?,
+                        PluginStep::VerifyRelease => plugin.verify_release()?,
+                        PluginStep::Commit => plugin.commit()?,
+                        PluginStep::Publish => plugin.publish()?,
+                        PluginStep::Notify => plugin.notify()?,
+                    }
                 }
                 ActionKind::Get(src_key) => {
                     let plugin = &self.plugins[id];
-                    let span = logger::span(&plugin.name);
                     let value = plugin.get_value(&src_key)?;
-                    drop(span);
                     log::debug!("get {}::{} ==> {:?}", self.plugins[id].name, src_key, value);
                     let value = Value::builder(&src_key).value(value).build();
                     self.data_mgr.insert_global(src_key, value);
@@ -63,22 +59,19 @@ impl<'a> Kernel<'a> {
                 ActionKind::Set(dst_key, src_key) => {
                     let value = self.data_mgr.prepare_value(id, &dst_key, &src_key)?;
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
-                    let plugin = &self.plugins[id];
-                    let _span = logger::span(&plugin.name);
+                    let plugin = &mut self.plugins[id];
                     plugin.set_value(&dst_key, value)?;
                 }
                 ActionKind::SetValue(dst_key, value) => {
                     let value = Value::builder(&dst_key).value(value).build();
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
                     let plugin = &self.plugins[id];
-                    let _span = logger::span(&plugin.name);
                     self.plugins[id].set_value(&dst_key, value)?;
                 }
                 ActionKind::RequireConfigEntry(dst_key) => {
                     let value = self.data_mgr.prepare_value_same_key(id, &dst_key)?;
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
                     let plugin = &self.plugins[id];
-                    let _span = logger::span(&plugin.name);
                     self.plugins[id].set_value(&dst_key, value)?;
                 }
                 ActionKind::RequireEnvValue(dst_key, src_key) => {
@@ -89,7 +82,6 @@ impl<'a> Kernel<'a> {
                     let value = Value::builder(&src_key).value(serde_json::to_value(value)?).build();
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
                     let plugin = &self.plugins[id];
-                    let _span = logger::span(&plugin.name);
                     self.plugins[id].set_value(&dst_key, value)?;
                 }
             }
@@ -164,9 +156,6 @@ impl<'a> KernelBuilder<'a> {
             injected_plugins.push(plugin);
             injection_defs.push((id, target));
         }
-
-        // Downgrade 'static lifetime of plugins to 'a
-        let plugins = downgrade_lifetimes(plugins);
 
         // Prepend injected plugins to plugin list
         injected_plugins.extend(plugins.into_iter());
@@ -246,10 +235,6 @@ impl<'a> KernelBuilder<'a> {
     }
 }
 
-fn downgrade_lifetimes<'a>(mut plugins: Vec<Plugin<'static>>) -> Vec<Plugin<'a>> {
-    plugins
-}
-
 #[derive(Fail, Debug)]
 pub enum Error {
     #[fail(display = "failed to resolve some modules: \n{:#?}", _0)]
@@ -257,25 +242,3 @@ pub enum Error {
     #[fail(display = "environment value must be set: {}", _0)]
     EnvValueUndefined(String),
 }
-
-//#[cfg(test)]
-//mod tests {
-//    use std::cell::RefCell;
-//    use crate::plugin_support::PluginInterface;
-//    use crate::builtin_plugins::EarlyExitPlugin;
-//    use std::fmt::Debug;
-//
-//    struct Plugin<'a> {
-//        string: String,
-//        state: State<'a>,
-//    }
-//
-//    enum State<'a> {
-//        Ref(&'a mut (dyn Debug + 'a)),
-//        Boxed(Box<dyn Debug + 'a>)
-//    }
-//
-//    fn convert<'a>(plugins: Vec<Plugin<'static>>) -> Vec<Plugin<'a>> {
-//        plugins
-//    }
-//}

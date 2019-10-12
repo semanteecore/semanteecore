@@ -3,7 +3,7 @@ use crate::plugin_runtime::discovery::discover;
 use crate::plugin_runtime::kernel::{InjectionTarget, PluginId};
 use crate::plugin_support::flow::kv::{Key, ValueDefinition, ValueDefinitionMap, ValueState};
 use crate::plugin_support::flow::{Availability, ProvisionCapability, Value};
-use crate::plugin_support::{Plugin, PluginStep};
+use crate::plugin_support::{Plugin, PluginStep, PluginInterface};
 use failure::Fail;
 use std::collections::VecDeque;
 
