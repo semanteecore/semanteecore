@@ -14,6 +14,7 @@ use crate::plugin_support::proto::{GitRevision, Version};
 use crate::plugin_support::{PluginInterface, PluginStep};
 use std::path::Path;
 
+#[derive(Default)]
 pub struct GitPlugin {
     config: Config,
     state: Option<State>,
@@ -22,15 +23,6 @@ pub struct GitPlugin {
 impl GitPlugin {
     pub fn new() -> Self {
         Self::default()
-    }
-}
-
-impl Default for GitPlugin {
-    fn default() -> Self {
-        GitPlugin {
-            config: Config::default(),
-            state: None,
-        }
     }
 }
 
