@@ -67,12 +67,12 @@ impl Plugin {
         Plugin::try_from(Box::new(plugin) as Box<dyn PluginInterface>)
     }
 
-    fn wrap<R>(&self, func: impl FnOnce(Ref<Box<dyn PluginInterface>>) -> R) -> R {
+    fn apply<R>(&self, func: impl FnOnce(Ref<Box<dyn PluginInterface>>) -> R) -> R {
         let _span = logger::span(&self.name);
         func(self.inner.borrow())
     }
 
-    fn wrap_mut<R>(&mut self, func: impl FnOnce(RefMut<Box<dyn PluginInterface>>) -> R) -> R {
+    fn apply_mut<R>(&mut self, func: impl FnOnce(RefMut<Box<dyn PluginInterface>>) -> R) -> R {
         let _span = logger::span(&self.name);
         func(self.inner.borrow_mut())
     }
@@ -80,71 +80,71 @@ impl Plugin {
 
 impl PluginInterface for Plugin {
     fn name(&self) -> response::Name {
-        self.wrap(|x| x.name())
+        self.apply(|x| x.name())
     }
 
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
-        self.wrap(|x| x.provision_capabilities())
+        self.apply(|x| x.provision_capabilities())
     }
 
     fn get_value(&self, key: &str) -> response::GetValue {
-        self.wrap(|x| x.get_value(key))
+        self.apply(|x| x.get_value(key))
     }
 
     fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
-        self.wrap_mut(|mut x| x.set_value(key, value))
+        self.apply_mut(|mut x| x.set_value(key, value))
     }
 
     fn get_config(&self) -> response::Config {
-        self.wrap(|x| x.get_config())
+        self.apply(|x| x.get_config())
     }
 
     fn set_config(&mut self, config: serde_json::Value) -> response::Null {
-        self.wrap_mut(|mut x| x.set_config(config))
+        self.apply_mut(|mut x| x.set_config(config))
     }
 
     fn reset(&mut self) -> response::Null {
-        self.wrap_mut(|mut x| x.reset())
+        self.apply_mut(|mut x| x.reset())
     }
 
     fn methods(&self) -> response::Methods {
-        self.wrap(|x| x.methods())
+        self.apply(|x| x.methods())
     }
 
     fn pre_flight(&mut self) -> response::Null {
-        self.wrap_mut(|mut x| x.pre_flight())
+        self.apply_mut(|mut x| x.pre_flight())
     }
 
     fn get_last_release(&mut self) -> response::Null {
-        self.wrap_mut(|mut x| x.get_last_release())
+        self.apply_mut(|mut x| x.get_last_release())
     }
 
     fn derive_next_version(&mut self) -> response::Null {
-        self.wrap_mut(|mut x| x.derive_next_version())
+        self.apply_mut(|mut x| x.derive_next_version())
     }
 
     fn generate_notes(&mut self) -> response::Null {
-        self.wrap_mut(|mut x| x.generate_notes())
+        self.apply_mut(|mut x| x.generate_notes())
     }
 
     fn prepare(&mut self) -> response::Null {
-        self.wrap_mut(|mut x| x.prepare())
+        self.apply_mut(|mut x| x.prepare())
     }
 
     fn verify_release(&mut self) -> response::Null {
-        self.wrap_mut(|mut x| x.verify_release())
+        self.apply_mut(|mut x| x.verify_release())
     }
 
     fn commit(&mut self) -> response::Null {
-        self.wrap_mut(|mut x| x.commit())
+        self.apply_mut(|mut x| x.commit())
     }
 
     fn publish(&mut self) -> response::Null {
-        self.wrap_mut(|mut x| x.publish())
+        self.apply_mut(|mut x| x.publish())
     }
 
     fn notify(&self) -> response::Null {
-        self.wrap(|x| x.notify())
+        self.apply(|x| x.notify())
     }
 }
 
