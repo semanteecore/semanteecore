@@ -10,15 +10,14 @@ use crate::plugin_support::proto::{
 };
 use crate::plugin_support::{PluginInterface, PluginStep};
 
+#[derive(Default)]
 pub struct EarlyExitPlugin {
     config: Config,
 }
 
 impl EarlyExitPlugin {
     pub fn new() -> Self {
-        EarlyExitPlugin {
-            config: Config::default(),
-        }
+        Self::default()
     }
 }
 
