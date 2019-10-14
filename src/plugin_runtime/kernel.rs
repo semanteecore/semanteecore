@@ -90,7 +90,7 @@ impl Kernel {
         Ok(())
     }
 
-    pub fn get_plugins(&self) -> &[Plugin] {
+    pub fn plugins(&self) -> &[Plugin] {
         &self.plugins[..]
     }
 
