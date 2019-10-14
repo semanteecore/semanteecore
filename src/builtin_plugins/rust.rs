@@ -12,6 +12,7 @@ use crate::plugin_support::keys::{DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJEC
 use crate::plugin_support::proto::response::{self, PluginResponse};
 use crate::plugin_support::{PluginInterface, PluginStep};
 
+#[derive(Default)]
 pub struct RustPlugin {
     dry_run_guard: Option<DryRunGuard>,
     config: Config,
@@ -20,15 +21,6 @@ pub struct RustPlugin {
 impl RustPlugin {
     pub fn new() -> Self {
         Self::default()
-    }
-}
-
-impl Default for RustPlugin {
-    fn default() -> Self {
-        RustPlugin {
-            dry_run_guard: None,
-            config: Config::default(),
-        }
     }
 }
 

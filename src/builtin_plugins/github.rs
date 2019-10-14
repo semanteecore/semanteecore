@@ -18,6 +18,7 @@ use crate::utils::ResultExt;
 
 const USERAGENT: &str = concat!("semantic-rs/", env!("CARGO_PKG_VERSION"));
 
+#[derive(Default)]
 pub struct GithubPlugin {
     config: Config,
 }
@@ -25,14 +26,6 @@ pub struct GithubPlugin {
 impl GithubPlugin {
     pub fn new() -> Self {
         Self::default()
-    }
-}
-
-impl Default for GithubPlugin {
-    fn default() -> Self {
-        GithubPlugin {
-            config: Config::default(),
-        }
     }
 }
 
