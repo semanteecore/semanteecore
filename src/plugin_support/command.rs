@@ -67,9 +67,26 @@ impl<'a> PipedCommand<'a> {
 
         // Line buffer
         let mut buffer = String::new();
-        let flush_buffer = |buffer: &mut String| {
-            log::log!(level, ">> {}", buffer.trim());
-            log::logger().flush();
+        let mut empty_line = false;
+        let mut flush_buffer = |buffer: &mut String| {
+            let line = buffer.trim();
+
+            // Skip all consecutive empty lines after the first empty line
+            let should_write = if line.is_empty() && !empty_line {
+                empty_line = true;
+                true
+            } else if line.is_empty() && empty_line {
+                false
+            } else {
+                empty_line = false;
+                true
+            };
+
+            if should_write {
+                log::log!(level, ">> {}", buffer.trim());
+                log::logger().flush();
+            }
+
             buffer.clear();
         };
 
