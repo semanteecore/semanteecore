@@ -1,5 +1,5 @@
 [package]
-name = 'semantic-rs'
+name = 'semanteecore'
 authors = [
     'Jan Schulte <hello@unexpected-co.de>',
     'Jan-Erik Rediger <janerik@fnordig.de>',
