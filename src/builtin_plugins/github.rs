@@ -16,7 +16,7 @@ use crate::plugin_support::proto::response::{self, PluginResponse};
 use crate::plugin_support::{PluginInterface, PluginStep};
 use crate::utils::ResultExt;
 
-const USERAGENT: &str = concat!("semantic-rs/", env!("CARGO_PKG_VERSION"));
+const USERAGENT: &str = concat!("semanteecore/", env!("CARGO_PKG_VERSION"));
 
 pub struct GithubPlugin {
     config: Config,

@@ -2,7 +2,7 @@
 
 A Rust Library open source repository in its original condition.
 
-Pristine Rust Library is a fork of [Pristine](https://github.com/etclabscore/pristine).
+Pristine Rust Library is a fork of [Pristine](https://github.com/semanteecore/pristine).
 
 There is a lack of repositories to start from to build community driven open source projects. Pristine Rust Library is a complete starting point, it follows a Documentation Driven Development approach, and can be used as a resource to augment existing documentation.
 
@@ -22,7 +22,7 @@ There are many ways to drive open source development. Documenting the problem in
 
 ### Conventions and Specifications
 
-This repository has some strong opinions built in like circleci, semantic-rs, editorconfig, stable Rust. So feel free to fork and change it at your own discretion. It is only meant to be a starting point. That being said:
+This repository has some strong opinions built in like circleci, semanteecore, editorconfig, stable Rust. So feel free to fork and change it at your own discretion. It is only meant to be a starting point. That being said:
 
 Using conventions, documentation and specifications make it easier to:
 - communicate the problem you are solving
@@ -33,7 +33,7 @@ Using conventions, documentation and specifications make it easier to:
 
 #### Resources
 
-- [Pristine](https://github.com/etclabscore/pristine)
+- [Pristine](https://github.com/semanteecore/pristine)
 - [opensource.guide](https://opensource.guide/)
 - [Github community profiles for public repositories](https://help.github.com/articles/about-community-profiles-for-public-repositories/)
 - [Readme Driven Development](http://tom.preston-werner.com/2010/08/23/readme-driven-development.html)

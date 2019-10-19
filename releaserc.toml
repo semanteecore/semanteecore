@@ -53,8 +53,8 @@ assets = [
 
 [[cfg.docker.images]]
 registry = "dockerhub"
-namespace = "etclabscore"
+namespace = "semanteecore"
 dockerfile = ".docker/Dockerfile"
-name = "semantic-rs"
+name = "semanteecore"
 tag = "latest"
 

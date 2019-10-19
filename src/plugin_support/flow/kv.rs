@@ -34,7 +34,7 @@ impl<T> Value<T> {
             ValueState::Ready(v) => v,
             ValueState::NeedsProvision(pr) =>
                 panic!("Value for key {:?} was requested, but haven't yet been provisioned (request: {:?}). \n \
-                        This is a data flow manager bug, please consider opening an issue at https://github.com/etclabscore/semantic-rs/issues/new", self.key, pr),
+                        This is a data flow manager bug, please consider opening an issue at https://github.com/semanteecore/semanteecore/issues/new", self.key, pr),
         }
     }
 
@@ -44,7 +44,7 @@ impl<T> Value<T> {
             ValueState::Ready(v) => v,
             ValueState::NeedsProvision(pr) =>
                 panic!("Value for key {:?} was requested, but haven't yet been provisioned (request: {:?}). \n \
-                        This is a data flow manager bug, please consider opening an issue at https://github.com/etclabscore/semantic-rs/issues/new", self.key, pr),
+                        This is a data flow manager bug, please consider opening an issue at https://github.com/semanteecore/semanteecore/issues/new", self.key, pr),
         }
     }
 

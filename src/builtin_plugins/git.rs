@@ -457,7 +457,7 @@ pub enum Error {
     #[fail(display = "GH_TOKEN is undefined: cannot push changes")]
     GithubTokenUndefined,
     #[fail(
-        display = "{} is not supported for https forcing, please consider opening an issue at https://github.com/etclabscore/semantic-rs/issues/new/choose",
+        display = "{} is not supported for https forcing, please consider opening an issue at https://github.com/semanteecore/semanteecore/issues/new/choose",
         _0
     )]
     RemoteNotSupportedForHttpsForcing(String),

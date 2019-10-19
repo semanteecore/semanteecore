@@ -17,7 +17,7 @@ COPY src/ ./src
 COPY grammar/ ./grammar
 COPY README.md README.md
 RUN cargo build --release
-RUN mkdir /build -p && cp ./target/release/semantic-rs /build/
+RUN mkdir /build -p && cp ./target/release/semanteecore /build/
 
 # Use rust ubuntu base image for maximum flexibility of derived images
 FROM rust:latest
@@ -25,7 +25,7 @@ FROM rust:latest
 ARG DOCKER_VERSION="18.09.6"
 ENV DOWNLOAD_URL="https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz"
 
-# Set workdir for semantic-rs
+# Set workdir for semanteecore
 RUN mkdir /root/semantic
 WORKDIR /root/semantic
 
@@ -44,7 +44,7 @@ RUN mkdir -p /tmp/download \
     && rm -rf /tmp/download
 
 # Copy build binary
-COPY --from=builder /build/semantic-rs /usr/bin/
+COPY --from=builder /build/semanteecore /usr/bin/
 
 # Run cmd
-CMD /bin/bash -c /usr/bin/semantic-rs
+CMD /bin/bash -c /usr/bin/semanteecore

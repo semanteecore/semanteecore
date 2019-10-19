@@ -18,7 +18,7 @@ It is NOT the purpose of this document to describe how a project might create a 
 
 ## Release Pipeline
 
-By default the project release pipeline is defined in the `.circleci/config.yml` and uses the `semantic-rs` tool for 
+By default the project release pipeline is defined in the `.circleci/config.yml` and uses the `semanteecore` tool for 
  - crates.io crate publishing
  - generating changelog from [semantic commits](CONVENTIONAL_COMMITS.md)
  - publishing a GitHub release
