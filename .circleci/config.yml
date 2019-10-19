@@ -89,6 +89,7 @@ jobs:
     docker:
       - image: rust:latest
     steps:
+      - setup_remote_docker
       - run: *setup-docker
       - checkout
       - attach_workspace:
@@ -102,6 +103,7 @@ jobs:
     docker:
       - image: rust:latest
     steps:
+      - setup_remote_docker
       - run: *setup-docker
       - checkout
       - attach_workspace:
