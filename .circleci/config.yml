@@ -4,7 +4,7 @@ aliases:
   # -------------------------
   #      ALIASES: Caches
   # -------------------------
-  - &restore-deps-cache-ububtu
+  - &restore-deps-cache-ubuntu
     key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}
 
   - &save-deps-cache-ubuntu
@@ -12,16 +12,6 @@ aliases:
     paths:
       - /usr/local/cargo/registry
       - /usr/local/rustup
-      - ~/project/target/
-
-  - &restore-deps-cache-windows
-    key: rust-cache-{{ arch }}-windows-3-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}
-
-  - &save-deps-cache-windows
-    key: rust-cache-{{ arch }}-windows-3-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}
-    paths:
-      - ~/.rustup/
-      - ~/.cargo/
       - ~/project/target/
 
   - &restore-deps-cache-rustup
@@ -34,21 +24,7 @@ aliases:
       - ~/.cargo/
       - ~/project/target/
   # -------------------------
-  #  ALIASES: Branch Filters
-  # -------------------------
-  - &filter-only-master
-    branches:
-      only: master
-
-  # -------------------------
   # ALIASES: Utility commands DRY
-  - &get-latest-toolchain
-    name: Get latest Nightly version that has Clippy component
-    command: |
-      export TOOLCHAIN="nightly-$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/clippy)"
-      echo "export TOOLCHAIN=$TOOLCHAIN" >> $BASH_ENV
-      source $BASH_ENV
-      echo Would use toolchain $TOOLCHAIN
   - &setup-docker
     name: Setup docker environment
     command: |
@@ -65,27 +41,6 @@ defaults: &defaults
     RUST_BACKTRACE: 1
 
 jobs:
-  test-linux:
-    <<: *defaults
-    docker:
-      - image: rust:latest
-    steps:
-      - checkout
-      - restore_cache: *restore-deps-cache-ububtu
-      - run: apt update && apt install -y cmake
-      - run: *get-latest-toolchain
-      - run:
-          name: Install Rust tools
-          command: |
-            rustup toolchain install $TOOLCHAIN
-            rustup toolchain install stable
-            rustup component add clippy --toolchain $TOOLCHAIN
-            rustup component add rustfmt --toolchain stable
-      - run: cargo +$TOOLCHAIN test --all
-      - run: cargo +$TOOLCHAIN clippy
-      - save_cache: *save-deps-cache-ubuntu
-      - run: cargo +stable fmt -- --check
-
   codecov:
     <<: *defaults
     machine: true
@@ -110,7 +65,7 @@ jobs:
           name: Upload to codecov.io
           command: bash <(curl -s https://codecov.io/bash) -Z -f cobertura.xml
 
-  build-linux:
+  build:
     <<: *defaults
     docker:
       - image: clux/muslrust:nightly
@@ -123,110 +78,39 @@ jobs:
           name: Move binaries into bin/ directory
           command: |
             mkdir bin/
-            mv target/x86_64-unknown-linux-musl/release/semantic-rs ./bin/semantic-rs-linux
+            mv target/x86_64-unknown-linux-musl/release/semantic-rs ./bin/semantic-rs
       - persist_to_workspace:
           root: .
           paths:
             - bin/*
-
-  test-macos:
-    <<: *defaults
-    macos:
-      xcode: "10.2.1"
-    steps:
-      - checkout
-      - restore_cache: *restore-deps-cache-rustup
-      - run:
-          name: Install Rust
-          command: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
-      - run: source $HOME/.cargo/env && cargo test --all
-      - save_cache: *save-deps-cache-rustup
-
-  build-macos:
-    <<: *defaults
-    macos:
-      xcode: "10.2.1"
-    steps:
-      - checkout
-      - restore_cache: *restore-deps-cache-rustup
-      - run:
-          name: Install Rust
-          command: curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
-      - run: source $HOME/.cargo/env && cargo build --release
-      - save_cache: *save-deps-cache-rustup
-      - run:
-          name: Move binaries into bin/ directory
-          command: |
-             mkdir bin/
-             mv target/release/semantic-rs ./bin/semantic-rs-macos
-      - persist_to_workspace:
-          root: .
-          paths:
-            - bin/*
-
-  test-windows:
-    <<: *defaults
-    docker:
-      - image: mersinvald/rust-mingw-docker
-    steps:
-      - checkout
-      - restore_cache: *restore-deps-cache-windows
-      - run: rustup install nightly-x86_64-pc-windows-gnu && rustup target add x86_64-pc-windows-gnu
-      - run: cargo test --target x86_64-pc-windows-gnu -- --test-threads=1
-      - save_cache: *save-deps-cache-windows
-
-  build-windows:
-    <<: *defaults
-    docker:
-      - image: mersinvald/rust-mingw-docker
-    steps:
-      - checkout
-      - restore_cache: *restore-deps-cache-windows
-      - run: rustup install nightly-x86_64-pc-windows-gnu && rustup target add x86_64-pc-windows-gnu
-      - run: cargo build --release --target x86_64-pc-windows-gnu
-      - save_cache: *save-deps-cache-windows
-      - run:
-          name: Move binary to ./bin/ directory
-          command: |
-            mkdir bin/
-            mv target/x86_64-pc-windows-gnu/release/semantic-rs.exe ./bin/semantic-rs-windows.exe
-      - run:
-          name: Check that Windows executable launches
-          command: wine ./bin/semantic-rs-windows.exe --help
-      - persist_to_workspace:
-         root: .
-         paths:
-           - bin/*
 
   release-dry:
     <<: *defaults
     docker:
       - image: rust:latest
     steps:
-      - setup_remote_docker:
-          docker_layer_caching: true
       - run: *setup-docker
       - checkout
       - attach_workspace:
           at: /workspace
-      - run: /workspace/bin/semantic-rs-linux --dry
+      - restore_cache: *restore-deps-cache-ubuntu
+      - run: /workspace/bin/semantic-rs --dry
+      - save_cache: *save-deps-cache-ubuntu
 
   release:
     <<: *defaults
     docker:
       - image: rust:latest
     steps:
-      - setup_remote_docker:
-          docker_layer_caching: true
       - run: *setup-docker
       - checkout
       - attach_workspace:
           at: /workspace
-      - restore_cache: *restore-deps-cache-ububtu
+      - restore_cache: *restore-deps-cache-ubuntu
       # This unset is VERY important: without it --force-https cannot work
       # For some reason CircleCI has a global override substituting git@ links instead of all https links
       - run: git config --global --unset url.ssh://git@github.com.insteadof
-      - run: /workspace/bin/semantic-rs-linux
+      - run: /workspace/bin/semantic-rs
       - save_cache: *save-deps-cache-ubuntu
 
 workflows:
@@ -234,27 +118,16 @@ workflows:
   ci:
     jobs:
       - codecov
-      - test-linux
-      - test-macos
-      - test-windows
-      - build-linux
-      - build-macos
-      - build-windows
+      - build
       - release-dry:
+          filters:
+            branches:
+              ignore: master
           requires:
-            - build-linux
-            - build-macos
-            - build-windows
-      - hold:
-          filters: *filter-only-master
-          type: approval
-          requires:
-            - codecov
-            - test-linux
-            - test-macos
-            - test-windows
-            - release-dry
+            - build
       - release:
-          filters: *filter-only-master
+          filters:
+            branches:
+              only: master
           requires:
-            - hold
+            - build
