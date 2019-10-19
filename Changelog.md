@@ -1,3 +1,20 @@
+<a name="v2.12.2"></a>
+## v2.12.2 (2019-10-19)
+
+
+#### Features
+
+* **ci:**
+  *  rollback CircleCI complexity considerably, leave only releases ([a337be78](a337be78))
+  *  run Github Actions checks on commit pushes ([4fb6c244](4fb6c244))
+
+#### Bug Fixes
+
+*   styled lines in subprocess output were style-poisoning other lines ([4c8cb07f](4c8cb07f))
+* **core:**  silence more than 2 consecutive empty lines ([e9fe87ca](e9fe87ca))
+
+
+
 <a name="v2.12.1"></a>
 ## v2.12.1 (2019-10-11)
 

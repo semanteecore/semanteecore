@@ -8,7 +8,7 @@ authors = [
 description = 'Automatic crate publishing'
 license = 'MIT'
 edition = '2018'
-version = '2.12.1'
+version = '2.12.2'
 
 [dependencies]
 git2 = '0.9'
