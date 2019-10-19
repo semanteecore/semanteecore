@@ -83,7 +83,7 @@ impl<'a> PipedCommand<'a> {
             };
 
             if should_write {
-                log::log!(level, ">> {}", buffer.trim());
+                log::log!(level, ">> {}", line);
                 log::logger().flush();
             }
 
