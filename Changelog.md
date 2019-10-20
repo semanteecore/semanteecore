@@ -1,3 +1,17 @@
+<a name="v2.13.0"></a>
+## v2.13.0 (2019-10-20)
+
+
+#### Features
+
+*   rename to semanteecore ([ade676fd](ade676fd))
+
+#### Bug Fixes
+
+* **ci:**  setup remote docker in release steps ([a396eb6f](a396eb6f))
+
+
+
 <a name="v2.12.2"></a>
 ## v2.12.2 (2019-10-19)
 
