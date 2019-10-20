@@ -1,16 +1,14 @@
 use failure::Fail;
 use strum::IntoEnumIterator;
 
-use crate::config::{Config, Map, PluginDefinitionMap};
+use crate::config::{Config, Map};
 use crate::plugin_runtime::data_mgr::DataManager;
 use crate::plugin_runtime::graph::{ActionKind, PluginSequence};
-use crate::plugin_runtime::resolver::PluginResolver;
-use crate::plugin_runtime::starter::PluginStarter;
+use crate::plugin_runtime::util::load_plugins_for_config;
+use crate::plugin_runtime::InjectionTarget;
 use crate::plugin_support::flow::Value;
-use crate::plugin_support::{Plugin, PluginInterface, PluginStep, RawPlugin, RawPluginState};
+use crate::plugin_support::{Plugin, PluginInterface, PluginStep};
 use std::collections::HashMap;
-
-pub type PluginId = usize;
 
 pub struct Kernel {
     plugins: Vec<Plugin>,
@@ -99,12 +97,6 @@ impl Kernel {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum InjectionTarget {
-    BeforeStep(PluginStep),
-    AfterStep(PluginStep),
-}
-
 pub struct KernelBuilder {
     config: Config,
     injections: Vec<(Plugin, InjectionTarget)>,
@@ -132,18 +124,9 @@ impl KernelBuilder {
             .and_then(|kv| kv.as_value().as_bool())
             .unwrap_or(true);
 
-        // Move PluginDefinitions out of config and convert them to Plugins
-        let plugins = self.config.plugins.clone();
-        let plugins = Self::plugin_def_map_to_vec(plugins);
-
-        // Resolve stage
-        let plugins = Self::resolve_plugins(plugins)?;
-        Self::check_all_resolved(&plugins)?;
-        log::debug!("all plugins resolved");
-
-        // Starting stage
-        let plugins = Self::start_plugins(plugins)?;
-        log::debug!("all plugins started");
+        // Load and start the plugins
+        // We skip the insected plugins here 'cause there's a custom chaining logic required for Sequence
+        let plugins = load_plugins_for_config(&self.config, None)?;
 
         // Injection stage
         let injections = std::mem::replace(&mut self.injections, Vec::new());
@@ -174,68 +157,10 @@ impl KernelBuilder {
             is_dry_run,
         })
     }
-
-    fn plugin_def_map_to_vec(plugins: PluginDefinitionMap) -> Vec<RawPlugin> {
-        plugins
-            .into_iter()
-            .map(|(name, def)| RawPlugin::new(name, RawPluginState::Unresolved(def.into_full())))
-            .collect()
-    }
-
-    fn resolve_plugins(plugins: Vec<RawPlugin>) -> Result<Vec<RawPlugin>, failure::Error> {
-        log::debug!("resolving plugins...");
-        let resolver = PluginResolver::new();
-        let plugins = plugins
-            .into_iter()
-            .map(|p| resolver.resolve(p))
-            .collect::<Result<_, _>>()?;
-        Ok(plugins)
-    }
-
-    fn start_plugins(plugins: Vec<RawPlugin>) -> Result<Vec<Plugin>, failure::Error> {
-        log::debug!("starting plugins...");
-        let starter = PluginStarter::new();
-        let plugins = plugins
-            .into_iter()
-            .map(|p| starter.start(p))
-            .collect::<Result<_, _>>()?;
-        Ok(plugins)
-    }
-
-    fn check_all_resolved(plugins: &[RawPlugin]) -> Result<(), failure::Error> {
-        let unresolved = Self::list_not_resolved_plugins(plugins);
-        if unresolved.is_empty() {
-            Ok(())
-        } else {
-            Err(Error::FailedToResolvePlugins(unresolved).into())
-        }
-    }
-
-    fn list_not_resolved_plugins(plugins: &[RawPlugin]) -> Vec<String> {
-        Self::list_all_plugins_that(plugins, |plugin| match plugin.state() {
-            RawPluginState::Unresolved(_) => true,
-            RawPluginState::Resolved(_) => false,
-        })
-    }
-
-    fn list_all_plugins_that(plugins: &[RawPlugin], filter: impl Fn(&RawPlugin) -> bool) -> Vec<String> {
-        plugins
-            .iter()
-            .filter_map(|plugin| {
-                if filter(plugin) {
-                    Some(plugin.name().clone())
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
 }
 
 #[derive(Fail, Debug)]
 pub enum Error {
-    #[fail(display = "failed to resolve some modules: \n{:#?}", _0)]
-    FailedToResolvePlugins(Vec<String>),
     #[fail(display = "environment value must be set: {}", _0)]
     EnvValueUndefined(String),
 }

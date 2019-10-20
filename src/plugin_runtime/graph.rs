@@ -1,11 +1,13 @@
+use std::collections::VecDeque;
+
+use failure::Fail;
+
 use crate::config::{Config, Map, StepDefinition};
 use crate::plugin_runtime::discovery::discover;
-use crate::plugin_runtime::kernel::{InjectionTarget, PluginId};
+use crate::plugin_runtime::{InjectionTarget, PluginId};
 use crate::plugin_support::flow::kv::{Key, ValueDefinition, ValueDefinitionMap, ValueState};
 use crate::plugin_support::flow::{Availability, ProvisionCapability, Value};
 use crate::plugin_support::{Plugin, PluginInterface, PluginStep};
-use failure::Fail;
-use std::collections::VecDeque;
 
 pub type SourceKey = Key;
 pub type DestKey = Key;
