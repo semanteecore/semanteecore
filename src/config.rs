@@ -557,14 +557,14 @@ mod tests {
 
         [[cfg.docker.images]]
         registry = "dockerhub"
-        namespace = "etclabscore"
+        namespace = "semanteecore"
         dockerfile = ".docker/Dockerfile"
-        name = "semantic-rs"
+        name = "semanteecore"
         tag = "latest"
-        binary_path = "target/release/semantic-rs"
+        binary_path = "target/release/semanteecore"
         cleanup = true
         build_cmd = "from:language:build_cmd"
-        exec_cmd = "/bin/semantic-rs"
+        exec_cmd = "/bin/semanteecore"
         "#;
 
         let parsed: Config = toml::from_str(toml).unwrap();

@@ -78,7 +78,7 @@ jobs:
           name: Move binaries into bin/ directory
           command: |
             mkdir bin/
-            mv target/x86_64-unknown-linux-musl/release/semantic-rs ./bin/semantic-rs
+            mv target/x86_64-unknown-linux-musl/release/semanteecore ./bin/semanteecore
       - persist_to_workspace:
           root: .
           paths:
@@ -95,7 +95,7 @@ jobs:
       - attach_workspace:
           at: /workspace
       - restore_cache: *restore-deps-cache-ubuntu
-      - run: /workspace/bin/semantic-rs --dry
+      - run: /workspace/bin/semanteecore --dry
       - save_cache: *save-deps-cache-ubuntu
 
   release:
@@ -112,7 +112,7 @@ jobs:
       # This unset is VERY important: without it --force-https cannot work
       # For some reason CircleCI has a global override substituting git@ links instead of all https links
       - run: git config --global --unset url.ssh://git@github.com.insteadof
-      - run: /workspace/bin/semantic-rs
+      - run: /workspace/bin/semanteecore
       - save_cache: *save-deps-cache-ubuntu
 
 workflows:

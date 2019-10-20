@@ -1,34 +1,34 @@
-# semantic-rs
+# semanteecore
 
-[![codecov](https://codecov.io/gh/etclabscore/semantic-rs/branch/master/graph/badge.svg)](https://codecov.io/gh/etclabscore/semantic-rs)
+[![codecov](https://codecov.io/gh/semanteecore/semanteecore/branch/master/graph/badge.svg)](https://codecov.io/gh/semanteecore/semanteecore)
 
 This tool helps people to publish crates following the [semver](http://semver.org/) specification.
 
 Right now if you're building a new crate publishing new versions includes a high amount of work. You need to decide if the new version will be either a new Major, Minor or Patch version. If that decision is made, the next step is to write a changelog with all the things changed. Then increase the version in `Cargo.toml`. Make a commit and a new tag for the new version and lastly publish it to crates.io.
 If you need to repeat these steps every time, chances are high you make mistakes.
-semantic-rs automates all these steps for you so you can focus more on developing new features instead.
+semanteecore automates all these steps for you so you can focus more on developing new features instead.
 
 ## Pristine
 
-This project follows the Pristine convention: to know more check out the [README_PRISTINE.md](README_PRISTINE.md) or visit [pristine core repo](https://github.com/etclabscore/pristine) 
+This project follows the Pristine convention: to know more check out the [README_PRISTINE.md](README_PRISTINE.md) or visit [pristine core repo](https://github.com/semanteecore/pristine) 
 
 ## Workflow
 
-There are 2 prerequisites `semantic-rs` requires from the project:
+There are 2 prerequisites `semanteecore` requires from the project:
 
 - Place a [releaserc.toml](releaserc.toml) with plugins you need (e.g "git", "rust" and "github") in the root of your repo
 - Follow the [Angular.js commit message conventions](CONVENTIONAL_COMMITS.md) when you commit changes to your repository
 
-Then you can go ahead and [configure your CI](#run-semantic-rs-in-ci-environment) or use the [locally installed](#usage) `semantic-rs` manually!
+Then you can go ahead and [configure your CI](#run-semanteecore-in-ci-environment) or use the [locally installed](#usage) `semanteecore` manually!
 
 ## Usage
 
-Static binaries for all 3 major platforms (Linux, MacOS, Windows) are available for download on the [releases](https://github.com/etclabscore/semantic-rs/releases) page.
+Static binaries for all 3 major platforms (Linux, MacOS, Windows) are available for download on the [releases](https://github.com/semanteecore/semanteecore/releases) page.
 
-Also there's a [docker image](https://hub.docker.com/r/etclabscore/semantic-rs/tags) available. To run `semantic-rs` with docker, make sure you have `docker` installed:
+Also there's a [docker image](https://hub.docker.com/r/semanteecore/semanteecore/tags) available. To run `semanteecore` with docker, make sure you have `docker` installed:
 
 ```bash
-docker run -v $(pwd):/home/semantic/workdir etclabscore/semantic-rs:latest
+docker run -v $(pwd):/home/semantic/workdir semanteecore/semanteecore:latest
 ```
 
 ### Installation from git
@@ -37,7 +37,7 @@ Ubuntu:
 
 ```
 $ sudo apt-get install -y cmake libssl-dev pkg-config zlib1g-dev
-$ cargo install --git https://github.com/etclabscore/semantic-rs --tag VERSION
+$ cargo install --git https://github.com/semanteecore/semanteecore --tag VERSION
 ```
 
 ### Prerequisites
@@ -49,7 +49,7 @@ You need the following data beforehand:
 
 ### Run it
 
-semantic-rs plugins depend on some data being passed in via environment variables. We recommend placing them in a git-ignored `.env` file in the repo's root.
+semanteecore plugins depend on some data being passed in via environment variables. We recommend placing them in a git-ignored `.env` file in the repo's root.
 
 Setting `GIT_COMITTER_NAME` and `GIT_COMMITTER_EMAIL` is optional. If you omit those, we default to the settings from your (global) git configuration.
 
@@ -58,14 +58,14 @@ $ export GH_TOKEN=<GHTOKEN>
 $ export CARGO_TOKEN=<CARGOTOKEN>
 $ export GIT_COMMITTER_NAME=<Your name>
 $ export GIT_COMMITTER_EMAIL=<Your email>
-$ semantic-rs --dry
+$ semanteecore --dry
 #...
 ```
 
 By default it runs in release mode. If you want to just check the release without publishing it, use the `--dry` flag. In `dry-run` mode you can see which steps would be performed and also the resulting changelog.
 
 ```bash
-$ semantic-rs
+$ semanteecore
 ```
 This would perform the steps defined in your `releaserc.toml`, see below for the description of allowed statements in this configuration file.
 
@@ -91,7 +91,7 @@ Overall `releaserc.toml` document is structured as 3 tables: `plugins`, `steps` 
 
 ### Plugins Table
 
-Plugins table describes the plugins `semantic-rs` should use for handling releases for the particular repository.
+Plugins table describes the plugins `semanteecore` should use for handling releases for the particular repository.
 This table defines the relation of the name of the plugin to its location from where it can be retrieved (currently only built-in plugins are supported)
 
 ```toml
@@ -103,7 +103,7 @@ clog = "builtin"
 ```
 
 Fully qualified definition is akin to `Cargo.toml` full dependency description, while the short one just defines the location,
-with the idea that the fully qualified definition may be trivially derived by `semantic-rs`.
+with the idea that the fully qualified definition may be trivially derived by `semanteecore`.
 
 ### Steps Table
 
@@ -145,7 +145,7 @@ discover which plugin to run for any step (except singleton-only steps).
 notify = "discover"
 ```
 
-This would make `semantic-rs` derive a Shared step definition for any step marked as `discover` based
+This would make `semanteecore` derive a Shared step definition for any step marked as `discover` based
 on which methods the attached plugins advertise.
 
 The order of plugin invocations in this case is defined by the original order in the [Plugins table](#plugins-table)
@@ -224,8 +224,8 @@ github = "builtin"
 
 ```toml
 [cfg.github]
-user = "etclabscore"        # Optional: default is derived from git remote url
-repository = "semantic-rs"  # Optional: default is derived from git remote url
+user = "semanteecore"        # Optional: default is derived from git remote url
+repository = "semanteecore"  # Optional: default is derived from git remote url
 remote = "origin"           # Optional: default = "origin"
 branch = "master"           # Optionl: default = "master"
 pre_release = false         # Optional: default = false
@@ -337,7 +337,7 @@ Main configuration
 ```toml
 [cfg.docker]
 # Clonable repository url
-repo_url = "https://github.com/etclabscore/semantic-rs.git"
+repo_url = "https://github.com/semanteecore/semanteecore.git"
 # Branch to build for image generation
 repo_branch = "master"
 ```
@@ -349,22 +349,22 @@ Setup images
 # Registry to be used: dockerhub or URL
 registry = "dockerhub"
 # Namespace of the image (the part before the name)
-# e.g etclabscore is a namespace in etclabscore/semantic-rs:latest
-namespace = "etclabscore"
+# e.g semanteecore is a namespace in semanteecore/semanteecore:latest
+namespace = "semanteecore"
 # Name of the image
-name = "semantic-rs"
+name = "semanteecore"
 # Default image tag to use in addition to the version
 tag = "latest"
 # Source Dockerfile
 dockerfile = ".docker/Dockerfile"
 # Path of a binary to run, will be copied into /bin/
-binary_path = "target/release/semantic-rs"
+binary_path = "target/release/semanteecore"
 # Whether to remove intermediate build artifacts
 cleanup = true
 # Command to build the project
 build_cmd = "cargo build --release"
 # Binary to run as a container CMD
-exec_cmd = "/bin/semantic-rs"
+exec_cmd = "/bin/semanteecore"
 ```
 
 ## Development
@@ -392,32 +392,32 @@ cargo build
 Clone this project:
 
 ```bash
-$ git clone git@github.com:etclabscore/semantic-rs.git
+$ git clone git@github.com:semanteecore/semanteecore.git
 ```
 
-As a test project you can use this one: [https://github.com/mersinvald/semantic-rs-test-project](https://github.com/mersinvald/semantic-rs-test-project).
+As a test project you can use this one: [https://github.com/mersinvald/semanteecore-test-project](https://github.com/mersinvald/semanteecore-test-project).
 
 Clone it as well:
 
 ```bash
-$ git clone https://github.com/mersinvald/semantic-rs-test-project.git test-project
+$ git clone https://github.com/mersinvald/semanteecore-test-project.git test-project
 ```
 
 In your top level directory there should be now the following two folders:
 
 ```bash
 $ ls -l
-semantic-rs
+semanteecore
 test-project
 ```
 
 Change into the test-project folder.
-Then you can run semantic-rs against the test project:
+Then you can run semanteecore against the test project:
 
 ```bash
-$ cargo run --manifest-path ../semantic-rs/Cargo.toml -- --dry
+$ cargo run --manifest-path ../semanteecore/Cargo.toml -- --dry
     Finished dev [unoptimized + debuginfo] target(s) in 0.53s
-     Running `/Users/mersinvald/dev/etclabscore/semantic-rs/target/debug/semantic-rs --dry`
+     Running `/Users/mersinvald/dev/semanteecore/semanteecore/target/debug/semanteecore --dry`
 semantic.rs 🚀
 Resolving plugins
 All plugins resolved
@@ -441,12 +441,12 @@ Would write the following changelog:
 
 #### Features
 
-*   configuration for semantic-rs 2.0 ([dfab5d46](dfab5d46))
+*   configuration for semanteecore 2.0 ([dfab5d46](dfab5d46))
 *   Math mode ([24afa46f](24afa46f))
 
 #### Breaking Changes
 
-*   configuration for semantic-rs 2.0 ([dfab5d46](dfab5d46))
+*   configuration for semanteecore 2.0 ([dfab5d46](dfab5d46))
 
 #### Bug Fixes
 
@@ -472,22 +472,22 @@ rust(dry-run): restoring original state of Cargo.toml
 
 Since `--dry` was passed, it only prints out what it would do. Note that if you run it on your local machine the output may differ.
 
-## Run semantic-rs in CI environment
+## Run semanteecore in CI environment
 
 The example configuration for CircleCI can be found in [.circleci](.circleci)
 
 ##### Known caveats
 
 CircleCI forces git+ssh remotes by default, so if you use GH_TOKEN for authentication, 
-make sure to enable the `force_https` flag for [git plugin](#git) AND prepend the `semantic-rs` call with
+make sure to enable the `force_https` flag for [git plugin](#git) AND prepend the `semanteecore` call with
 ```bash
 git config --global --unset url.ssh://git@github.com.insteadof
 ```
 
 ## Contributing
 
-Bug reports and pull requests are welcome on [GitHub](https://github.com/semantic-rs/semantic-rs).
-You can find more information about contributing in the [CONTRIBUTING.md](https://github.com/semantic-rs/semantic-rs/blob/master/CONTRIBUTING.md).
+Bug reports and pull requests are welcome on [GitHub](https://github.com/semanteecore/semanteecore).
+You can find more information about contributing in the [CONTRIBUTING.md](https://github.com/semanteecore/semanteecore/blob/master/CONTRIBUTING.md).
 This project is intended to be a safe, welcoming space for collaboration and discussion, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org/version/1/3/0/) code of conduct.
 
 ## License
