@@ -1,6 +1,6 @@
 use crate::config::{Config, Map, StepDefinition};
 use crate::plugin_runtime::discovery::discover;
-use crate::plugin_runtime::kernel::{InjectionTarget, PluginId};
+use crate::plugin_runtime::{InjectionTarget, PluginId};
 use crate::plugin_support::flow::kv::{Key, ValueDefinition, ValueDefinitionMap, ValueState};
 use crate::plugin_support::flow::{Availability, ProvisionCapability, Value};
 use crate::plugin_support::{Plugin, PluginStep};

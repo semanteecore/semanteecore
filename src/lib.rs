@@ -15,7 +15,7 @@ pub mod utils;
 
 use crate::builtin_plugins::{early_exit, EarlyExitPlugin};
 use crate::config::Config;
-use crate::plugin_runtime::kernel::InjectionTarget;
+use crate::plugin_runtime::InjectionTarget;
 use crate::plugin_support::PluginStep;
 use plugin_runtime::Kernel;
 
