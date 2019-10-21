@@ -3,7 +3,7 @@ use strum::IntoEnumIterator;
 
 use crate::config::{Config, Map};
 use crate::plugin_runtime::data_mgr::DataManager;
-use crate::plugin_runtime::graph::{ActionKind, PluginSequence};
+use crate::plugin_runtime::sequence::{ActionKind, PluginSequence};
 use crate::plugin_runtime::util::load_plugins_for_config;
 use crate::plugin_runtime::InjectionTarget;
 use crate::plugin_support::flow::Value;

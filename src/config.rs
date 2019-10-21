@@ -73,9 +73,7 @@ impl Config {
             }
         });
 
-        let project_root = path.parent()
-            .map(ToOwned::to_owned)
-            .unwrap_or(PathBuf::from("./"));
+        let project_root = path.parent().map(ToOwned::to_owned).unwrap_or(PathBuf::from("./"));
 
         let project_root = project_root
             .to_str()
@@ -84,9 +82,7 @@ impl Config {
 
         let project_root_value = ValueDefinition::Value(serde_json::Value::String(project_root));
 
-        config
-            .cfg
-            .insert("project_root".into(), project_root_value);
+        config.cfg.insert("project_root".into(), project_root_value);
 
         Ok(config)
     }

@@ -8,8 +8,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::plugin_support::command::PipedCommand;
 use crate::plugin_support::flow::{FlowError, ProvisionCapability, Value};
-use crate::plugin_support::keys::{DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_ROOT};
+use crate::plugin_support::keys::{DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_AND_DEPENDENCIES, PROJECT_ROOT};
 use crate::plugin_support::proto::response::{self, PluginResponse};
+use crate::plugin_support::proto::{Project, ProjectAndDependencies};
 use crate::plugin_support::{PluginInterface, PluginStep};
 
 #[derive(Default)]
@@ -73,14 +74,20 @@ impl PluginInterface for RustPlugin {
     }
 
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
-        PluginResponse::from_ok(vec![ProvisionCapability::builder(FILES_TO_COMMIT)
-            .after_step(PluginStep::Prepare)
-            .build()])
+        PluginResponse::from_ok(vec![
+            ProvisionCapability::builder(FILES_TO_COMMIT)
+                .after_step(PluginStep::Prepare)
+                .build(),
+            ProvisionCapability::builder(PROJECT_AND_DEPENDENCIES).build(),
+        ])
     }
 
     fn get_value(&self, key: &str) -> response::GetValue {
         let value = match key {
             "files_to_commit" => serde_json::to_value(vec!["Cargo.toml", "Cargo.lock"])?,
+            "project_and_dependencies" => {
+                serde_json::to_value(project_and_dependencies(self.config.project_root.as_value())?)?
+            }
             _other => return PluginResponse::from_error(FlowError::KeyNotSupported(key.to_owned()).into()),
         };
         PluginResponse::from_ok(value)
@@ -115,7 +122,7 @@ impl PluginInterface for RustPlugin {
         let is_dry_run = *self.config.dry_run.as_value();
 
         let token = self.config.token.as_value();
-        let cargo = Cargo::new(project_root, token)?;
+        let cargo = Cargo::new(project_root, Some(token))?;
 
         // If we're in the dry-run mode, we don't wanna change the Cargo.toml manifest,
         // so we save the original state of it, which would be written to
@@ -141,7 +148,7 @@ impl PluginInterface for RustPlugin {
 
         let token = self.config.token.as_value();
 
-        let cargo = Cargo::new(project_root, token)?;
+        let cargo = Cargo::new(project_root, Some(token))?;
 
         log::info!("Packaging new version, please wait...");
         cargo.package()?;
@@ -155,7 +162,7 @@ impl PluginInterface for RustPlugin {
 
         let token = self.config.token.as_value();
 
-        let cargo = Cargo::new(project_root, token)?;
+        let cargo = Cargo::new(project_root, Some(token))?;
 
         log::info!("Publishing new version, please wait...");
         cargo.publish()?;
@@ -168,11 +175,11 @@ impl PluginInterface for RustPlugin {
 #[derive(Clone, Debug)]
 struct Cargo {
     manifest_path: PathBuf,
-    token: String,
+    token: Option<String>,
 }
 
 impl Cargo {
-    pub fn new(project_root: &str, token: &str) -> Result<Self, failure::Error> {
+    pub fn new(project_root: &str, token: Option<&str>) -> Result<Self, failure::Error> {
         let manifest_path = Path::new(project_root).join("Cargo.toml");
 
         log::debug!("searching for manifest in {}", manifest_path.display());
@@ -183,7 +190,7 @@ impl Cargo {
 
         Ok(Cargo {
             manifest_path,
-            token: token.to_owned(),
+            token: token.map(ToOwned::to_owned),
         })
     }
 
@@ -204,7 +211,7 @@ impl Cargo {
             "--manifest-path",
             &self.manifest_path.display().to_string(),
             "--token",
-            &self.token,
+            &self.token.as_ref().unwrap(),
         ];
 
         PipedCommand::new("cargo", args).join(log::Level::Info)
@@ -260,6 +267,10 @@ impl Cargo {
 
         Ok(())
     }
+}
+
+fn project_and_dependencies(root: impl AsRef<Path>) -> Result<ProjectAndDependencies, failure::Error> {
+    todo!()
 }
 
 #[derive(Fail, Debug)]

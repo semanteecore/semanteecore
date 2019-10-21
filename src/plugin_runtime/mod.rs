@@ -3,6 +3,7 @@ pub mod discovery;
 pub mod graph;
 pub mod kernel;
 pub mod resolver;
+pub mod sequence;
 pub mod starter;
 pub mod util;
 
