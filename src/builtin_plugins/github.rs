@@ -185,7 +185,7 @@ impl PluginInterface for GithubPlugin {
 
         let mut errored = false;
 
-        let (assets, errors) = globs_to_assets(cfg.assets.as_value().iter().map(String::as_str));
+        let (assets, mut errors) = globs_to_assets(cfg.assets.as_value().iter().map(String::as_str));
         if !errors.is_empty() {
             return PluginResponse::from_error(errors.swap_remove(0));
         }
