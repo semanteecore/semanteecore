@@ -105,6 +105,10 @@ impl PluginInterface for Plugin {
         self.apply_mut(|mut x| x.set_config(config))
     }
 
+    fn reset(&mut self) -> response::Null {
+        self.apply_mut(|mut x| x.reset())
+    }
+
     fn methods(&self) -> response::Methods {
         self.apply(|x| x.methods())
     }

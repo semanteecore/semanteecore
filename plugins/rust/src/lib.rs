@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::cargo::generate_lockfile;
 use plugin_api::flow::{FlowError, ProvisionCapability, Value};
-use plugin_api::keys::{DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_ROOT};
+use plugin_api::keys::{DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_AND_DEPENDENCIES, PROJECT_ROOT};
 use plugin_api::proto::response::{self, PluginResponse};
 use plugin_api::utils::SerIter;
 use plugin_api::{PluginInterface, PluginStep};
@@ -88,9 +88,12 @@ impl PluginInterface for RustPlugin {
     }
 
     fn provision_capabilities(&self) -> response::ProvisionCapabilities {
-        PluginResponse::from_ok(vec![ProvisionCapability::builder(FILES_TO_COMMIT)
-            .after_step(PluginStep::Prepare)
-            .build()])
+        PluginResponse::from_ok(vec![
+            ProvisionCapability::builder(FILES_TO_COMMIT)
+                .after_step(PluginStep::Prepare)
+                .build(),
+            ProvisionCapability::builder(PROJECT_AND_DEPENDENCIES).build(),
+        ])
     }
 
     fn get_value(&self, key: &str) -> response::GetValue {
@@ -105,6 +108,9 @@ impl PluginInterface for RustPlugin {
                 let files_to_commit = array::IntoIter::new([cargo_toml, cargo_lock]).filter(|p| p.exists());
 
                 serde_json::to_value(SerIter::from(files_to_commit))?
+            }
+            "project_and_dependencies" => {
+                serde_json::to_value(project_and_dependencies(self.config.project_root.as_value())?)?
             }
             _other => return PluginResponse::from_error(FlowError::KeyNotSupported(key.to_owned()).into()),
         };
@@ -191,4 +197,8 @@ impl PluginInterface for RustPlugin {
 
         PluginResponse::from_ok(())
     }
+}
+
+fn project_and_dependencies(_path: &String) -> Result<(), failure::Error> {
+    todo!()
 }

@@ -13,3 +13,5 @@ pub const GIT_BRANCH: &str = "git_branch";
 pub const RELEASE_NOTES: &str = "release_notes";
 
 pub const FILES_TO_COMMIT: &str = "files_to_commit";
+
+pub const PROJECT_AND_DEPENDENCIES: &str = "project_and_dependencies";

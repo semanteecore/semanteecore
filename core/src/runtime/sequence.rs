@@ -1484,6 +1484,10 @@ mod tests {
             fn set_config(&mut self, _config: serde_json::Value) -> response::Null {
                 unimplemented!()
             }
+
+            fn reset(&mut self) -> PluginResponse<()> {
+                unimplemented!()
+            }
         }
     }
 }
