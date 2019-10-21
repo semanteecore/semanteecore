@@ -52,6 +52,7 @@ fn default_dry_run() -> ValueDefinition {
 
 impl Config {
     pub fn from_toml<P: AsRef<Path>>(path: P, is_dry_run: bool) -> Result<Self, failure::Error> {
+        let path = path.as_ref();
         let mut file = File::open(path).map_err(|err| match err.kind() {
             std::io::ErrorKind::NotFound => ConfigError::FileNotFound.into(),
             _other => failure::Error::from(err),
@@ -72,10 +73,20 @@ impl Config {
             }
         });
 
+        let project_root = path.parent()
+            .map(ToOwned::to_owned)
+            .unwrap_or(PathBuf::from("./"));
+
+        let project_root = project_root
+            .to_str()
+            .map(String::from)
+            .expect("unicode decoding failed on path");
+
+        let project_root_value = ValueDefinition::Value(serde_json::Value::String(project_root));
+
         config
             .cfg
-            .entry("project_root".into())
-            .or_insert_with(default_project_root);
+            .insert("project_root".into(), project_root_value);
 
         Ok(config)
     }
