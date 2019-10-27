@@ -206,11 +206,11 @@ mod tests {
 
     #[test]
     #[serial(current_dir)]
-    #[should_panic]
     fn find_roots_no_releaserc_in_root() {
         let dir = tempfile::tempdir().unwrap();
         let _g = pushd(dir.path());
-        let _graph = releaserc_graph(dir.path(), true).unwrap();
+        let graph = releaserc_graph(dir.path(), true);
+        assert!(graph.is_err())
     }
 
     #[test]
