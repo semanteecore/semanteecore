@@ -131,11 +131,11 @@ mod tests {
 
     #[test]
     fn semanteecore() {
-        let root = env!("CARGO_MANIFEST_DIR");
-        println!("{}", root);
+        let root = crate::test_utils::get_cargo_workspace(env!("CARGO_MANIFEST_DIR"));
+        println!("{}", root.display());
         let _guard = pushd(root);
 
-        let releaserc_graph = releaserc_graph(root, false).unwrap();
+        let releaserc_graph = releaserc_graph(root, true).unwrap();
         let rendered = format!("{:?}", Dot::with_config(&releaserc_graph, PG_CONFIG));
         println!("releaserc_graph:\n{}", rendered);
 
