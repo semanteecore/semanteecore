@@ -28,14 +28,14 @@ Static binaries for all 3 major platforms (Linux, MacOS, Windows) are available 
 Also there's a [docker image](https://hub.docker.com/r/semanteecore/semanteecore/tags) available. To run `semanteecore` with docker, make sure you have `docker` installed:
 
 ```bash
-docker run -v $(pwd):/home/semantic/workdir semanteecore/semanteecore:latest
+$ docker run -v $(pwd):/home/semantic/workdir semanteecore/semanteecore:latest
 ```
 
 ### Installation from git
 
 Ubuntu:
 
-```
+```bash
 $ sudo apt-get install -y cmake libssl-dev pkg-config zlib1g-dev
 $ cargo install --git https://github.com/semanteecore/semanteecore --tag VERSION
 ```
