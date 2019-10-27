@@ -27,17 +27,16 @@ struct DependencyTree {
 
 type DependencyForest = Vec<DependencyTree>;
 
-fn dependency_forest(releaserc_graph: ReleaseRcGraph) -> Result<DependencyForest, failure::Error> {
-    let subforests = releaserc_graph
+fn dependency_forest(graph: ReleaseRcGraph) -> Result<DependencyForest, failure::Error> {
+    graph
         .into_nodes_edges()
         .0
         .into_iter()
         .map(|node| subforest(&node.weight))
-        .collect::<Result<Vec<Vec<DependencyTree>>, _>>()?;
-
-    let forest = subforests.into_iter().flat_map(|sub| sub.into_iter()).collect();
-
-    Ok(forest)
+        .try_fold(Vec::new(), |mut forest, sf| {
+            forest.extend(sf?);
+            Ok(forest)
+        })
 }
 
 fn subforest(root: impl AsRef<Path>) -> Result<Vec<DependencyTree>, failure::Error> {
