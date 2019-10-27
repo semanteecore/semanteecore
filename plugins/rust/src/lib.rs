@@ -13,7 +13,7 @@ use plugin_api::command::PipedCommand;
 use plugin_api::flow::{FlowError, ProvisionCapability, Value};
 use plugin_api::keys::{DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_AND_DEPENDENCIES, PROJECT_ROOT};
 use plugin_api::proto::response::{self, PluginResponse};
-use plugin_api::proto::{ProjectAndDependencies};
+use plugin_api::proto::ProjectAndDependencies;
 use plugin_api::{PluginInterface, PluginStep};
 
 #[derive(Default)]

@@ -15,11 +15,11 @@ use serde::{Deserialize, Serialize};
 use tokio::runtime::current_thread::block_on_all;
 use url::{ParseError, Url};
 
+use crate::utils::ResultExt;
 use plugin_api::flow::{FlowError, Value};
 use plugin_api::keys::{GIT_BRANCH, GIT_REMOTE, GIT_REMOTE_URL, PROJECT_ROOT};
 use plugin_api::proto::response::{self, PluginResponse};
 use plugin_api::{PluginInterface, PluginStep};
-use crate::utils::ResultExt;
 
 const USERAGENT: &str = concat!("semanteecore/", env!("CARGO_PKG_VERSION"));
 
@@ -187,7 +187,7 @@ impl PluginInterface for GithubPlugin {
             let releases = repo.releases();
             releases.create(&release_opts)
         }))
-            .sync()?;
+        .sync()?;
 
         // Upload assets
         let token_header_value = HeaderValue::from_str(&format!("token {}", token)).unwrap();

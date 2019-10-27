@@ -1,10 +1,10 @@
-pub mod value_def;
-pub mod step_def;
 pub mod plugin_def;
+pub mod step_def;
+pub mod value_def;
 
-pub use self::value_def::{ValueDefinition, ValueDefinitionMap};
-pub use self::step_def::{StepDefinition, StepsDefinitionMap};
 pub use self::plugin_def::{PluginDefinition, PluginDefinitionMap};
+pub use self::step_def::{StepDefinition, StepsDefinitionMap};
+pub use self::value_def::{ValueDefinition, ValueDefinitionMap};
 
 use std::fs::File;
 use std::io::Read;
@@ -86,7 +86,7 @@ impl Config {
                             expected: PluginStepKind::Singleton,
                             got: PluginStepKind::Shared,
                         }
-                            .into())
+                        .into())
                     }
                 },
             }

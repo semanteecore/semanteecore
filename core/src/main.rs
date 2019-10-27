@@ -4,12 +4,12 @@
 extern crate semanteecore as core;
 extern crate semanteecore_plugin_api as plugin_api;
 
-use core::logger;
 use core::builtin_plugins::{early_exit, EarlyExitPlugin};
 use core::config::Config;
+use core::logger;
+use core::runtime::plugin::Plugin;
 use core::runtime::InjectionTarget;
 use core::runtime::Kernel;
-use core::runtime::plugin::Plugin;
 use plugin_api::PluginStep;
 use std::env;
 

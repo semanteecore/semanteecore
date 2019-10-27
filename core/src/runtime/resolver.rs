@@ -1,7 +1,7 @@
 use failure::Fail;
 
-use plugin_api::PluginInterface;
 use crate::runtime::plugin::{RawPlugin, RawPluginState, ResolvedPlugin, UnresolvedPlugin};
+use plugin_api::PluginInterface;
 use semanteecore_plugin_clog::ClogPlugin;
 use semanteecore_plugin_docker::DockerPlugin;
 use semanteecore_plugin_git::GitPlugin;

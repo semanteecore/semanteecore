@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::runtime::plugin::UnresolvedPlugin;
 use super::Map;
+use crate::runtime::plugin::UnresolvedPlugin;
 
 /// Map PluginName -> PluginDefinition
 pub type PluginDefinitionMap = Map<String, PluginDefinition>;
@@ -28,7 +28,6 @@ impl PluginDefinition {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -85,9 +84,9 @@ mod tests {
             ("github", UnresolvedPlugin::Builtin),
             ("rust", UnresolvedPlugin::Builtin),
         ]
-            .into_iter()
-            .map(|(name, state)| (name.to_string(), PluginDefinition::Full(state)))
-            .collect();
+        .into_iter()
+        .map(|(name, state)| (name.to_string(), PluginDefinition::Full(state)))
+        .collect();
 
         let parsed: PluginDefinitionMap = toml::from_str(toml).unwrap();
 

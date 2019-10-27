@@ -2,11 +2,11 @@ use std::collections::VecDeque;
 
 use failure::Fail;
 
+use crate::config::value_def::{ValueDefinition, ValueDefinitionMap};
 use crate::config::{Config, Map, StepDefinition};
 use crate::runtime::discovery::discover;
-use crate::runtime::{InjectionTarget, PluginId};
 use crate::runtime::plugin::Plugin;
-use crate::config::value_def::{ValueDefinitionMap, ValueDefinition};
+use crate::runtime::{InjectionTarget, PluginId};
 use plugin_api::flow::kv::{Key, ValueState};
 use plugin_api::flow::{Availability, ProvisionCapability, Value};
 use plugin_api::{PluginInterface, PluginStep};

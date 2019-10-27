@@ -3,10 +3,10 @@ use std::convert;
 use failure::Fail;
 
 use crate::config::{Config, PluginDefinitionMap};
+use crate::runtime::plugin::{Plugin, RawPlugin, RawPluginState};
 use crate::runtime::resolver::PluginResolver;
 use crate::runtime::starter::PluginStarter;
 use crate::runtime::Injection;
-use crate::runtime::plugin::{Plugin, RawPlugin, RawPluginState};
 
 pub fn load_plugins_for_config(
     config: &Config,

@@ -451,11 +451,11 @@ pub enum Error {
     #[fail(display = "state is not initialized (forgot to run pre_flight step?)")]
     StateIsNone,
     #[fail(
-    display = "committer name was not found in [env::GIT_COMMITTER_NAME, releaserc.cfg.git.user_name, git config user.name]"
+        display = "committer name was not found in [env::GIT_COMMITTER_NAME, releaserc.cfg.git.user_name, git config user.name]"
     )]
     CommitterNameUndefined,
     #[fail(
-    display = "committer email was not found in [env::GIT_COMMITTER_EMAIL, releaserc.cfg.git.user_email, git config user.email]"
+        display = "committer email was not found in [env::GIT_COMMITTER_EMAIL, releaserc.cfg.git.user_email, git config user.email]"
     )]
     CommitterEmailUndefined,
     #[fail(display = "failed to determine git remote url")]
@@ -463,8 +463,8 @@ pub enum Error {
     #[fail(display = "GH_TOKEN is undefined: cannot push changes")]
     GithubTokenUndefined,
     #[fail(
-    display = "{} is not supported for https forcing, please consider opening an issue at https://github.com/semanteecore/semanteecore/issues/new/choose",
-    _0
+        display = "{} is not supported for https forcing, please consider opening an issue at https://github.com/semanteecore/semanteecore/issues/new/choose",
+        _0
     )]
     RemoteNotSupportedForHttpsForcing(String),
 }

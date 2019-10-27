@@ -5,8 +5,8 @@ use petgraph::Graph;
 
 use crate::config::Config;
 use crate::runtime::graph::releaserc::ReleaseRcGraph;
-use crate::runtime::util::load_plugins_for_config;
 use crate::runtime::plugin::Plugin;
+use crate::runtime::util::load_plugins_for_config;
 use plugin_api::flow::{Availability, Value};
 use plugin_api::keys::{PROJECT_AND_DEPENDENCIES, PROJECT_ROOT};
 use plugin_api::proto::{Project, ProjectAndDependencies};

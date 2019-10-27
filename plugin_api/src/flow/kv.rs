@@ -1,5 +1,5 @@
-use std::mem;
 use serde::{Deserialize, Serialize};
+use std::mem;
 
 use super::ProvisionRequest;
 use crate::PluginStep;

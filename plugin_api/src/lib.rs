@@ -1,19 +1,20 @@
 #![feature(try_trait)]
-#[macro_use] extern crate strum_macros;
+#[macro_use]
+extern crate strum_macros;
 
 pub mod command;
 pub mod flow;
 pub mod keys;
 pub mod proto;
 
-use std::ops::Try;
 use std::collections::HashMap;
+use std::ops::Try;
 
-use strum::IntoEnumIterator;
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 
-use crate::proto::response::{self, PluginResponse};
 use crate::flow::{FlowError, Value};
+use crate::proto::response::{self, PluginResponse};
 
 pub trait PluginInterface {
     /// Get the human-readable name of the plugin
@@ -104,21 +105,20 @@ fn not_implemented_response<T>() -> PluginResponse<T> {
     PluginResponse::from_error(failure::err_msg("method not implemented"))
 }
 
-
 #[derive(
-Serialize,
-Deserialize,
-Debug,
-Copy,
-Clone,
-Ord,
-PartialOrd,
-Eq,
-PartialEq,
-Hash,
-EnumString,
-EnumIter,
-IntoStaticStr,
+    Serialize,
+    Deserialize,
+    Debug,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    EnumString,
+    EnumIter,
+    IntoStaticStr,
 )]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]

@@ -3,11 +3,11 @@ pub mod discovery;
 pub mod dispatcher;
 pub mod graph;
 pub mod kernel;
+pub mod plugin;
 pub mod resolver;
 pub mod sequence;
 pub mod starter;
 pub mod util;
-pub mod plugin;
 
 pub use self::kernel::{Error, Kernel};
 

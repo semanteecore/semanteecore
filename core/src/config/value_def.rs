@@ -81,8 +81,8 @@ impl ValueDefinition {
 
 impl<'de> Deserialize<'de> for ValueDefinitionMap {
     fn deserialize<D>(de: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         let raw_map: Map<String, serde_json::Value> = Deserialize::deserialize(de)?;
         let mut map = Map::new();
@@ -143,10 +143,10 @@ fn parse_value_definition(value: &str) -> Result<ValueDefinition, failure::Error
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fmt::Display;
-    use serde::Serialize;
     use plugin_api::flow::kv::ValueState;
     use plugin_api::flow::ProvisionRequest;
+    use serde::Serialize;
+    use std::fmt::Display;
 
     #[test]
     fn build() {

@@ -1,8 +1,8 @@
 use petgraph::prelude::NodeIndex;
 use petgraph::Graph;
+use std::cmp::Reverse;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::cmp::Reverse;
 
 pub type ReleaseRcGraph = Graph<ReleaseRcDirectory, ()>;
 pub type ReleaseRcDirectory = PathBuf;

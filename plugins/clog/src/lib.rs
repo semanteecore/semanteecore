@@ -11,9 +11,7 @@ use git2::{Commit, Repository};
 use serde::{Deserialize, Serialize};
 
 use plugin_api::flow::{Availability, FlowError, ProvisionCapability, Value};
-use plugin_api::keys::{
-    CURRENT_VERSION, DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_ROOT, RELEASE_NOTES,
-};
+use plugin_api::keys::{CURRENT_VERSION, DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_ROOT, RELEASE_NOTES};
 use plugin_api::proto::{
     response::{self, PluginResponse},
     Version,

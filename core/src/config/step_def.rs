@@ -23,8 +23,8 @@ pub enum StepDefinition {
 
 impl<'de> Deserialize<'de> for StepDefinition {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize, Debug)]
         #[serde(untagged)]
@@ -51,8 +51,8 @@ pub struct StepsDefinitionMap(Map<PluginStep, StepDefinition>);
 
 impl<'de> Deserialize<'de> for StepsDefinitionMap {
     fn deserialize<D>(de: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         use std::str::FromStr;
         let raw_map: Map<String, StepDefinition> = Deserialize::deserialize(de)?;
@@ -80,7 +80,6 @@ impl DerefMut for StepsDefinitionMap {
         &mut self.0
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -148,9 +147,9 @@ mod tests {
             (PluginStep::Publish, plugins(&["github"])),
             (PluginStep::Notify, StepDefinition::Discover),
         ]
-            .iter()
-            .cloned()
-            .collect();
+        .iter()
+        .cloned()
+        .collect();
 
         let expected = StepsDefinitionMap(expected);
 
@@ -159,4 +158,3 @@ mod tests {
         assert_eq!(parsed, expected);
     }
 }
-
