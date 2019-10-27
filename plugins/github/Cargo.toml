@@ -1,0 +1,43 @@
+[package]
+name = "semanteecore_plugin_github"
+version = "2.13.0"
+license = "MIT"
+authors = [
+    'Jan Schulte <hello@unexpected-co.de>',
+    'Jan-Erik Rediger <janerik@fnordig.de>',
+    'Mike Lubinets <me@mkl.dev>',
+]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hubcaps = '0.5'
+url = '2.0'
+log = '0.4'
+serde_json = '1.0'
+tree_magic = '0.2'
+http = '0.1'
+reqwest = '0.9'
+failure = '0.1'
+glob = '0.3'
+futures = '0.1'
+tokio = '0.1'
+lazy_static = '1.4.0'
+petgraph = "0.4.13"
+semanteecore_plugin_api = { version = "2.13", path = "../../plugin_api" }
+
+[dependencies.semver]
+version = '0.9'
+features = ['serde']
+
+[dependencies.serde]
+version = '1.0'
+features = ['derive']
+
+[dev-dependencies]
+tempfile = "3.1.0"
+symlink = "0.1.0"
+serial_test = "0.2.0"
+serial_test_derive = "0.2.0"
+
