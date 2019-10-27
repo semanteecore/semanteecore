@@ -10,6 +10,9 @@ pub mod config;
 pub mod logger;
 pub mod runtime;
 
+#[cfg(test)]
+pub mod test_utils;
+
 use crate::builtin_plugins::{early_exit, EarlyExitPlugin};
 use crate::config::Config;
 use crate::runtime::{InjectionTarget, Kernel, Plugin};
