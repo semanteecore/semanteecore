@@ -25,32 +25,32 @@ fn check_same_file(a: fs::Metadata, b: fs::Metadata) -> bool {
     a.creation_time() == b.creation_time()
 }
 
-pub fn releaserc_graph(root: impl AsRef<Path>, use_relative_path: bool) -> Result<ReleaseRcGraph, failure::Error> {
+pub fn releaserc_graph(root: impl AsRef<Path>, convert_to_relative_path: bool) -> Result<ReleaseRcGraph, failure::Error> {
     use std::env;
 
-    let mut root = root.as_ref().to_owned();
-
-    if use_relative_path {
-        // Check that it's safe to use relative path from here on
-        let current_dir = env::current_dir()?;
-        assert!(check_same_file(root.metadata()?, current_dir.metadata()?));
-
-        // Convert to relative path
-        root = PathBuf::from("./");
-    }
+    let root = root.as_ref();
 
     // Check that releaserc.toml exists in root
-    assert!(root.join("releaserc.toml").exists());
+    if !root.join("releaserc.toml").exists() {
+        return Err(failure::format_err!("releaserc.toml not found in {}", root.display()))
+    }
 
     let mut graph = Graph::new();
     let mut node_stack = Vec::new();
 
-    recursive_walk(root, &mut graph, &mut node_stack)?;
+    let absolute = if convert_to_relative_path {
+        Some(root)
+    } else {
+        None
+    };
+
+    recursive_walk(absolute, &root, &mut graph, &mut node_stack)?;
 
     Ok(graph)
 }
 
 fn recursive_walk(
+    absolute_root: Option<&Path>,
     dir_path: impl AsRef<Path>,
     graph: &mut ReleaseRcGraph,
     node_stack: &mut Vec<NodeIndex<u32>>,
@@ -77,7 +77,7 @@ fn recursive_walk(
 
         if entry_type.is_dir() {
             let path = entry.path();
-            recursive_walk(path, graph, node_stack)?;
+            recursive_walk(absolute_root.clone(), path, graph, node_stack)?;
             continue;
         }
 
@@ -85,7 +85,13 @@ fn recursive_walk(
             let node_idx = entry
                 .path()
                 .parent()
-                .map(ToOwned::to_owned)
+                .and_then(|p| if let Some(absolute) = absolute_root {
+                    p.strip_prefix(absolute)
+                        .map(|p| Path::new(".").join(p))
+                        .ok()
+                } else {
+                    Some(p.to_owned())
+                })
                 .map(|path| graph.add_node(path));
 
             match (node_stack.last(), node_idx) {
