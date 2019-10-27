@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use failure::Fail;
 
 use crate::config::value_def::{ValueDefinition, ValueDefinitionMap};
-use crate::config::{Config, Map, StepDefinition};
+use crate::config::{Config, Map, PluginsConfig, StepDefinition};
 use crate::runtime::discovery::discover;
 use crate::runtime::plugin::Plugin;
 use crate::runtime::{InjectionTarget, PluginId};
@@ -80,12 +80,15 @@ impl PluginSequence {
         injections: Vec<(PluginId, InjectionTarget)>,
         is_dry_run: bool,
     ) -> Result<Self, failure::Error> {
+        // Make sure the config is workable
+        let plugins_cfg = releaserc.try_plugins_cfg()?;
+
         // First -- collect data from plugins
         let names = collect_plugins_names(plugins);
         let configs = collect_plugins_initial_configuration(plugins)?;
         let caps = collect_plugins_provision_capabilities(plugins)?;
         let step_map = build_steps_to_plugins_map(
-            releaserc,
+            plugins_cfg,
             plugins,
             injections,
             collect_plugins_methods_capabilities(plugins)?,
@@ -96,7 +99,7 @@ impl PluginSequence {
             names,
             configs,
             caps,
-            releaserc: &releaserc.cfg,
+            releaserc: releaserc.cfg(),
             step_map,
         };
 
@@ -564,7 +567,7 @@ fn collect_plugins_methods_capabilities(plugins: &[Plugin]) -> Result<Map<Plugin
 }
 
 fn build_steps_to_plugins_map(
-    config: &Config,
+    config: &PluginsConfig,
     plugins: &[Plugin],
     injections: Vec<(PluginId, InjectionTarget)>,
     capabilities: Map<PluginStep, Vec<String>>,
@@ -578,7 +581,7 @@ fn build_steps_to_plugins_map(
             .collect::<Vec<_>>()
     }
 
-    for (step, step_def) in config.steps.iter() {
+    for (step, step_def) in config.steps().iter() {
         match step_def {
             StepDefinition::Discover => {
                 let names = capabilities.get(&step);

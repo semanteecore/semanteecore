@@ -118,16 +118,19 @@ impl KernelBuilder {
 
     pub fn build(&mut self) -> Result<Kernel, failure::Error> {
         // Convert KeyValueDefinitionMap into KeyValue<JsonValue> map
-        let cfg = self.config.cfg.clone();
+        let cfg = self.config.cfg().clone();
         let cfg: Map<String, Value<serde_json::Value>> = cfg.into();
         let is_dry_run = cfg
             .get("dry_run")
             .and_then(|kv| kv.as_value().as_bool())
             .unwrap_or(true);
 
+        // Raise error if config doesn't contain plugin configuration
+        let plugin_cfg = self.config.try_plugins_cfg()?;
+
         // Load and start the plugins
         // We skip the insected plugins here 'cause there's a custom chaining logic required for Sequence
-        let plugins = load_plugins_for_config(&self.config, None)?;
+        let plugins = load_plugins_for_config(plugin_cfg, None)?;
 
         // Injection stage
         let injections = std::mem::replace(&mut self.injections, Vec::new());
@@ -164,4 +167,6 @@ impl KernelBuilder {
 pub enum Error {
     #[fail(display = "environment value must be set: {}", _0)]
     EnvValueUndefined(String),
+    #[fail(display = "releaserc.toml does not contain Plugin Configuration (plugins and steps)")]
+    PluginConfigNotFound,
 }

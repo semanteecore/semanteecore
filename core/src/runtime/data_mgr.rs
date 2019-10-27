@@ -11,7 +11,7 @@ impl DataManager {
     pub fn new(releaserc: &Config) -> Self {
         DataManager {
             global: releaserc
-                .cfg
+                .cfg()
                 .iter()
                 .filter(|(_, v)| v.is_value())
                 .map(|(k, v)| (k.to_owned(), vec![v.as_value().clone()]))
