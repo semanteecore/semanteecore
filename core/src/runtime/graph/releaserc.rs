@@ -2,6 +2,7 @@ use petgraph::prelude::NodeIndex;
 use petgraph::Graph;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::cmp::Reverse;
 
 pub type ReleaseRcGraph = Graph<ReleaseRcDirectory, ()>;
 pub type ReleaseRcDirectory = PathBuf;
@@ -69,11 +70,7 @@ fn recursive_walk(
 
     let mut entries: Vec<_> = read_dir.filter_map(Result::ok).collect();
 
-    entries.sort_by(|a, b| {
-        let a_is_file = a.file_type().unwrap().is_file();
-        let b_is_file = b.file_type().unwrap().is_file();
-        b_is_file.cmp(&a_is_file)
-    });
+    entries.sort_by_key(|e| Reverse(e.file_type().unwrap().is_file()));
 
     for entry in entries {
         let entry_type = entry.file_type()?;
