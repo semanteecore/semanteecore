@@ -25,24 +25,23 @@ fn check_same_file(a: fs::Metadata, b: fs::Metadata) -> bool {
     a.creation_time() == b.creation_time()
 }
 
-pub fn releaserc_graph(root: impl AsRef<Path>, convert_to_relative_path: bool) -> Result<ReleaseRcGraph, failure::Error> {
+pub fn releaserc_graph(
+    root: impl AsRef<Path>,
+    convert_to_relative_path: bool,
+) -> Result<ReleaseRcGraph, failure::Error> {
     use std::env;
 
     let root = root.as_ref();
 
     // Check that releaserc.toml exists in root
     if !root.join("releaserc.toml").exists() {
-        return Err(failure::format_err!("releaserc.toml not found in {}", root.display()))
+        return Err(failure::format_err!("releaserc.toml not found in {}", root.display()));
     }
 
     let mut graph = Graph::new();
     let mut node_stack = Vec::new();
 
-    let absolute = if convert_to_relative_path {
-        Some(root)
-    } else {
-        None
-    };
+    let absolute = if convert_to_relative_path { Some(root) } else { None };
 
     recursive_walk(absolute, &root, &mut graph, &mut node_stack)?;
 
@@ -85,12 +84,12 @@ fn recursive_walk(
             let node_idx = entry
                 .path()
                 .parent()
-                .and_then(|p| if let Some(absolute) = absolute_root {
-                    p.strip_prefix(absolute)
-                        .map(|p| Path::new(".").join(p))
-                        .ok()
-                } else {
-                    Some(p.to_owned())
+                .and_then(|p| {
+                    if let Some(absolute) = absolute_root {
+                        p.strip_prefix(absolute).map(|p| Path::new(".").join(p)).ok()
+                    } else {
+                        Some(p.to_owned())
+                    }
                 })
                 .map(|path| graph.add_node(path));
 
@@ -150,7 +149,7 @@ mod tests {
         assert_eq!(
             rendered,
             r#"digraph {
-    0 [label="\".\""]
+    0 [label="\"./\""]
 }
 "#
         );
@@ -194,7 +193,7 @@ mod tests {
         assert_eq!(
             rendered,
             r#"digraph {
-    0 [label="\".\""]
+    0 [label="\"./\""]
     1 [label="\"./one\""]
     2 [label="\"./two\""]
     0 -> 1
@@ -240,7 +239,7 @@ mod tests {
         assert_eq!(
             rendered,
             r#"digraph {
-    0 [label="\".\""]
+    0 [label="\"./\""]
     1 [label="\"./one\""]
     2 [label="\"./two\""]
     0 -> 1

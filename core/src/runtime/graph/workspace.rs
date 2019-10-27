@@ -20,6 +20,7 @@ use plugin_api::PluginInterface;
 //    Ok(())
 //}
 
+#[derive(Debug)]
 struct DependencyTree {
     root: NodeIndex<u32>,
     tree: Graph<Project, ()>,
@@ -33,6 +34,7 @@ fn dependency_forest(graph: ReleaseRcGraph) -> Result<DependencyForest, failure:
         .0
         .into_iter()
         .map(|node| subforest(&node.weight))
+        .inspect(|sf| log::trace!("result: {:?}", sf))
         .try_fold(Vec::new(), |mut forest, sf| {
             forest.extend(sf?);
             Ok(forest)
@@ -43,8 +45,23 @@ fn subforest(root: impl AsRef<Path>) -> Result<Vec<DependencyTree>, failure::Err
     let releaserc_path = root.as_ref().join("releaserc.toml");
     let config = Config::from_toml(&releaserc_path, true)?;
 
-    let mut plugins = load_plugins_for_config(&config, None)?;
+    log::debug!("building subforest for path {}", releaserc_path.display());
+
+    // Early return if the releaserc.toml instance is but a mere config layer
+    // incapable of harnessing the deadly and unmatched power of plugins
+    let plugins_cfg = match config.plugins_cfg() {
+        None => return Ok(vec![]),
+        Some(cfg) => cfg,
+    };
+
+    let mut plugins = load_plugins_for_config(plugins_cfg, None)?;
     let plugins = filter_usable_plugins(&mut plugins)?;
+
+    if plugins.is_empty() {
+        return Err(failure::format_err!(
+            "no plugin supports monorepo projects, cannot proceed"
+        ));
+    }
 
     let project_root = Value::with_value(PROJECT_ROOT, serde_json::to_value(root.as_ref())?);
 

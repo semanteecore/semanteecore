@@ -2,18 +2,18 @@ use std::convert;
 
 use failure::Fail;
 
-use crate::config::{Config, PluginDefinitionMap};
+use crate::config::{PluginDefinitionMap, PluginsConfig};
 use crate::runtime::plugin::{Plugin, RawPlugin, RawPluginState};
 use crate::runtime::resolver::PluginResolver;
 use crate::runtime::starter::PluginStarter;
 use crate::runtime::Injection;
 
 pub fn load_plugins_for_config(
-    config: &Config,
+    config: &PluginsConfig,
     injections: Option<Vec<Injection>>,
 ) -> Result<Vec<Plugin>, failure::Error> {
     // Move PluginDefinitions out of config and convert them to Plugins
-    let plugins = config.plugins.clone();
+    let plugins = config.plugins().clone();
     let plugins = plugin_def_map_to_vec(plugins);
 
     // Resolve stage
