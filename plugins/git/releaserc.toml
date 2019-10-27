@@ -1,0 +1,29 @@
+[plugins]
+git = "builtin"
+clog = "builtin"
+github = "builtin"
+rust = "builtin"
+
+[steps]
+pre_flight = "discover"
+get_last_release = "git"
+derive_next_version = [ "clog" ]
+generate_notes = "clog"
+prepare = "discover"
+verify_release = []
+commit = "git"
+publish = []
+notify = "discover"
+
+[cfg.clog]
+ignore = ["ci"]
+
+[cfg.git]
+branch = "master"
+force_https = true
+
+[cfg.github]
+pre_release = false
+assets = [
+    "Changelog.md"
+]
