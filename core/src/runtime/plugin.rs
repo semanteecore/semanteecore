@@ -4,7 +4,7 @@ use crate::logger;
 use plugin_api::flow::Value;
 use plugin_api::proto::response;
 use serde::{Deserialize, Serialize};
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::rc::Rc;
 
@@ -60,14 +60,14 @@ impl Plugin {
         Plugin::try_from(Box::new(plugin) as Box<dyn PluginInterface>)
     }
 
-    fn apply<R>(&self, func: impl FnOnce(Ref<Box<dyn PluginInterface>>) -> R) -> R {
+    fn apply<R>(&self, func: impl FnOnce(&dyn PluginInterface) -> R) -> R {
         let _span = logger::span(&self.name);
-        func(self.inner.borrow())
+        func(&**self.inner.borrow())
     }
 
-    fn apply_mut<R>(&mut self, func: impl FnOnce(RefMut<Box<dyn PluginInterface>>) -> R) -> R {
+    fn apply_mut<R>(&mut self, func: impl FnOnce(&mut dyn PluginInterface) -> R) -> R {
         let _span = logger::span(&self.name);
-        func(self.inner.borrow_mut())
+        func(&mut **self.inner.borrow_mut())
     }
 }
 
@@ -85,7 +85,7 @@ impl PluginInterface for Plugin {
     }
 
     fn set_value(&mut self, key: &str, value: Value<serde_json::Value>) -> response::Null {
-        self.apply_mut(|mut x| x.set_value(key, value))
+        self.apply_mut(|x| x.set_value(key, value))
     }
 
     fn get_config(&self) -> response::Config {
@@ -93,11 +93,11 @@ impl PluginInterface for Plugin {
     }
 
     fn set_config(&mut self, config: serde_json::Value) -> response::Null {
-        self.apply_mut(|mut x| x.set_config(config))
+        self.apply_mut(|x| x.set_config(config))
     }
 
     fn reset(&mut self) -> response::Null {
-        self.apply_mut(|mut x| x.reset())
+        self.apply_mut(|x| x.reset())
     }
 
     fn methods(&self) -> response::Methods {
@@ -105,35 +105,35 @@ impl PluginInterface for Plugin {
     }
 
     fn pre_flight(&mut self) -> response::Null {
-        self.apply_mut(|mut x| x.pre_flight())
+        self.apply_mut(|x| x.pre_flight())
     }
 
     fn get_last_release(&mut self) -> response::Null {
-        self.apply_mut(|mut x| x.get_last_release())
+        self.apply_mut(|x| x.get_last_release())
     }
 
     fn derive_next_version(&mut self) -> response::Null {
-        self.apply_mut(|mut x| x.derive_next_version())
+        self.apply_mut(|x| x.derive_next_version())
     }
 
     fn generate_notes(&mut self) -> response::Null {
-        self.apply_mut(|mut x| x.generate_notes())
+        self.apply_mut(|x| x.generate_notes())
     }
 
     fn prepare(&mut self) -> response::Null {
-        self.apply_mut(|mut x| x.prepare())
+        self.apply_mut(|x| x.prepare())
     }
 
     fn verify_release(&mut self) -> response::Null {
-        self.apply_mut(|mut x| x.verify_release())
+        self.apply_mut(|x| x.verify_release())
     }
 
     fn commit(&mut self) -> response::Null {
-        self.apply_mut(|mut x| x.commit())
+        self.apply_mut(|x| x.commit())
     }
 
     fn publish(&mut self) -> response::Null {
-        self.apply_mut(|mut x| x.publish())
+        self.apply_mut(|x| x.publish())
     }
 
     fn notify(&self) -> response::Null {
