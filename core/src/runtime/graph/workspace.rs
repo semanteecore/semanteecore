@@ -148,6 +148,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn semanteecore() {
         let root = crate::test_utils::get_cargo_workspace(env!("CARGO_MANIFEST_DIR"));
         println!("{}", root.display());
