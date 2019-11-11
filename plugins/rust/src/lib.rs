@@ -1,20 +1,20 @@
 #![feature(try_trait)]
 extern crate semanteecore_plugin_api as plugin_api;
 
-use std::fs::File;
-use std::io::{Read, Write};
+mod cargo;
+use cargo::Cargo;
+
 use std::ops::Try;
 use std::path::{Path, PathBuf};
 
-use failure::Fail;
 use serde::{Deserialize, Serialize};
 
-use plugin_api::command::PipedCommand;
 use plugin_api::flow::{FlowError, ProvisionCapability, Value};
 use plugin_api::keys::{DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_AND_DEPENDENCIES, PROJECT_ROOT};
 use plugin_api::proto::response::{self, PluginResponse};
 use plugin_api::proto::ProjectAndDependencies;
 use plugin_api::{PluginInterface, PluginStep};
+use std::fs;
 
 #[derive(Default)]
 pub struct RustPlugin {
@@ -54,7 +54,7 @@ impl Drop for RustPlugin {
     fn drop(&mut self) {
         if let Some(guard) = self.dry_run_guard.as_ref() {
             log::info!("rust(dry-run): restoring original state of Cargo.toml");
-            if let Err(err) = guard.cargo.write_manifest_raw(&guard.original_manifest) {
+            if let Err(err) = fs::write(&guard.original_manifest_path, &guard.original_manifest) {
                 log::error!("rust(dry-run): failed to restore original manifest, sorry x_x");
                 log::error!("{}", err);
                 log::info!(
@@ -68,7 +68,7 @@ impl Drop for RustPlugin {
 
 struct DryRunGuard {
     original_manifest: Vec<u8>,
-    cargo: Cargo,
+    original_manifest_path: PathBuf,
 }
 
 impl PluginInterface for RustPlugin {
@@ -124,8 +124,7 @@ impl PluginInterface for RustPlugin {
         let project_root = self.config.project_root.as_value();
         let is_dry_run = *self.config.dry_run.as_value();
 
-        let token = self.config.token.as_value();
-        let cargo = Cargo::new(project_root, Some(token))?;
+        let mut cargo = Cargo::new(project_root)?;
 
         // If we're in the dry-run mode, we don't wanna change the Cargo.toml manifest,
         // so we save the original state of it, which would be written to
@@ -133,8 +132,8 @@ impl PluginInterface for RustPlugin {
             log::info!("rust(dry-run): saving original state of Cargo.toml");
 
             let guard = DryRunGuard {
-                original_manifest: cargo.load_manifest_raw()?,
-                cargo: cargo.clone(),
+                original_manifest: cargo.manifest_raw().to_vec(),
+                original_manifest_path: cargo.path().to_owned(),
             };
 
             self.dry_run_guard.replace(guard);
@@ -142,6 +141,7 @@ impl PluginInterface for RustPlugin {
 
         let next_version = self.config.next_version.as_value();
         cargo.set_version(next_version)?;
+        cargo.flush()?;
 
         PluginResponse::from_ok(())
     }
@@ -149,9 +149,7 @@ impl PluginInterface for RustPlugin {
     fn verify_release(&mut self) -> response::Null {
         let project_root = self.config.project_root.as_value();
 
-        let token = self.config.token.as_value();
-
-        let cargo = Cargo::new(project_root, Some(token))?;
+        let cargo = Cargo::new(project_root)?;
 
         log::info!("Packaging new version, please wait...");
         cargo.package()?;
@@ -165,121 +163,16 @@ impl PluginInterface for RustPlugin {
 
         let token = self.config.token.as_value();
 
-        let cargo = Cargo::new(project_root, Some(token))?;
+        let cargo = Cargo::new(project_root)?;
 
         log::info!("Publishing new version, please wait...");
-        cargo.publish()?;
+        cargo.publish(&token)?;
         log::info!("Package published successfully");
 
         PluginResponse::from_ok(())
     }
 }
 
-#[derive(Clone, Debug)]
-struct Cargo {
-    manifest_path: PathBuf,
-    token: Option<String>,
-}
-
-impl Cargo {
-    pub fn new(project_root: &str, token: Option<&str>) -> Result<Self, failure::Error> {
-        let manifest_path = Path::new(project_root).join("Cargo.toml");
-
-        log::debug!("searching for manifest in {}", manifest_path.display());
-
-        if !manifest_path.exists() || !manifest_path.is_file() {
-            return Err(Error::CargoTomlNotFound(project_root.to_owned()).into());
-        }
-
-        Ok(Cargo {
-            manifest_path,
-            token: token.map(ToOwned::to_owned),
-        })
-    }
-
-    pub fn package(&self) -> Result<(), failure::Error> {
-        let args = &[
-            "package",
-            "--allow-dirty",
-            "--manifest-path",
-            &self.manifest_path.display().to_string(),
-        ];
-
-        PipedCommand::new("cargo", args).join(log::Level::Info)
-    }
-
-    pub fn publish(&self) -> Result<(), failure::Error> {
-        let args = &[
-            "publish",
-            "--manifest-path",
-            &self.manifest_path.display().to_string(),
-            "--token",
-            &self.token.as_ref().unwrap(),
-        ];
-
-        PipedCommand::new("cargo", args).join(log::Level::Info)
-    }
-
-    pub fn load_manifest_raw(&self) -> Result<Vec<u8>, failure::Error> {
-        let mut manifest_file = File::open(&self.manifest_path)?;
-        let mut contents = Vec::new();
-        manifest_file.read_to_end(&mut contents)?;
-        Ok(contents)
-    }
-
-    pub fn load_manifest(&self) -> Result<toml::Value, failure::Error> {
-        Ok(toml::from_slice(&self.load_manifest_raw()?)?)
-    }
-
-    pub fn write_manifest_raw(&self, contents: &[u8]) -> Result<(), failure::Error> {
-        let mut manifest_file = File::create(&self.manifest_path)?;
-        manifest_file.write_all(contents)?;
-        Ok(())
-    }
-
-    pub fn write_manifest(&self, manifest: toml::Value) -> Result<(), failure::Error> {
-        let contents = toml::to_string_pretty(&manifest)?;
-        self.write_manifest_raw(contents.as_bytes())
-    }
-
-    pub fn set_version(&self, version: &semver::Version) -> Result<(), failure::Error> {
-        log::info!("Setting new version '{}' in Cargo.toml", version);
-
-        let mut manifest = self.load_manifest()?;
-
-        log::debug!("loaded Cargo.toml");
-
-        {
-            let root = manifest
-                .as_table_mut()
-                .ok_or(Error::InvalidManifest("expected table at root"))?;
-
-            let package = root
-                .get_mut("package")
-                .ok_or(Error::InvalidManifest("package section not present"))?;
-            let package = package
-                .as_table_mut()
-                .ok_or(Error::InvalidManifest("package section is expected to be map"))?;
-
-            package.insert("version".into(), toml::Value::String(format!("{}", version)));
-        }
-
-        log::debug!("writing update to Cargo.toml");
-
-        self.write_manifest(manifest)?;
-
-        Ok(())
-    }
-}
-
 fn project_and_dependencies(_root: impl AsRef<Path>) -> Result<ProjectAndDependencies, failure::Error> {
     todo!()
-}
-
-#[derive(Fail, Debug)]
-enum Error {
-    #[fail(display = "Cargo.toml not found in {}", _0)]
-    CargoTomlNotFound(String),
-    #[fail(display = "ill-formed Cargo.toml manifest: {}", _0)]
-    InvalidManifest(&'static str),
 }
