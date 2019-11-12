@@ -173,6 +173,9 @@ impl PluginInterface for RustPlugin {
     }
 }
 
-fn project_and_dependencies(_root: impl AsRef<Path>) -> Result<ProjectAndDependencies, failure::Error> {
-    todo!()
+fn project_and_dependencies(root: impl AsRef<Path>) -> Result<ProjectAndDependencies, failure::Error> {
+    let cargo = Cargo::new(root.as_ref().join("Cargo.toml"))?;
+    let project = cargo.project()?;
+    let deps = cargo.dependencies();
+    Ok((project, deps))
 }
