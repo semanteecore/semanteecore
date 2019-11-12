@@ -5,6 +5,7 @@ use cargo_metadata::{Metadata, MetadataCommand};
 use cargo_toml::Manifest;
 
 use plugin_api::command::PipedCommand;
+use plugin_api::proto::Project;
 
 pub struct Cargo {
     path: PathBuf,
@@ -78,6 +79,58 @@ impl Cargo {
         package.version = version.to_string();
 
         Ok(())
+    }
+
+    pub fn project(&self) -> Result<Project, failure::Error> {
+        let name = self
+            .crate_name()
+            .ok_or_else(|| failure::err_msg("currect Cargo.toml project has no name"))?;
+
+        let version = self.crate_version();
+
+        let project = Project {
+            name,
+            version: version.map(From::from),
+            lang: Some("Rust".to_owned()),
+            path: Some(self.path.clone()),
+        };
+
+        Ok(project)
+    }
+
+    pub fn crate_name(&self) -> Option<String> {
+        let package = self.manifest.package.as_ref()?;
+        Some(package.name.clone())
+    }
+
+    pub fn crate_version(&self) -> Option<String> {
+        let package = self.manifest.package.as_ref()?;
+        Some(package.version.clone())
+    }
+
+    pub fn dependencies(&self) -> Vec<Project> {
+        let current_package = self
+            .metadata
+            .packages
+            .iter()
+            .filter(|pkg| {
+                let pkg_path = pkg.manifest_path.canonicalize();
+                let self_path = self.path.canonicalize();
+                pkg_path.and_then(|p| self_path.map(|s| p == s)).unwrap_or(false)
+            })
+            .last()
+            .expect("current package not found in cargo metadata");
+
+        current_package
+            .dependencies
+            .iter()
+            .map(|dep| Project {
+                name: dep.name.clone(),
+                version: Some(dep.req.clone().into()),
+                lang: Some("Rust".into()),
+                path: None,
+            })
+            .collect()
     }
 
     pub fn flush(&self) -> Result<(), failure::Error> {
