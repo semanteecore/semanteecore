@@ -89,8 +89,8 @@ impl Cargo {
         let version = self.crate_version();
 
         let project = Project {
-            name,
-            version: version.map(From::from),
+            name: name.to_owned(),
+            version: version.map(ToOwned::to_owned).map(From::from),
             lang: Some("Rust".to_owned()),
             path: Some(self.path.clone()),
         };
@@ -98,14 +98,14 @@ impl Cargo {
         Ok(project)
     }
 
-    pub fn crate_name(&self) -> Option<String> {
+    pub fn crate_name(&self) -> Option<&str> {
         let package = self.manifest.package.as_ref()?;
-        Some(package.name.clone())
+        Some(&package.name)
     }
 
-    pub fn crate_version(&self) -> Option<String> {
+    pub fn crate_version(&self) -> Option<&str> {
         let package = self.manifest.package.as_ref()?;
-        Some(package.version.clone())
+        Some(&package.version)
     }
 
     pub fn dependencies(&self) -> Vec<Project> {
