@@ -113,12 +113,11 @@ impl Cargo {
             .metadata
             .packages
             .iter()
-            .filter(|pkg| {
+            .find(|pkg| {
                 let pkg_path = pkg.manifest_path.canonicalize();
                 let self_path = self.path.canonicalize();
                 pkg_path.and_then(|p| self_path.map(|s| p == s)).unwrap_or(false)
             })
-            .last()
             .expect("current package not found in cargo metadata");
 
         current_package
