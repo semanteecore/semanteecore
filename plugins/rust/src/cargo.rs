@@ -109,14 +109,16 @@ impl Cargo {
     }
 
     pub fn dependencies(&self) -> Vec<Project> {
-        let self_path = self.path.canonicalize()
-            .expect("failed to canonicalize cargo path");
+        let self_path = self.path.canonicalize().expect("failed to canonicalize cargo path");
         let current_package = self
             .metadata
             .packages
             .iter()
             .find(|pkg| {
-                pkg.manifest_path.canonicalize().map(|p| p == self_path).unwrap_or(false)
+                pkg.manifest_path
+                    .canonicalize()
+                    .map(|p| p == self_path)
+                    .unwrap_or(false)
             })
             .expect("current package was not found in cargo metadata");
 
