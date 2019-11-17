@@ -118,7 +118,7 @@ impl Cargo {
             .find(|pkg| {
                 pkg.manifest_path.canonicalize().map(|p| p == self_path).unwrap_or(false)
             })
-            .expect("current package not found in cargo metadata");
+            .expect("current package was not found in cargo metadata");
 
         current_package
             .dependencies
