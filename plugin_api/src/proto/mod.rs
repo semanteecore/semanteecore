@@ -22,12 +22,12 @@ pub enum NewVersion {
     String(String),
 }
 
-/// Parse String into Version
-///
-/// 1. Try to parse semver::VersionReq
-/// 2. If 1 failed, try to parse semver::Version
-/// 3. If 2 failed, construct Version::String
 impl From<String> for NewVersion {
+    /// Parse String into Version
+    ///
+    /// 1. Try to parse semver::VersionReq
+    /// 2. If 1 failed, try to parse semver::Version
+    /// 3. If 2 failed, construct Version::String
     fn from(s: String) -> Self {
         if let Ok(v) = s.parse::<semver::VersionReq>() {
             return NewVersion::SemverReq(v);
