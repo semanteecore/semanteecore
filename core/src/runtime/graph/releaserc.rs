@@ -7,24 +7,6 @@ use std::path::{Path, PathBuf};
 pub type ReleaseRcGraph = Graph<ReleaseRcDirectory, ()>;
 pub type ReleaseRcDirectory = PathBuf;
 
-#[cfg(target_os = "linux")]
-fn check_same_file(a: fs::Metadata, b: fs::Metadata) -> bool {
-    use std::os::linux::fs::MetadataExt;
-    a.st_ino() == b.st_ino()
-}
-
-#[cfg(target_os = "macos")]
-fn check_same_file(a: fs::Metadata, b: fs::Metadata) -> bool {
-    use std::os::macos::fs::MetadataExt;
-    a.st_ino() == b.st_ino()
-}
-
-#[cfg(target_os = "windows")]
-fn check_same_file(a: fs::Metadata, b: fs::Metadata) -> bool {
-    use std::os::windows::fs::MetadataExt;
-    a.creation_time() == b.creation_time()
-}
-
 pub fn releaserc_graph(
     root: impl AsRef<Path>,
     convert_to_relative_path: bool,
