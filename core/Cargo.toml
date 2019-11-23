@@ -18,19 +18,26 @@ name = 'semanteecore'
 path = 'src/main.rs'
 name = 'semanteecore'
 
+[features]
+default = ["emit-graphviz"]
+emit-graphviz = ["petgraph"]
+
 [dependencies]
 env_logger = '0.7'
 log = '0.4'
-serde_json = '1.0'
+serde_json = '1'
 failure = '0.1'
 dotenv = '0.15'
 strum = '0.15'
-pest = '2.1.1'
-pest_derive = '2.1.0'
-lazy_static = '1.4.0'
+pest = '2'
+pest_derive = '2'
+lazy_static = '1'
 structopt = '0.3'
 walkdir = "2"
-petgraph = "0.4"
+safe-graph = "0.1"
+id-arena = "2"
+petgraph = { version = "0.4", optional = true }
+glob = "0.3"
 
 semanteecore_plugin_api = { version = "2.14", path = "../plugin_api" }
 semanteecore_plugin_clog = { version = "2.14", path = "../plugins/clog" }
@@ -38,7 +45,7 @@ semanteecore_plugin_docker = { version = "2.14", path = "../plugins/docker" }
 semanteecore_plugin_git = { version = "2.14", path = "../plugins/git" }
 semanteecore_plugin_github = { version = "2.14", path = "../plugins/github" }
 semanteecore_plugin_rust = { version = "2.14", path = "../plugins/rust" }
-glob = "0.3.0"
+
 
 [dependencies.semver]
 version = '0.9'
@@ -57,9 +64,9 @@ version = '0.5'
 features = ['serde_impl']
 
 [dev-dependencies]
-tempfile = "3.1.0"
-symlink = "0.1.0"
-serial_test = "0.2.0"
-serial_test_derive = "0.2.0"
+tempfile = "3"
+symlink = "0.1"
+serial_test = "0.2"
+serial_test_derive = "0.2"
 
 

@@ -2,11 +2,12 @@ use crate::config::Config;
 use crate::plugin_support::proto::ProjectAndDependencies;
 use petgraph::prelude::NodeIndex;
 use petgraph::Graph;
+use super::{Graph, Id};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub type ReleaseRcGraph = Graph<ReleaseRcDirectory, ()>;
-pub type ReleaseRcDirectory = PathBuf;
+pub type ReleaseRcGraph = Graph<PathBuf>;
+pub type NodeId = Id<PathBuf>;
 
 #[cfg(target_os = "linux")]
 fn check_same_file(a: fs::Metadata, b: fs::Metadata) -> bool {
@@ -54,7 +55,7 @@ pub fn releaserc_graph(root: impl AsRef<Path>, use_relative_path: bool) -> Resul
 fn recursive_walk(
     dir_path: impl AsRef<Path>,
     graph: &mut ReleaseRcGraph,
-    node_stack: &mut Vec<NodeIndex<u32>>,
+    node_stack: &mut Vec<NodeId>,
 ) -> Result<(), failure::Error> {
     use std::fs::read_dir;
 
@@ -95,7 +96,7 @@ fn recursive_walk(
 
             match (node_stack.last(), node_idx) {
                 (Some(parent_idx), Some(node_idx)) => {
-                    graph.add_edge(*parent_idx, node_idx, ());
+                    graph.add_edge(*parent_idx, node_idx);
                 }
                 _ => (),
             }
@@ -144,7 +145,7 @@ mod tests {
         let _g = pushd(dir.path());
         File::create(dir.path().join("releaserc.toml")).unwrap();
         let graph = releaserc_graph(dir.path(), true).unwrap();
-        let rendered = format!("{:?}", Dot::with_config(&graph, PG_CONFIG));
+        let rendered = graph.dot_with_config(PG_CONFIG);
         println!("{}", rendered);
         assert_eq!(
             rendered,
@@ -162,7 +163,7 @@ mod tests {
         let _g = pushd(dir.path());
         fs::create_dir(dir.path().join("releaserc.toml")).unwrap();
         let graph = releaserc_graph(dir.path(), true).unwrap();
-        let rendered = format!("{:?}", Dot::with_config(&graph, PG_CONFIG));
+        let rendered = graph.dot_with_config(PG_CONFIG);
         println!("{}", rendered);
         assert_eq!(
             rendered,
@@ -188,7 +189,7 @@ mod tests {
         }
 
         let graph = releaserc_graph(dir.path(), true).unwrap();
-        let rendered = format!("{:?}", Dot::with_config(&graph, PG_CONFIG));
+        let rendered = graph.dot_with_config(PG_CONFIG);
         println!("{}", rendered);
         assert_eq!(
             rendered,
@@ -234,7 +235,7 @@ mod tests {
         }
 
         let graph = releaserc_graph(dir.path(), true).unwrap();
-        let rendered = format!("{:?}", Dot::with_config(&graph, PG_CONFIG));
+        let rendered = graph.dot_with_config(PG_CONFIG);
         println!("{}", rendered);
         assert_eq!(
             rendered,
