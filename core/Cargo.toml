@@ -18,6 +18,10 @@ path = "src/main.rs"
 [lib]
 path = "src/lib.rs"
 
+[features]
+default = ["emit-graphviz"]
+emit-graphviz = ["petgraph"]
+
 [dependencies]
 git2 = '0.9'
 clog = '0.9'
@@ -39,7 +43,9 @@ tokio = '0.1'
 pest = '2.1.1'
 pest_derive = '2.1.0'
 lazy_static = '1.4.0'
-petgraph = "0.4.13"
+safe-graph = "0.1.6"
+id-arena = "2.2.1"
+petgraph = { version = "0.4.13", optional = true }
 
 semanteecore_plugin_api = { version = "2.13", path = "../plugin_api" }
 semanteecore_plugin_clog = { version = "2.13", path = "../plugins/clog" }
