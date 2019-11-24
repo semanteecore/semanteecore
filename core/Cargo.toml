@@ -53,6 +53,7 @@ semanteecore_plugin_docker = { version = "2.13", path = "../plugins/docker" }
 semanteecore_plugin_git = { version = "2.13", path = "../plugins/git" }
 semanteecore_plugin_github = { version = "2.13", path = "../plugins/github" }
 semanteecore_plugin_rust = { version = "2.13", path = "../plugins/rust" }
+derive_more = "0.99.2"
 
 [dependencies.semver]
 version = '0.9'

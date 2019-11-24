@@ -1,38 +1,75 @@
-use super::{Graph, Id};
 use std::cmp::Reverse;
 use std::fs;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
-pub type ReleaseRcGraph = Graph<PathBuf>;
-pub type NodeId = Id<PathBuf>;
+use derive_more::{Deref, DerefMut};
 
-pub fn releaserc_graph(
-    root: impl AsRef<Path>,
-    convert_to_relative_path: bool,
-) -> Result<ReleaseRcGraph, failure::Error> {
-    use std::env;
+use super::{Graph, Id, UniqAllocStrategy};
 
-    let root = root.as_ref();
+#[derive(Deref, DerefMut)]
+pub struct ConfigTree {
+    root: Id<PathBuf>,
+    #[deref]
+    #[deref_mut]
+    graph: ConfigGraph,
+}
 
-    // Check that releaserc.toml exists in root
-    if !root.join("releaserc.toml").exists() {
-        return Err(failure::format_err!("releaserc.toml not found in {}", root.display()));
+impl ConfigTree {
+    pub fn build(root: impl AsRef<Path>, convert_to_relative_path: bool) -> Result<ConfigTree, failure::Error> {
+        use std::env;
+
+        let root = root.as_ref().to_path_buf();
+
+        // Check that releaserc.toml exists in root
+        let releaserc_file_path = root.join("releaserc.toml");
+        if !releaserc_file_path.exists() || !releaserc_file_path.is_file() {
+            return Err(failure::format_err!(
+                "releaserc.toml not found in {} or is not a file",
+                root.display()
+            ));
+        }
+
+        let mut graph = Graph::uniq();
+        let mut node_stack = Vec::new();
+
+        let graph_root;
+        let absolute = if convert_to_relative_path {
+            graph_root = PathBuf::from("./");
+            Some(root.as_ref())
+        } else {
+            graph_root = root.clone();
+            None
+        };
+
+        let graph_root_id = graph.add_node(graph_root.clone());
+
+        recursive_walk(absolute, &root, &mut graph, &mut node_stack)?;
+
+        println!("root = {}", root.display());
+        println!("graph_root = {}", graph_root.display());
+        println!("{}", graph.dot());
+
+        Ok(ConfigTree {
+            root: graph_root_id,
+            graph,
+        })
     }
 
-    let mut graph = Graph::new();
-    let mut node_stack = Vec::new();
-
-    let absolute = if convert_to_relative_path { Some(root) } else { None };
-
-    recursive_walk(absolute, &root, &mut graph, &mut node_stack)?;
-
-    Ok(graph)
+    pub fn root(&self) -> &PathBuf {
+        self.graph
+            .node_weight(self.root)
+            .expect("root path not found in the graph")
+    }
 }
+
+type ConfigGraph = Graph<PathBuf, UniqAllocStrategy>;
+type NodeId = Id<PathBuf>;
 
 fn recursive_walk(
     absolute_root: Option<&Path>,
     dir_path: impl AsRef<Path>,
-    graph: &mut ReleaseRcGraph,
+    graph: &mut ConfigGraph,
     node_stack: &mut Vec<NodeId>,
 ) -> Result<(), failure::Error> {
     use std::fs::read_dir;
@@ -124,8 +161,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let _g = pushd(dir.path());
         File::create(dir.path().join("releaserc.toml")).unwrap();
-        let graph = releaserc_graph(dir.path(), true).unwrap();
-        let rendered = graph.dot_with_config(PG_CONFIG);
+        let tree = ConfigTree::build(dir.path(), true).unwrap();
+        let rendered = tree.dot_with_config(PG_CONFIG);
         println!("{}", rendered);
         assert_eq!(
             rendered,
@@ -142,15 +179,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let _g = pushd(dir.path());
         fs::create_dir(dir.path().join("releaserc.toml")).unwrap();
-        let graph = releaserc_graph(dir.path(), true).unwrap();
-        let rendered = graph.dot_with_config(PG_CONFIG);
-        println!("{}", rendered);
-        assert_eq!(
-            rendered,
-            r#"digraph {
-}
-"#
-        );
+        let tree = ConfigTree::build(dir.path(), true);
+        assert!(tree.is_err())
     }
 
     #[test]
@@ -168,8 +198,8 @@ mod tests {
             File::create(d.join("releaserc.toml")).unwrap();
         }
 
-        let graph = releaserc_graph(dir.path(), true).unwrap();
-        let rendered = graph.dot_with_config(PG_CONFIG);
+        let tree = ConfigTree::build(dir.path(), true).unwrap();
+        let rendered = tree.dot_with_config(PG_CONFIG);
         println!("{}", rendered);
         assert_eq!(
             rendered,
@@ -189,8 +219,8 @@ mod tests {
     fn find_roots_no_releaserc_in_root() {
         let dir = tempfile::tempdir().unwrap();
         let _g = pushd(dir.path());
-        let graph = releaserc_graph(dir.path(), true);
-        assert!(graph.is_err())
+        let tree = ConfigTree::build(dir.path(), true);
+        assert!(tree.is_err())
     }
 
     #[test]
@@ -214,8 +244,8 @@ mod tests {
             }
         }
 
-        let graph = releaserc_graph(dir.path(), true).unwrap();
-        let rendered = graph.dot_with_config(PG_CONFIG);
+        let tree = ConfigTree::build(dir.path(), true).unwrap();
+        let rendered = tree.dot_with_config(PG_CONFIG);
         println!("{}", rendered);
         assert_eq!(
             rendered,
