@@ -7,28 +7,23 @@ use std::marker::PhantomData;
 
 pub use id_arena::Id;
 
-pub struct DefaultAllocStrategy;
-pub struct UniqAllocStrategy;
-
-pub struct Graph<N, A = DefaultAllocStrategy> {
+pub struct Graph<N> {
     nodes: Arena<N>,
     graph: SafeGraph<Id<N>, ()>,
-    _casper: PhantomData<fn() -> A>,
 }
 
-impl<N, A> Default for Graph<N, A> {
+impl<N> Default for Graph<N> {
     fn default() -> Self {
-        Graph {
-            nodes: Arena::new(),
-            graph: SafeGraph::new(),
-            _casper: PhantomData,
-        }
+        Self::new()
     }
 }
 
-impl<N, A> Graph<N, A> {
+impl<N> Graph<N> {
     pub fn new() -> Self {
-        Self::default()
+        Graph {
+            nodes: Arena::new(),
+            graph: SafeGraph::new(),
+        }
     }
 
     pub fn add_edge(&mut self, a: Id<N>, b: Id<N>) {
@@ -52,20 +47,7 @@ impl<N, A> Graph<N, A> {
     }
 }
 
-impl<N> Graph<N, DefaultAllocStrategy> {
-    pub fn add_node(&mut self, node: N) -> Id<N> {
-        let id = self.nodes.alloc(node);
-        self.graph.add_node(id)
-    }
-}
-
-impl<N> Graph<N, UniqAllocStrategy> {
-    pub fn uniq() -> Self {
-        Graph::default()
-    }
-}
-
-impl<N> Graph<N, UniqAllocStrategy>
+impl<N> Graph<N>
 where
     N: Eq,
 {
@@ -74,12 +56,7 @@ where
 
         self.graph.add_node(id)
     }
-}
 
-impl<N, A> Graph<N, A>
-where
-    N: Eq,
-{
     pub fn node_idx(&self, node: &N) -> Option<Id<N>> {
         let id = self.node_idx_unchecked(node)?;
 
@@ -103,7 +80,7 @@ where
 use petgraph::{dot, dot::Dot, Graph as PetGraph};
 
 #[cfg(feature = "emit-graphviz")]
-impl<N, A> Graph<N, A>
+impl<N> Graph<N>
 where
     N: std::fmt::Debug,
 {
@@ -142,6 +119,51 @@ where
 
 #[cfg(test)]
 mod tests {
-    // TODO: test UniqAllocStrategy
-    // TODO: test node_idx
+    use super::*;
+    use proptest::collection::{size_range, vec};
+    use proptest::prelude::*;
+    use proptest_derive::Arbitrary;
+    use std::fmt::Debug;
+    use std::iter;
+
+    proptest! {
+        #[test]
+        fn insert_and_query(ref nodes in any_with::<Vec<i8>>(size_range(0..1000).lift())) {
+            let mut graph = Graph::new();
+            for node in nodes {
+                let id = graph.add_node(node);
+                let query_id = graph.node_idx(&node);
+                prop_assert_eq!(Some(id), query_id);
+
+                let query_node = graph.node_weight(id);
+                prop_assert_eq!(Some(&node), query_node);
+            }
+        }
+
+        #[test]
+        #[cfg(feature = "emit-graphviz")]
+        fn as_petgraph(mut nodes in any_with::<Vec<i8>>(size_range(0..1000).lift())) {
+            // Get rid of repetitions 'cause insertion behaviour may vary
+            nodes.sort();
+            nodes.dedup();
+
+            let mut graph = Graph::new();
+            let mut pg = petgraph::Graph::new();
+
+            let graph_ids: Vec<_> = nodes.iter().map(|n| graph.add_node(n)).collect();
+            let pg_ids: Vec<_> = nodes.iter().map(|n| pg.add_node(n)).collect();
+
+            graph_ids.iter().zip(graph_ids.iter().rev())
+                .for_each(|(a, b)| graph.add_edge(*a, *b));
+
+            pg_ids.iter().zip(pg_ids.iter().rev())
+                .for_each(|(a, b)| { pg.add_edge(*a, *b, ()); });
+
+            let graph_dot = graph.dot();
+            let pg_dot = format!("{:?}", petgraph::dot::Dot::new(&pg));
+
+            prop_assert_eq!(graph_dot, pg_dot);
+        }
+
+    }
 }

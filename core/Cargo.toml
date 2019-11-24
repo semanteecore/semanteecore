@@ -69,5 +69,5 @@ tempfile = "3"
 symlink = "0.1"
 serial_test = "0.2"
 serial_test_derive = "0.2"
-
-
+proptest = "0.9"
+proptest-derive = "0.1"
