@@ -71,8 +71,11 @@ where
     #[rustfmt::skip]
     fn node_idx_unchecked(&self, node: &N) -> Option<Id<N>> {
         self.nodes.iter()
-            .find(|(_id, n)| *n == node)
-            .map(|(id, _)| id)
+            .find_map(|(id, n)| if node == n {
+                Some(id)
+            } else {
+                None
+            })
     }
 }
 
@@ -164,6 +167,5 @@ mod tests {
 
             prop_assert_eq!(graph_dot, pg_dot);
         }
-
     }
 }
