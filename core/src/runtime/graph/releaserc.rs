@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use derive_more::{Deref, DerefMut};
 
-use super::{Graph, Id, UniqAllocStrategy};
+use super::{Graph, Id};
 
 #[derive(Deref, DerefMut)]
 pub struct ConfigTree {
@@ -30,7 +30,7 @@ impl ConfigTree {
             ));
         }
 
-        let mut graph = Graph::uniq();
+        let mut graph = Graph::new();
         let mut node_stack = Vec::new();
 
         let graph_root;
@@ -46,10 +46,6 @@ impl ConfigTree {
 
         recursive_walk(absolute, &root, &mut graph, &mut node_stack)?;
 
-        println!("root = {}", root.display());
-        println!("graph_root = {}", graph_root.display());
-        println!("{}", graph.dot());
-
         Ok(ConfigTree {
             root: graph_root_id,
             graph,
@@ -63,7 +59,7 @@ impl ConfigTree {
     }
 }
 
-type ConfigGraph = Graph<PathBuf, UniqAllocStrategy>;
+type ConfigGraph = Graph<PathBuf>;
 type NodeId = Id<PathBuf>;
 
 fn recursive_walk(
