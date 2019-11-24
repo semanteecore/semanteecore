@@ -104,7 +104,7 @@ where
         let id_mapping: BTreeMap<_, _> = self
             .graph
             .nodes()
-            .filter_map(|id| Some((id, self.nodes.get(id)?)))
+            .filter_map(|id| self.nodes.get(id).map(move |node| (id, node)))
             .map(|(id, node_ref)| (id, pg.add_node(node_ref)))
             .collect();
 
