@@ -68,14 +68,8 @@ where
         }
     }
 
-    #[rustfmt::skip]
     fn node_idx_unchecked(&self, node: &N) -> Option<Id<N>> {
-        self.nodes.iter()
-            .find_map(|(id, n)| if node == n {
-                Some(id)
-            } else {
-                None
-            })
+        self.nodes.iter().find_map(|(id, n)| Some(id).filter(|_| n == node))
     }
 }
 
