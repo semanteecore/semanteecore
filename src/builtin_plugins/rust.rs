@@ -98,7 +98,12 @@ impl PluginInterface for RustPlugin {
     }
 
     fn methods(&self) -> response::Methods {
-        let methods = vec![PluginStep::PreFlight, PluginStep::Prepare, PluginStep::VerifyRelease];
+        let methods = vec![
+            PluginStep::PreFlight,
+            PluginStep::Prepare,
+            PluginStep::VerifyRelease,
+            PluginStep::Publish,
+        ];
         PluginResponse::from_ok(methods)
     }
 
