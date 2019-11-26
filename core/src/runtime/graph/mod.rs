@@ -1,15 +1,33 @@
 pub mod releaserc;
-//pub mod workspace;
+pub mod workspace;
 
-use id_arena::Arena;
+use derive_more::Display;
+use id_arena::{Arena, Id};
 use safe_graph::Graph as SafeGraph;
-use std::marker::PhantomData;
+use std::fmt::{self, Debug, Display};
 
-pub use id_arena::Id;
+#[derive(Debug, Display, Clone, Copy)]
+pub struct NullEdge;
 
 pub struct Graph<N> {
     nodes: Arena<N>,
-    graph: SafeGraph<Id<N>, ()>,
+    graph: SafeGraph<Id<N>, NullEdge>,
+}
+
+impl<N: Debug> Debug for Graph<N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut dbg_set = f.debug_set();
+        self.graph
+            .nodes()
+            // Note:
+            //   unknown ID is a bug, but, since it's debug print,
+            //   panicking here can cause panic-while-panicking situation in tests.
+            .filter_map(|node| self.nodes.get(node))
+            .for_each(|node| {
+                dbg_set.entry(node);
+            });
+        dbg_set.finish()
+    }
 }
 
 impl<N> Default for Graph<N> {
@@ -27,7 +45,13 @@ impl<N> Graph<N> {
     }
 
     pub fn add_edge(&mut self, a: Id<N>, b: Id<N>) {
-        self.graph.add_edge(a, b, ());
+        self.graph.add_edge(a, b, NullEdge);
+    }
+
+    pub fn nodes<'a>(&'a self) -> impl Iterator<Item = &'a N> + 'a {
+        self.graph
+            .nodes()
+            .map(move |id| self.nodes.get(id).expect("unknown NodeID"))
     }
 
     pub fn node_weight(&self, id: Id<N>) -> Option<&N> {
@@ -45,11 +69,30 @@ impl<N> Graph<N> {
             None
         }
     }
+
+    pub fn remove_by(&mut self, should_remove: impl Fn((Id<N>, &N)) -> bool) {
+        let mut new = SafeGraph::new();
+
+        for id in self.graph.nodes() {
+            let node = self.nodes.get(id).expect("invalid NodeID");
+            if !should_remove((id, node)) {
+                new.add_node(id);
+            }
+        }
+
+        for (a, b, _) in self.graph.all_edges() {
+            if new.contains_node(a) && new.contains_node(b) {
+                new.add_edge(a, b, NullEdge);
+            }
+        }
+
+        self.graph = new;
+    }
 }
 
 impl<N> Graph<N>
 where
-    N: Eq,
+    N: PartialEq,
 {
     pub fn add_node(&mut self, node: N) -> Id<N> {
         let id = self.node_idx_unchecked(&node).unwrap_or_else(|| self.nodes.alloc(node));
@@ -74,23 +117,18 @@ where
 }
 
 #[cfg(feature = "emit-graphviz")]
-use petgraph::{dot, dot::Dot, Graph as PetGraph};
+use petgraph::{
+    dot,
+    dot::{Config, Dot},
+    Graph as PetGraph,
+};
 
 #[cfg(feature = "emit-graphviz")]
 impl<N> Graph<N>
 where
-    N: std::fmt::Debug,
+    N: Debug,
 {
-    pub fn dot(&self) -> String {
-        self.dot_with_config(&[])
-    }
-
-    pub fn dot_with_config(&self, config: &[dot::Config]) -> String {
-        let pg = self.petgraph();
-        format!("{:?}", Dot::with_config(&pg, config))
-    }
-
-    pub fn petgraph(&self) -> petgraph::Graph<&N, ()> {
+    pub fn to_petgraph_map<'a, U>(&'a self, map_fn: impl Fn(&'a N) -> U) -> petgraph::Graph<U, NullEdge> {
         use std::collections::BTreeMap;
 
         let mut pg = PetGraph::new();
@@ -99,7 +137,7 @@ where
             .graph
             .nodes()
             .filter_map(|id| self.nodes.get(id).map(move |node| (id, node)))
-            .map(|(id, node_ref)| (id, pg.add_node(node_ref)))
+            .map(|(id, node_ref)| (id, pg.add_node(map_fn(node_ref))))
             .collect();
 
         let arena_id_to_petgraph_id = |id| id_mapping.get(&id).expect("invalid arena id: pergraph id not found");
@@ -107,21 +145,59 @@ where
         self.graph.all_edges().for_each(|(x, y, ..)| {
             let xpg = arena_id_to_petgraph_id(x);
             let ypg = arena_id_to_petgraph_id(y);
-            pg.add_edge(*xpg, *ypg, ());
+            pg.add_edge(*xpg, *ypg, NullEdge);
         });
 
         pg
+    }
+
+    pub fn to_petgraph(&self) -> petgraph::Graph<&N, NullEdge> {
+        self.to_petgraph_map(|x| x)
+    }
+}
+
+#[cfg(feature = "emit-graphviz")]
+pub trait ToDot {
+    fn to_dot(&self) -> String {
+        self.to_dot_with_config(&[])
+    }
+
+    fn to_dot_with_config(&self, config: &[dot::Config]) -> String;
+}
+
+#[cfg(feature = "emit-graphviz")]
+impl<N: Debug> ToDot for Graph<N> {
+    default fn to_dot_with_config(&self, config: &[Config]) -> String {
+        self.to_petgraph().to_dot_with_config(config)
+    }
+}
+
+#[cfg(feature = "emit-graphviz")]
+impl<N: Debug + Display> ToDot for Graph<N> {
+    fn to_dot_with_config(&self, config: &[Config]) -> String {
+        self.to_petgraph().to_dot_with_config(config)
+    }
+}
+
+#[cfg(feature = "emit-graphviz")]
+impl<N: Debug, E: Debug> ToDot for petgraph::Graph<N, E> {
+    default fn to_dot_with_config(&self, config: &[Config]) -> String {
+        format!("{:?}", Dot::with_config(self, config))
+    }
+}
+
+#[cfg(feature = "emit-graphviz")]
+impl<N: Display + Debug, E: Display + Debug> ToDot for petgraph::Graph<N, E> {
+    fn to_dot_with_config(&self, config: &[Config]) -> String {
+        format!("{}", Dot::with_config(self, config))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::collection::{size_range, vec};
+    use proptest::collection::size_range;
     use proptest::prelude::*;
-    use proptest_derive::Arbitrary;
-    use std::fmt::Debug;
-    use std::iter;
 
     proptest! {
         #[test]
@@ -139,7 +215,7 @@ mod tests {
 
         #[test]
         #[cfg(feature = "emit-graphviz")]
-        fn as_petgraph(mut nodes in any_with::<Vec<i8>>(size_range(0..1000).lift())) {
+        fn to_petgraph(mut nodes in any_with::<Vec<i8>>(size_range(0..1000).lift())) {
             // Get rid of repetitions 'cause insertion behaviour may vary
             nodes.sort();
             nodes.dedup();
@@ -154,9 +230,9 @@ mod tests {
                 .for_each(|(a, b)| graph.add_edge(*a, *b));
 
             pg_ids.iter().zip(pg_ids.iter().rev())
-                .for_each(|(a, b)| { pg.add_edge(*a, *b, ()); });
+                .for_each(|(a, b)| { pg.add_edge(*a, *b, NullEdge); });
 
-            let graph_dot = graph.dot();
+            let graph_dot = graph.to_dot();
             let pg_dot = format!("{:?}", petgraph::dot::Dot::new(&pg));
 
             prop_assert_eq!(graph_dot, pg_dot);

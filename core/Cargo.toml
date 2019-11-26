@@ -45,6 +45,7 @@ pest_derive = '2.1.0'
 lazy_static = '1.4.0'
 safe-graph = "0.1.6"
 id-arena = "2.2.1"
+derive_more = "0.99.2"
 petgraph = { version = "0.4.13", optional = true }
 
 semanteecore_plugin_api = { version = "2.13", path = "../plugin_api" }
@@ -53,7 +54,7 @@ semanteecore_plugin_docker = { version = "2.13", path = "../plugins/docker" }
 semanteecore_plugin_git = { version = "2.13", path = "../plugins/git" }
 semanteecore_plugin_github = { version = "2.13", path = "../plugins/github" }
 semanteecore_plugin_rust = { version = "2.13", path = "../plugins/rust" }
-derive_more = "0.99.2"
+
 
 [dependencies.semver]
 version = '0.9'

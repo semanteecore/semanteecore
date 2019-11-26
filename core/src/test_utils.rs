@@ -35,3 +35,17 @@ pub fn get_cargo_workspace(manifest_dir: &str) -> &Path {
         workspaces.get(manifest_dir).unwrap()
     }
 }
+
+pub fn pushd(path: impl AsRef<Path>) -> PushdGuard {
+    let path = path.as_ref();
+    std::env::set_current_dir(path).unwrap();
+    PushdGuard(path.to_owned())
+}
+
+pub struct PushdGuard(PathBuf);
+
+impl Drop for PushdGuard {
+    fn drop(&mut self) {
+        std::env::set_current_dir(&self.0).unwrap();
+    }
+}
