@@ -35,7 +35,7 @@ impl WorkspaceDependencyForest {
             .forest
             .graph
             .nodes()
-            .filter(|&node| self.forest.graph.neighbors_directed(node, Direction::Incoming).count() == 0)
+            .filter(|&node| self.forest.graph.neighbors_directed(node, Direction::Incoming).next().is_none())
             .collect();
 
         self
