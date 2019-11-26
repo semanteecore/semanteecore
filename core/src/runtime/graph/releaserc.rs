@@ -38,7 +38,7 @@ impl ConfigTree {
             None
         };
 
-        let graph_root_id = graph.add_node(graph_root.clone());
+        let graph_root_id = graph.add_node(graph_root);
 
         recursive_walk(absolute, &root, &mut graph, &mut node_stack)?;
 
@@ -86,7 +86,7 @@ fn recursive_walk(
 
         if entry_type.is_dir() {
             let path = entry.path();
-            recursive_walk(absolute_root.clone(), path, graph, node_stack)?;
+            recursive_walk(absolute_root, path, graph, node_stack)?;
             continue;
         }
 
@@ -103,12 +103,9 @@ fn recursive_walk(
                 })
                 .map(|path| graph.add_node(path));
 
-            match (node_stack.last(), node_idx) {
-                (Some(parent_idx), Some(node_idx)) => {
-                    graph.add_edge(*parent_idx, node_idx);
-                }
-                _ => (),
-            }
+            node_stack
+                .last()
+                .and_then(|&parent_idx| node_idx.and_then(|node_idx| graph.add_edge(parent_idx, node_idx)));
 
             if let Some(node_idx) = node_idx {
                 node_stack.push(node_idx);
@@ -117,7 +114,7 @@ fn recursive_walk(
         }
     }
 
-    if pushed_node == true {
+    if pushed_node {
         node_stack.pop();
     }
 
