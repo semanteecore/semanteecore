@@ -1,6 +1,7 @@
 pub mod response;
 
 use serde::{Deserialize, Serialize};
+use std::fmt::{self, Display};
 use std::path::PathBuf;
 
 pub type GitRevision = String;
@@ -20,6 +21,18 @@ pub enum NewVersion {
     Semver(semver::Version),
     SemverReq(semver::VersionReq),
     String(String),
+}
+
+impl Display for NewVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NewVersion::Revision(rev) => write!(f, "rev={}", rev),
+            NewVersion::RevisionAndSemver(rev, semver) => write!(f, "{} ({})", semver, rev),
+            NewVersion::Semver(semver) => write!(f, "{}", semver),
+            NewVersion::SemverReq(req) => write!(f, "{}", req),
+            NewVersion::String(string) => write!(f, "{}", string),
+        }
+    }
 }
 
 impl From<String> for NewVersion {
@@ -61,4 +74,12 @@ pub struct Project {
     pub version: Option<String>,
     pub lang: Option<String>,
     pub path: Option<PathBuf>,
+}
+
+impl Display for Project {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.name.fmt(f)?;
+        self.version.iter().try_for_each(|v| write!(f, ":{}", v))?;
+        self.path.iter().try_for_each(|p| write!(f, " [{}]", p.display()))
+    }
 }

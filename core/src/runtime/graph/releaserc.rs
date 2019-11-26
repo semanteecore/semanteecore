@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 use crate::config::Config;
 use crate::plugin_support::proto::ProjectAndDependencies;
 use petgraph::prelude::NodeIndex;
@@ -5,6 +6,8 @@ use petgraph::Graph;
 use super::{Graph, Id};
 use std::fs;
 use std::ops::Deref;
+=======
+>>>>>>> 51a6483... feat(core): bottom-to-top dependency graph processing
 use std::path::{Path, PathBuf};
 
 use derive_more::{Deref, DerefMut};
@@ -21,8 +24,6 @@ pub struct ConfigTree {
 
 impl ConfigTree {
     pub fn build(root: impl AsRef<Path>, convert_to_relative_path: bool) -> Result<ConfigTree, failure::Error> {
-        use std::env;
-
         let root = root.as_ref().to_path_buf();
 
         // Check that releaserc.toml exists in root
@@ -130,27 +131,16 @@ fn recursive_walk(
 }
 
 #[cfg(test)]
-mod tests {
+#[cfg(feature = "emit-graphviz")]
+mod tests_with_pg {
     use super::*;
-    use petgraph::dot::Dot;
+    use crate::runtime::graph::ToDot;
+    use crate::test_utils::pushd;
+    use petgraph::dot::Config;
     use serial_test_derive::serial;
     use std::fs::{self, File};
 
-    const PG_CONFIG: &[petgraph::dot::Config] = &[petgraph::dot::Config::EdgeNoLabel];
-
-    fn pushd(path: impl AsRef<Path>) -> PushdGuard {
-        let path = path.as_ref();
-        std::env::set_current_dir(path).unwrap();
-        PushdGuard(path.to_owned())
-    }
-
-    struct PushdGuard(PathBuf);
-
-    impl Drop for PushdGuard {
-        fn drop(&mut self) {
-            std::env::set_current_dir(&self.0).unwrap();
-        }
-    }
+    const PG_CONFIG: &[Config] = &[Config::EdgeNoLabel];
 
     #[test]
     #[serial(current_dir)]
@@ -159,7 +149,7 @@ mod tests {
         let _g = pushd(dir.path());
         File::create(dir.path().join("releaserc.toml")).unwrap();
         let tree = ConfigTree::build(dir.path(), true).unwrap();
-        let rendered = tree.dot_with_config(PG_CONFIG);
+        let rendered = tree.to_dot_with_config(PG_CONFIG);
         println!("{}", rendered);
         assert_eq!(
             rendered,
@@ -172,16 +162,7 @@ mod tests {
 
     #[test]
     #[serial(current_dir)]
-    fn build_releaserc_graph_wrong_file_type() {
-        let dir = tempfile::tempdir().unwrap();
-        let _g = pushd(dir.path());
-        fs::create_dir(dir.path().join("releaserc.toml")).unwrap();
-        let tree = ConfigTree::build(dir.path(), true);
-        assert!(tree.is_err())
-    }
-
-    #[test]
-    #[serial(current_dir)]
+    #[cfg(feature = "emit-graphviz")]
     fn find_roots_nested() {
         let dir = tempfile::tempdir().unwrap();
         let _g = pushd(dir.path());
@@ -196,7 +177,7 @@ mod tests {
         }
 
         let tree = ConfigTree::build(dir.path(), true).unwrap();
-        let rendered = tree.dot_with_config(PG_CONFIG);
+        let rendered = tree.to_dot_with_config(PG_CONFIG);
         println!("{}", rendered);
         assert_eq!(
             rendered,
@@ -213,6 +194,7 @@ mod tests {
 
     #[test]
     #[serial(current_dir)]
+<<<<<<< HEAD
     #[should_panic]
     fn find_roots_no_releaserc_in_root() {
         let dir = tempfile::tempdir().unwrap();
@@ -223,6 +205,9 @@ mod tests {
 
     #[test]
     #[serial(current_dir)]
+=======
+    #[cfg(feature = "emit-graphviz")]
+>>>>>>> 51a6483... feat(core): bottom-to-top dependency graph processing
     fn find_roots_symlink() {
         let dir = tempfile::tempdir().unwrap();
         let _g = pushd(dir.path());
@@ -243,7 +228,7 @@ mod tests {
         }
 
         let tree = ConfigTree::build(dir.path(), true).unwrap();
-        let rendered = tree.dot_with_config(PG_CONFIG);
+        let rendered = tree.to_dot_with_config(PG_CONFIG);
         println!("{}", rendered);
         assert_eq!(
             rendered,
@@ -256,5 +241,32 @@ mod tests {
 }
 "#
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::pushd;
+    use serial_test_derive::serial;
+    use std::fs;
+
+    #[test]
+    #[serial(current_dir)]
+    fn find_roots_no_releaserc_in_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let _g = pushd(dir.path());
+        let tree = ConfigTree::build(dir.path(), true);
+        assert!(tree.is_err())
+    }
+
+    #[test]
+    #[serial(current_dir)]
+    fn build_releaserc_graph_wrong_file_type() {
+        let dir = tempfile::tempdir().unwrap();
+        let _g = pushd(dir.path());
+        fs::create_dir(dir.path().join("releaserc.toml")).unwrap();
+        let tree = ConfigTree::build(dir.path(), true);
+        assert!(tree.is_err())
     }
 }
