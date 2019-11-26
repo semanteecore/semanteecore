@@ -1,3 +1,18 @@
+<a name="v2.13.1"></a>
+## v2.13.1 (2019-11-26)
+
+
+#### Bug Fixes
+
+* **ci:**  missing musl target ([399c9ec1](399c9ec1))
+* **rust:**  publish step wasn't enabled in methods list ([b8677c83](b8677c83))
+
+#### Features
+
+* **ci:**  automatic develop -> master rebase after release ([a69f681b](a69f681b))
+
+
+
 <a name="v2.13.0"></a>
 ## v2.13.0 (2019-10-20)
 

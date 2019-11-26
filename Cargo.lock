@@ -1368,7 +1368,7 @@ dependencies = [
 
 [[package]]
 name = "semanteecore"
-version = "2.13.0"
+version = "2.13.1"
 dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clog 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
