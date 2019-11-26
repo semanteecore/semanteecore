@@ -116,6 +116,36 @@ jobs:
       - run: /workspace/bin/semanteecore
       - save_cache: *save-deps-cache-ubuntu
 
+  rebase_develop_onto_master:
+    <<: *defaults
+    docker:
+      - image: alpine/git:latest
+    steps:
+      - checkout
+      - run:
+          name: Configure git
+          command: |
+            git config --global user.email "$GIT_COMMITTER_EMAIL"
+            git config --global user.name "$GIT_COMMITTER_NAME"
+            git config --global --unset url.ssh://git@github.com.insteadof
+      - run:
+          name: Actualize master branch
+          command: |
+            git checkout master
+            git pull origin master
+      - run:
+          name: Rebase develop -> master
+          command: |
+            git checkout develop
+            git rebase master
+      - run:
+          name: Push changes
+          command: |
+            git remote set-url origin https://mersinvald:$GH_TOKEN@github.com/semanteecore/semanteecore.git --push
+            git remote set-url origin https://mersinvald:$GH_TOKEN@github.com/semanteecore/semanteecore.git
+            git checkout develop
+            git push origin develop
+
 workflows:
   version: 2
   ci:
@@ -134,3 +164,9 @@ workflows:
               only: master
           requires:
             - build
+      - rebase_develop_onto_master:
+          filters:
+            branches:
+              only: master
+          requires:
+            - release
