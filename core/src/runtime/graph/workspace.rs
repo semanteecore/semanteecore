@@ -31,11 +31,19 @@ impl WorkspaceDependencyForest {
     pub fn mirror_vertically(mut self) -> Self {
         self.forest.graph = self.forest.graph.all_edges().map(|(a, b, e)| (b, a, e)).collect();
 
+        let has_no_in_tree_dependencies = |node| {
+            self.forest
+                .graph
+                .neighbors_directed(node, Direction::Incoming)
+                .next()
+                .is_none()
+        };
+
         self.roots = self
             .forest
             .graph
             .nodes()
-            .filter(|&node| self.forest.graph.neighbors_directed(node, Direction::Incoming).next().is_none())
+            .filter(|&node| has_no_in_tree_dependencies(node))
             .collect();
 
         self

@@ -1,4 +1,4 @@
-#![feature(try_trait, external_doc)]
+#![feature(try_trait, external_doc, specialization, is_sorted)]
 #![doc(include = "../../README.md")]
 
 extern crate semanteecore as core;

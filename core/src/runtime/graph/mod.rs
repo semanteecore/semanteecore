@@ -133,19 +133,26 @@ where
 
         let mut pg = PetGraph::new();
 
-        let id_mapping: BTreeMap<_, _> = self
-            .graph
-            .nodes()
-            .filter_map(|id| self.nodes.get(id).map(move |node| (id, node)))
+        let id_mapping: Vec<_> = self
+            .nodes
+            .iter()
+            .filter(|(id, _)| self.graph.contains_node(*id))
             .map(|(id, node_ref)| (id, pg.add_node(map_fn(node_ref))))
             .collect();
 
-        let arena_id_to_petgraph_id = |id| id_mapping.get(&id).expect("invalid arena id: pergraph id not found");
+        assert!(id_mapping.is_sorted_by_key(|(id, _)| *id));
+
+        let arena_id_to_petgraph_id = |arena_id: Id<N>| {
+            let idx = id_mapping
+                .binary_search_by_key(&arena_id, |(id, _)| *id)
+                .expect("invalid arena id: pergraph id not found");
+            id_mapping[idx].1
+        };
 
         self.graph.all_edges().for_each(|(x, y, ..)| {
             let xpg = arena_id_to_petgraph_id(x);
             let ypg = arena_id_to_petgraph_id(y);
-            pg.add_edge(*xpg, *ypg, NullEdge);
+            pg.add_edge(xpg, ypg, NullEdge);
         });
 
         pg

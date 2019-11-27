@@ -103,9 +103,12 @@ fn recursive_walk(
                 })
                 .map(|path| graph.add_node(path));
 
-            node_stack
-                .last()
-                .and_then(|&parent_idx| node_idx.and_then(|node_idx| graph.add_edge(parent_idx, node_idx)));
+            node_stack.last().and_then(|&parent_idx| {
+                node_idx.and_then(|node_idx| {
+                    graph.add_edge(parent_idx, node_idx);
+                    Some(())
+                })
+            });
 
             if let Some(node_idx) = node_idx {
                 node_stack.push(node_idx);
