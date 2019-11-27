@@ -255,6 +255,7 @@ mod tests_with_pg {
     const PG_CONFIG: &[Config] = &[Config::EdgeNoLabel];
 
     #[test]
+    #[ignore]
     fn semanteecore() {
         let root = crate::test_utils::get_cargo_workspace(env!("CARGO_MANIFEST_DIR"));
         println!("{}", root.display());
