@@ -31,6 +31,9 @@ impl WorkspaceDependencyForest {
     pub fn mirror_vertically(mut self) -> Self {
         self.forest.graph = self.forest.graph.all_edges().map(|(a, b, e)| (b, a, e)).collect();
 
+        // Move the roots out, cause otherwise borrowck is not happy
+        let mut roots = mem::replace(&mut self.roots, Vec::new());
+
         let has_no_in_tree_dependencies = |node| {
             self.forest
                 .graph
@@ -39,13 +42,15 @@ impl WorkspaceDependencyForest {
                 .is_none()
         };
 
-        self.roots = self
-            .forest
-            .graph
-            .nodes()
-            .filter(|&node| has_no_in_tree_dependencies(node))
-            .collect();
+        roots.clear();
+        roots.extend(
+            self.forest
+                .graph
+                .nodes()
+                .filter(|&node| has_no_in_tree_dependencies(node)),
+        );
 
+        self.roots = roots;
         self
     }
 
