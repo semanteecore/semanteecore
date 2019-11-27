@@ -1,4 +1,4 @@
-#![feature(try_trait, external_doc, specialization)]
+#![feature(try_trait, external_doc, specialization, is_sorted)]
 #![doc(include = "../../README.md")]
 
 #[macro_use]
