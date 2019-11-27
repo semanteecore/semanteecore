@@ -33,26 +33,25 @@ impl WorkspaceDepForest {
         // Reverse the direction of the edges: (a -> b) => (b -> a)
         self.forest.graph = self.forest.graph.all_edges().map(|(a, b, edge)| (b, a, edge)).collect();
 
-        // Move the roots out, cause otherwise borrowck is not happy
-        let mut roots = mem::replace(&mut self.roots, Vec::new());
-
-        let has_no_in_tree_dependencies = |node| {
-            self.forest
-                .graph
-                .neighbors_directed(node, Direction::Incoming)
-                .next()
-                .is_none()
+        let has_no_in_tree_dependencies = {
+            let forest = &self.forest;
+            move |node| {
+                forest
+                    .graph
+                    .neighbors_directed(node, Direction::Incoming)
+                    .next()
+                    .is_none()
+            }
         };
 
-        roots.clear();
-        roots.extend(
+        self.roots.clear();
+        self.roots.extend(
             self.forest
                 .graph
                 .nodes()
                 .filter(|&node| has_no_in_tree_dependencies(node)),
         );
 
-        self.roots = roots;
         self
     }
 
