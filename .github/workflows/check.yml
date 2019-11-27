@@ -4,7 +4,7 @@ on: push
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions-rs/toolchain@v1
         with:
@@ -17,7 +17,7 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - id: component
         uses: actions-rs/components-nightly@v1
@@ -36,7 +36,7 @@ jobs:
 
   rustfmt:
     name: Format
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v1
       - uses: actions-rs/toolchain@v1
