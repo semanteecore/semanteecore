@@ -126,8 +126,6 @@ mod emit_graphviz {
         N: Debug,
     {
         pub fn to_petgraph_map<'a, U>(&'a self, map_fn: impl Fn(&'a N) -> U) -> petgraph::Graph<U, NullEdge> {
-            use std::collections::BTreeMap;
-
             let mut pg = PetGraph::new();
 
             let id_mapping: Vec<_> = self
