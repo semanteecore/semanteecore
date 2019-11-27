@@ -14,22 +14,24 @@ use safe_graph::edge::Direction;
 use std::collections::{BTreeSet, VecDeque};
 use std::convert::AsRef;
 use std::fmt::{self, Debug, Display};
+use std::mem;
 
 type ProjectID = Id<NewProject>;
 type ProjectGraph = Graph<NewProject>;
 
 /// A minimal forest of dependencies between projects inside the workspace
 #[derive(Deref, DerefMut, Default)]
-pub struct WorkspaceDependencyForest {
+pub struct WorkspaceDepForest {
     roots: Vec<ProjectID>,
     #[deref]
     #[deref_mut]
     forest: ProjectGraph,
 }
 
-impl WorkspaceDependencyForest {
+impl WorkspaceDepForest {
     pub fn mirror_vertically(mut self) -> Self {
-        self.forest.graph = self.forest.graph.all_edges().map(|(a, b, e)| (b, a, e)).collect();
+        // Reverse the direction of the edges: (a -> b) => (b -> a)
+        self.forest.graph = self.forest.graph.all_edges().map(|(a, b, edge)| (b, a, edge)).collect();
 
         // Move the roots out, cause otherwise borrowck is not happy
         let mut roots = mem::replace(&mut self.roots, Vec::new());
@@ -54,14 +56,13 @@ impl WorkspaceDependencyForest {
         self
     }
 
+    // TODO: benchmark against HashMap with some fast hasher
     pub fn iter_breadth_first(&self) -> impl Iterator<Item = &Project> {
         let mut visited = BTreeSet::new();
         let mut queue = VecDeque::new();
 
-        self.roots.iter().for_each(|&id| {
-            visited.insert(id);
-            queue.push_back(id);
-        });
+        visited.extend(self.roots.iter().copied());
+        queue.extend(self.roots.iter().copied());
 
         std::iter::from_fn(move || {
             let next_node_id = queue.pop_front()?;
@@ -87,29 +88,29 @@ impl WorkspaceDependencyForest {
     }
 }
 
-impl From<DependencyForest> for WorkspaceDependencyForest {
-    fn from(forest: DependencyForest) -> Self {
+impl From<DepForest> for WorkspaceDepForest {
+    fn from(forest: DepForest) -> Self {
         let roots = forest.roots;
         let mut forest = forest.forest;
 
         forest.remove_by(|(id, _)| !roots.contains(&id));
 
-        WorkspaceDependencyForest { roots, forest }
+        WorkspaceDepForest { roots, forest }
     }
 }
 
 /// Combination of dependency trees of every project in the workspace
 #[derive(Deref, DerefMut)]
-pub struct DependencyForest {
+pub struct DepForest {
     roots: Vec<ProjectID>,
     #[deref]
     #[deref_mut]
     forest: ProjectGraph,
 }
 
-impl DependencyForest {
+impl DepForest {
     pub fn build(config_tree: ConfigTree) -> Result<Self, failure::Error> {
-        let mut forest = DependencyForest {
+        let mut forest = DepForest {
             roots: Vec::new(),
             forest: Graph::new(),
         };
@@ -223,13 +224,21 @@ impl Display for NewProject {
 #[rustfmt::skip]
 impl PartialEq for NewProject {
     fn eq(&self, other: &Self) -> bool {
-        self.0.name.eq(&other.0.name)
-            && self.0.lang.eq(&other.0.lang)
+        let paths_are_equal = || {
+            let p1 = self.0.path.as_ref();
+            let p2 = other.0.path.as_ref();
             // Path is not that important, so unless it's known for a fact that the paths are different,
             // we treat them as the same
-            && self.0.path.as_ref()
-            .map_or(true, |p1| other.0.path.as_ref()
-                .map_or(true, |p2| p1.eq(p2)))
+            if let (Some(p1), Some(p2)) = (p1, p2) {
+                p1 == p2
+            } else {
+                true
+            }
+        };
+
+        self.0.name.eq(&other.0.name)
+            && self.0.lang.eq(&other.0.lang)
+            && paths_are_equal()
     }
 }
 
@@ -254,11 +263,11 @@ mod tests_with_pg {
         let config_tree = ConfigTree::build(root, true).unwrap();
         println!("releaserc_graph:\n{}", config_tree.to_dot_with_config(PG_CONFIG));
 
-        let dep_forest = DependencyForest::build(config_tree).unwrap();
+        let dep_forest = DepForest::build(config_tree).unwrap();
         let pg = dep_forest.to_petgraph_map(|node| &node.name);
         println!("dependency_forest:\n{}", Dot::with_config(&pg, PG_CONFIG));
 
-        let workspace_forest = WorkspaceDependencyForest::from(dep_forest);
+        let workspace_forest = WorkspaceDepForest::from(dep_forest);
         let pg = workspace_forest.to_petgraph_map(|node| &node.name);
         println!("workspace_dependency_forest:\n{}", Dot::with_config(&pg, PG_CONFIG));
 

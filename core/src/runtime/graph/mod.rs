@@ -104,11 +104,7 @@ where
         let id = self.node_idx_unchecked(node)?;
 
         // Node may be deleted from the graph without deallocation
-        if self.graph.contains_node(id) {
-            Some(id)
-        } else {
-            None
-        }
+        Some(id).filter(|_| self.graph.contains_node(id))
     }
 
     fn node_idx_unchecked(&self, node: &N) -> Option<Id<N>> {
