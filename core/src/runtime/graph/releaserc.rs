@@ -14,8 +14,8 @@ pub struct ConfigTree {
 }
 
 impl ConfigTree {
-    pub fn build(root: impl AsRef<Path>, convert_to_relative_path: bool) -> Result<ConfigTree, failure::Error> {
-        let root = root.as_ref().to_path_buf();
+    pub fn build(root: impl Into<PathBuf>, convert_to_relative_path: bool) -> Result<ConfigTree, failure::Error> {
+        let root = root.into();
 
         // Check that releaserc.toml exists in root
         let releaserc_file_path = root.join("releaserc.toml");
