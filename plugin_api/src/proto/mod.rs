@@ -28,9 +28,9 @@ impl Display for NewVersion {
         match self {
             NewVersion::Revision(rev) => write!(f, "rev={}", rev),
             NewVersion::RevisionAndSemver(rev, semver) => write!(f, "{} ({})", semver, rev),
-            NewVersion::Semver(semver) => write!(f, "{}", semver),
-            NewVersion::SemverReq(req) => write!(f, "{}", req),
-            NewVersion::String(string) => write!(f, "{}", string),
+            NewVersion::Semver(semver) => semver.fmt(f),
+            NewVersion::SemverReq(req) => req.fmt(f),
+            NewVersion::String(string) => string.fmt(f),
         }
     }
 }

@@ -29,13 +29,10 @@ impl ConfigTree {
         let mut graph = Graph::new();
         let mut node_stack = Vec::new();
 
-        let graph_root;
-        let absolute = if convert_to_relative_path {
-            graph_root = PathBuf::from("./");
-            Some(root.as_ref())
+        let (graph_root, absolute) = if convert_to_relative_path {
+            (PathBuf::from("./"), Some(root.as_ref()))
         } else {
-            graph_root = root.clone();
-            None
+            (root.clone(), None)
         };
 
         let graph_root_id = graph.add_node(graph_root);
@@ -103,12 +100,9 @@ fn recursive_walk(
                 })
                 .map(|path| graph.add_node(path));
 
-            node_stack.last().and_then(|&parent_idx| {
-                node_idx.and_then(|node_idx| {
-                    graph.add_edge(parent_idx, node_idx);
-                    Some(())
-                })
-            });
+            if let (Some(parent_idx), Some(node_idx)) = (node_stack.last().copied(), node_idx) {
+                graph.add_edge(parent_idx, node_idx);
+            }
 
             if let Some(node_idx) = node_idx {
                 node_stack.push(node_idx);
