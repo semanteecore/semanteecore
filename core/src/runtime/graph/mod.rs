@@ -120,88 +120,88 @@ where
 }
 
 #[cfg(feature = "emit-graphviz")]
-use petgraph::{
-    dot,
-    dot::{Config, Dot},
-    Graph as PetGraph,
-};
+mod emit_graphviz {
+    use super::*;
+    use petgraph::{
+        dot,
+        dot::{Config, Dot},
+        Graph as PetGraph,
+    };
 
-#[cfg(feature = "emit-graphviz")]
-impl<N> Graph<N>
-where
-    N: Debug,
-{
-    pub fn to_petgraph_map<'a, U>(&'a self, map_fn: impl Fn(&'a N) -> U) -> petgraph::Graph<U, NullEdge> {
-        use std::collections::BTreeMap;
+    impl<N> Graph<N>
+    where
+        N: Debug,
+    {
+        pub fn to_petgraph_map<'a, U>(&'a self, map_fn: impl Fn(&'a N) -> U) -> petgraph::Graph<U, NullEdge> {
+            use std::collections::BTreeMap;
 
-        let mut pg = PetGraph::new();
+            let mut pg = PetGraph::new();
 
-        let id_mapping: Vec<_> = self
-            .nodes
-            .iter()
-            .filter(|(id, _)| self.graph.contains_node(*id))
-            .map(|(id, node_ref)| (id, pg.add_node(map_fn(node_ref))))
-            .collect();
+            let id_mapping: Vec<_> = self
+                .nodes
+                .iter()
+                .filter(|(id, _)| self.graph.contains_node(*id))
+                .map(|(id, node_ref)| (id, pg.add_node(map_fn(node_ref))))
+                .collect();
 
-        assert!(id_mapping.is_sorted_by_key(|(id, _)| *id));
+            assert!(id_mapping.is_sorted_by_key(|(id, _)| *id));
 
-        let arena_id_to_petgraph_id = |arena_id: Id<N>| {
-            let idx = id_mapping
-                .binary_search_by_key(&arena_id, |(id, _)| *id)
-                .expect("invalid arena id: pergraph id not found");
-            id_mapping[idx].1
-        };
+            let arena_id_to_petgraph_id = |arena_id: Id<N>| {
+                let idx = id_mapping
+                    .binary_search_by_key(&arena_id, |(id, _)| *id)
+                    .expect("invalid arena id: pergraph id not found");
+                id_mapping[idx].1
+            };
 
-        self.graph.all_edges().for_each(|(x, y, ..)| {
-            let xpg = arena_id_to_petgraph_id(x);
-            let ypg = arena_id_to_petgraph_id(y);
-            pg.add_edge(xpg, ypg, NullEdge);
-        });
+            self.graph.all_edges().for_each(|(x, y, ..)| {
+                let xpg = arena_id_to_petgraph_id(x);
+                let ypg = arena_id_to_petgraph_id(y);
+                pg.add_edge(xpg, ypg, NullEdge);
+            });
 
-        pg
+            pg
+        }
+
+        pub fn to_petgraph(&self) -> petgraph::Graph<&N, NullEdge> {
+            self.to_petgraph_map(|x| x)
+        }
     }
 
-    pub fn to_petgraph(&self) -> petgraph::Graph<&N, NullEdge> {
-        self.to_petgraph_map(|x| x)
-    }
-}
+    pub trait ToDot {
+        fn to_dot(&self) -> String {
+            self.to_dot_with_config(&[])
+        }
 
-#[cfg(feature = "emit-graphviz")]
-pub trait ToDot {
-    fn to_dot(&self) -> String {
-        self.to_dot_with_config(&[])
+        fn to_dot_with_config(&self, config: &[dot::Config]) -> String;
     }
 
-    fn to_dot_with_config(&self, config: &[dot::Config]) -> String;
-}
-
-#[cfg(feature = "emit-graphviz")]
-impl<N: Debug> ToDot for Graph<N> {
-    default fn to_dot_with_config(&self, config: &[Config]) -> String {
-        self.to_petgraph().to_dot_with_config(config)
+    impl<N: Debug> ToDot for Graph<N> {
+        default fn to_dot_with_config(&self, config: &[Config]) -> String {
+            self.to_petgraph().to_dot_with_config(config)
+        }
     }
-}
 
-#[cfg(feature = "emit-graphviz")]
-impl<N: Debug + Display> ToDot for Graph<N> {
-    fn to_dot_with_config(&self, config: &[Config]) -> String {
-        self.to_petgraph().to_dot_with_config(config)
+    impl<N: Debug + Display> ToDot for Graph<N> {
+        fn to_dot_with_config(&self, config: &[Config]) -> String {
+            self.to_petgraph().to_dot_with_config(config)
+        }
     }
-}
 
-#[cfg(feature = "emit-graphviz")]
-impl<N: Debug, E: Debug> ToDot for petgraph::Graph<N, E> {
-    default fn to_dot_with_config(&self, config: &[Config]) -> String {
-        format!("{:?}", Dot::with_config(self, config))
+    impl<N: Debug, E: Debug> ToDot for petgraph::Graph<N, E> {
+        default fn to_dot_with_config(&self, config: &[Config]) -> String {
+            format!("{:?}", Dot::with_config(self, config))
+        }
     }
-}
 
-#[cfg(feature = "emit-graphviz")]
-impl<N: Display + Debug, E: Display + Debug> ToDot for petgraph::Graph<N, E> {
-    fn to_dot_with_config(&self, config: &[Config]) -> String {
-        format!("{}", Dot::with_config(self, config))
+    impl<N: Display + Debug, E: Display + Debug> ToDot for petgraph::Graph<N, E> {
+        fn to_dot_with_config(&self, config: &[Config]) -> String {
+            format!("{}", Dot::with_config(self, config))
+        }
     }
 }
+
+#[cfg(feature = "emit-graphviz")]
+pub use emit_graphviz::*;
 
 #[cfg(test)]
 mod tests {
