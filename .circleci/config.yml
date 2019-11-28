@@ -59,7 +59,7 @@ jobs:
             RUSTFLAGS: --cfg procmacro2_semver_exempt
       - run:
           name: Generate coverage report
-          command: cargo tarpaulin --out Xml --all-features
+          command: cargo tarpaulin -v --out Xml --all-features
       - save_cache: *save-deps-cache-rustup
       - run:
           name: Upload to codecov.io
