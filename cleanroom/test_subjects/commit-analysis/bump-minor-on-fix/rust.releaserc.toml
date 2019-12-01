@@ -1,0 +1,18 @@
+[plugins]
+rust = "builtin"
+git = "builtin"
+clog = "builtin"
+
+[steps]
+pre_flight = ["rust", "git", "clog"]
+get_last_release = "git"
+derive_next_version = [ "clog" ]
+generate_notes = "clog"
+prepare = ["rust", "clog"]
+verify_release = ["rust"]
+commit = "git"
+publish = []
+notify = []
+
+[cfg.git]
+push = false
