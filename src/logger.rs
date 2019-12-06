@@ -24,7 +24,7 @@ impl Drop for SpanGuard {
     }
 }
 
-pub fn init_logger(v_count: u64, is_silent: bool) -> Result<(), failure::Error> {
+pub fn init_logger(v_count: u8, is_silent: bool) -> Result<(), failure::Error> {
     use env_logger::fmt::Color;
 
     // Derive LevelFilter from command line args
