@@ -32,6 +32,7 @@ struct Config {
     branch: Value<String>,
     remote: Value<String>,
     force_https: Value<bool>,
+    push: Value<bool>,
     project_root: Value<String>,
     next_version: Value<semver::Version>,
     files_to_commit: Value<Vec<String>>,
@@ -46,6 +47,7 @@ impl Default for Config {
             branch: Value::with_value("branch", default_branch()),
             remote: Value::with_value("remote", default_remote()),
             force_https: Value::with_default_value("force_https"),
+            push: Value::with_value("push", true),
             project_root: Value::protected(PROJECT_ROOT),
             next_version: Value::builder(NEXT_VERSION)
                 .protected()
@@ -433,8 +435,11 @@ impl PluginInterface for GitPlugin {
         state.commit_files(config, &files_to_commit, &commit_msg)?;
         log::info!("Creating tag {:?}", tag_name);
         state.create_tag(config, &tag_name, &changelog)?;
-        log::info!("Pushing changes, please wait...");
-        state.push(config, &tag_name)?;
+
+        if *self.config.push.as_value() {
+            log::info!("Pushing changes, please wait...");
+            state.push(config, &tag_name)?;
+        }
 
         PluginResponse::from_ok(())
     }
