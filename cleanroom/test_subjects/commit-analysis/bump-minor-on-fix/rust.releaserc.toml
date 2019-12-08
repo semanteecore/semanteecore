@@ -16,3 +16,5 @@ notify = []
 
 [cfg.git]
 push = false
+user_name = "John Doe"
+user_email = "johndoe@example.com"
