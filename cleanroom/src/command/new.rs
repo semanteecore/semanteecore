@@ -16,22 +16,22 @@ pub enum New {
 #[derive(StructOpt, Debug)]
 #[structopt(about = "create new domain")]
 pub struct NewDomain {
-    name: String,
+    pub name: String,
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(about = "create new test")]
 pub struct NewTest {
-    domain: String,
-    name: String,
+    pub domain: String,
+    pub name: String,
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(about = "create new subtest")]
 pub struct NewSubTest {
-    domain: String,
-    test: String,
-    name: String,
+    pub domain: String,
+    pub test: String,
+    pub name: String,
 }
 
 impl CommandExecutor for New {

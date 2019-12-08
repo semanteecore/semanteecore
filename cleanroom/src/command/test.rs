@@ -10,10 +10,10 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(about = "run tests")]
 pub struct Test {
-    pattern: Option<String>,
+    pub pattern: Option<String>,
     #[structopt(short, long, env = "TEST_THREADS", default_value = "4")]
     // TODO: handle this option
-    threads: u32,
+    pub threads: u32,
 }
 
 impl CommandExecutor for Test {
