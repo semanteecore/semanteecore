@@ -36,7 +36,7 @@ docker run -v $(pwd):/home/semantic/workdir semanteecore/semanteecore:latest
 
 Ubuntu:
 
-```
+```bash
 $ sudo apt-get install -y cmake libssl-dev pkg-config zlib1g-dev
 $ cargo install --git https://github.com/semanteecore/semanteecore --tag VERSION
 ```
