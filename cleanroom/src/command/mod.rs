@@ -1,10 +1,10 @@
-mod new;
-mod packing;
-mod test;
+pub mod new;
+pub mod packing;
+pub mod test;
 
-use self::new::New;
-use self::packing::{Pack, Unpack};
-use self::test::Test;
+pub use self::new::New;
+pub use self::packing::{Pack, Unpack};
+pub use self::test::Test;
 
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -13,9 +13,9 @@ use structopt::StructOpt;
 #[structopt(about = "semanteecore test suite")]
 pub struct Cleanroom {
     #[structopt(parse(from_os_str), skip = "./test_subjects")]
-    test_subjects: PathBuf,
+    pub test_subjects: PathBuf,
     #[structopt(subcommand)]
-    cmd: Command,
+    pub cmd: Command,
 }
 
 #[derive(StructOpt, Debug)]
