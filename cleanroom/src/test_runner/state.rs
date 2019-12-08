@@ -2,7 +2,6 @@ use super::workdir::WorkDir;
 use super::TestInfo;
 use getset::Getters;
 use git2::{Index, Repository};
-use std::path::Path;
 
 pub trait Progress {
     type Target;
@@ -10,8 +9,7 @@ pub trait Progress {
     fn progress(self, data: Self::Data) -> Self::Target;
 }
 
-pub struct Initial<'a> {
-    pub semanteecore_path: &'a Path,
+pub struct Initial {
     pub info: TestInfo,
 }
 
@@ -20,13 +18,12 @@ pub struct InitialToPrepared {
     pub index: Index,
 }
 
-impl<'a> Progress for Initial<'a> {
-    type Target = Prepared<'a>;
+impl<'a> Progress for Initial {
+    type Target = Prepared;
     type Data = InitialToPrepared;
 
     fn progress(self, data: Self::Data) -> Self::Target {
         Prepared {
-            semanteecore_path: self.semanteecore_path,
             info: self.info,
             workdir: data.workdir,
             index: data.index,
@@ -35,9 +32,7 @@ impl<'a> Progress for Initial<'a> {
 }
 
 #[derive(Getters)]
-pub struct Prepared<'a> {
-    #[get = "pub"]
-    semanteecore_path: &'a Path,
+pub struct Prepared {
     #[get = "pub"]
     info: TestInfo,
     #[get = "pub"]
@@ -51,7 +46,7 @@ pub struct PreparedIntoProcessed {
     pub index: Index,
 }
 
-impl<'a> Progress for Prepared<'a> {
+impl<'a> Progress for Prepared {
     type Target = Processed;
     type Data = PreparedIntoProcessed;
 
@@ -67,6 +62,7 @@ impl<'a> Progress for Prepared<'a> {
 }
 
 #[derive(Getters)]
+#[allow(unused)]
 pub struct Processed {
     #[get = "pub"]
     info: TestInfo,

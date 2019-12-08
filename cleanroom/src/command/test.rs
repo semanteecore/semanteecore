@@ -5,7 +5,6 @@ use std::fs::{self, DirEntry};
 use std::ops::{Generator, GeneratorState};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::str;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -15,12 +14,6 @@ pub struct Test {
     #[structopt(short, long, env = "TEST_THREADS", default_value = "4")]
     // TODO: handle this option
     threads: u32,
-    #[structopt(parse(from_os_str), short = "b", long = "binary", env = "TEST_BINARY", default_value = default_semanteecore_path())]
-    semanteecore_path: PathBuf,
-}
-
-const fn default_semanteecore_path() -> &'static str {
-    concat!(env!("CARGO_MANIFEST_DIR"), "/../target/debug/semanteecore")
 }
 
 impl CommandExecutor for Test {
@@ -34,7 +27,9 @@ impl CommandExecutor for Test {
         loop {
             match Pin::new(&mut tests_generator).resume() {
                 GeneratorState::Yielded(info) => {
-                    TestRunner::run(&self.semanteecore_path, info)?;
+                    // Insert empty line before every test
+                    semanteecore::logger::empty_line();
+                    TestRunner::run(info)?;
                     continue;
                 }
                 GeneratorState::Complete(Err(e)) => log::error!("Generator failed: {}", e),

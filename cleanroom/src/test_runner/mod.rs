@@ -9,7 +9,6 @@ use serde::{Serialize, Serializer};
 use std::cell::RefCell;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::str;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,12 +34,9 @@ impl<S> TestRunner<S> {
 /// Given TestInfo as initial state,
 /// 1. collect metadata about initial repository state
 /// 2. create workdir and populate it with copies of test items
-impl TestRunner<Initial<'_>> {
-    pub fn run(semanteecore_path: &Path, info: TestInfo) -> anyhow::Result<()> {
-        let runner = TestRunner(Initial {
-            semanteecore_path,
-            info,
-        });
+impl TestRunner<Initial> {
+    pub fn run(info: TestInfo) -> anyhow::Result<()> {
+        let runner = TestRunner(Initial { info });
 
         runner.do_run()
     }
@@ -76,24 +72,25 @@ impl TestRunner<Initial<'_>> {
     }
 }
 
-impl TestRunner<Prepared<'_>> {
+impl TestRunner<Prepared> {
     fn do_run(self) -> anyhow::Result<()> {
         let info = self.0.info();
-        let semanteecore_path = self.0.semanteecore_path();
         let workdir = self.0.workdir();
 
-        // Run semanteecore
         log::info!("testing {}::{}::{}", info.domain, info.test, info.subtest);
 
-        let status = Command::new(semanteecore_path)
-            .args(&["--path", workdir.path().to_str().unwrap()])
-            .status()
-            .context("failed to run semanteecore")?;
+        // Run semanteecore
+        let args = semanteecore::Args {
+            dry: false,
+            verbose: 5,
+            silent: false,
+            path: workdir.path().to_owned(),
+        };
 
-        // If semanteecore have failed, fail the test
-        if !status.success() {
-            bail!("semanteecore exited with error");
-        }
+        semanteecore::run(args)
+            .map_err(|e| e.compat())
+            .map_err(anyhow::Error::new)
+            .context("semanteecore exited with error")?;
 
         // Load new index, after semanteecore did some changes
         let repo = git2::Repository::open(workdir.path())?;
