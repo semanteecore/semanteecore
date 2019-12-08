@@ -112,6 +112,9 @@ impl TestRunner<Processed> {
     fn check_diffs(&self) -> anyhow::Result<()> {
         let info = self.0.info();
 
+        // TODO filter-out index info
+        // BODY Index in git may vary between tests, so it should be ignored then generating artifacts
+
         // Get the diff, and print it to string
         let diff = self
             .0
