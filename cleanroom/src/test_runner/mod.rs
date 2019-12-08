@@ -64,9 +64,9 @@ impl TestRunner<Initial<'_>> {
         fs::create_dir(&info.artifacts_dir).ok();
 
         // Load env (optional)
-        let env_path = info.path.join(".env");
+        let env_path = info.path.join("env");
         if env_path.exists() {
-            dotenv::from_path(&env_path).context("Failed to load test .env file")?;
+            dotenv::from_path(&env_path).context("Failed to load test env file")?;
         }
 
         // Progress the state of runner

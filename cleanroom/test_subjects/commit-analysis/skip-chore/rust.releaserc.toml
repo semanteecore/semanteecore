@@ -13,3 +13,7 @@ verify_release = ["rust"]
 commit = "git"
 publish = []
 notify = []
+
+[cfg.git]
+user_name = "John Doe"
+user_email = "johndoe@example.com"

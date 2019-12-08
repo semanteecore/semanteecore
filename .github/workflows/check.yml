@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+        with:
+          lfs: true
       - name: cache cargo registry
         uses: actions/cache@v1
         with:
@@ -27,7 +29,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}-test
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}-test-2
           restore-keys: ${{ runner.os }}-cargo-build-target-
       - uses: actions-rs/toolchain@v1
         with:
@@ -89,3 +91,34 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+
+  coverage:
+    name: Generate coverage report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@master
+        with:
+          lfs: true
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+
+      - name: Run cargo-tarpaulin
+        uses: garyttierney/tarpaulin@feat/draft-version
+        with:
+          args: --all --all-features -v --out Xml
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+          file: cobertura.xml
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v1
+        with:
+          name: code-coverage-report
+          path: cobertura.xml
