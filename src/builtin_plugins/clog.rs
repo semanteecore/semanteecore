@@ -260,6 +260,9 @@ impl PluginInterface for ClogPlugin {
             .to_str()
             .ok_or_else(|| failure::format_err!("cannot process non-utf8 path"))?;
 
+        // TODO Optionally skip date in Changelog
+        // BODY Required for using the generated changelog as an artifact for cleanroom tests
+
         let mut clog = Clog::with_dir(repo_path)?;
         clog.changelog(changelog_path_str)
             .from(&current_version.rev)
