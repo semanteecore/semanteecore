@@ -40,9 +40,7 @@ impl CommandExecutor for Pack {
             if is_git_dir {
                 if let Some(repo_path) = path.parent() {
                     if repo_path.ends_with("repository") {
-                        if let Err(err) = pack_repo(repo_path) {
-                            log::error!("Failed to pack repo {}: {}", repo_path.display(), err);
-                        }
+                        pack_repo(repo_path)?
                     }
                 }
             }
@@ -62,9 +60,7 @@ impl CommandExecutor for Unpack {
                 if let Some(repo_path) = path.parent() {
                     // Filter out anything except `repository/git.tar`
                     if repo_path.ends_with("repository") {
-                        if let Err(err) = unpack_repo(repo_path) {
-                            log::error!("Failed to unpack repo {}: {}", repo_path.display(), err);
-                        }
+                        unpack_repo(repo_path)?
                     }
                 }
             }
