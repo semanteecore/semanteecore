@@ -112,9 +112,6 @@ impl TestRunner<Processed> {
     fn check_diffs(&self) -> anyhow::Result<()> {
         let info = self.0.info();
 
-        // TODO filter-out index info
-        // BODY Index in git may vary between tests, so it should be ignored then generating artifacts
-
         // Get the diff, and print it to string
         let diff = self
             .0
@@ -122,11 +119,21 @@ impl TestRunner<Processed> {
             .diff_index_to_index(self.0.old_index(), self.0.new_index(), None)?;
         let mut new_diff = String::new();
         diff.print(DiffFormat::Patch, |_delta, _hunk, line| {
+            let contents = str::from_utf8(line.content()).unwrap();
+
             match line.origin() {
                 '+' | '-' | ' ' => new_diff.push(line.origin()),
                 _ => {}
             }
-            new_diff.push_str(str::from_utf8(line.content()).unwrap());
+
+            for line in contents.lines() {
+                if line.starts_with("index") {
+                    continue;
+                }
+                new_diff.push_str(line);
+                new_diff.push('\n');
+            }
+
             true
         })?;
 

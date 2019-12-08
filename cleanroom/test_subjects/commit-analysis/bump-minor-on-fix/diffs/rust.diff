@@ -1,5 +1,4 @@
 diff --git a/Cargo.toml b/Cargo.toml
-index 6392bef..f4805da 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -2,11 +2,9 @@
@@ -20,7 +19,6 @@ index 6392bef..f4805da 100644
  [dependencies]
 diff --git a/Changelog.md b/Changelog.md
 new file mode 100644
-index 0000000..4cd2cb6
 --- /dev/null
 +++ b/Changelog.md
 @@ -0,0 +1,10 @@
