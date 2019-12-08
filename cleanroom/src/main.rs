@@ -8,18 +8,15 @@ mod command;
 mod test_runner;
 use self::command::{Cleanroom, CommandExecutor};
 
-use std::io::Write;
-
 fn main() -> anyhow::Result<()> {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info");
     }
 
-    env_logger::Builder::from_default_env()
-        .format(|f, r| writeln!(f, "[{}] {}", r.level(), r.args()))
-        .init();
+    semanteecore::logger::init_logger(0, false).map_err(|e| e.compat())?;
+
+    let _span = semanteecore::logger::span("cleanroom");
 
     let opt = Cleanroom::from_args();
-    println!("{:#?}", opt);
     opt.execute(&())
 }
