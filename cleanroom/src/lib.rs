@@ -2,6 +2,8 @@
 #![feature(trait_alias)]
 #![feature(try_blocks)]
 
+// TODO Document cleanroom library crate
+
 pub mod command;
 pub mod test_runner;
 
