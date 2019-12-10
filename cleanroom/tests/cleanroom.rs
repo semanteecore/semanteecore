@@ -9,6 +9,8 @@ fn all() -> anyhow::Result<()> {
         cmd: Command::Test(Test {
             pattern: None,
             threads: 0,
+            verbose: 0,
+            silent: false,
         }),
     })
 }
