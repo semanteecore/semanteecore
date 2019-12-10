@@ -13,7 +13,7 @@ pub struct Test {
     /// Whitelist tests that contain <pattern> in name or path
     pub pattern: Option<String>,
     #[structopt(short, long, env = "TEST_THREADS", default_value = "4")]
-    // TODO: handle this option
+    /// TODO multithreaded test runtime
     pub threads: u32,
     /// Verbose mode (-v, -vv, -vvv, etc.)
     #[structopt(short, long, parse(from_occurrences))]
