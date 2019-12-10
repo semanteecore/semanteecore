@@ -83,12 +83,19 @@ impl PluginInterface for RustPlugin {
     fn get_value(&self, key: &str) -> response::GetValue {
         let value = match key {
             "files_to_commit" => {
-                let mut files_to_commit = vec!["Cargo.toml"];
+                let mut files_to_commit = Vec::with_capacity(2);
+
                 let project_root = self.config.project_root.as_value();
                 let project_root: &Path = project_root.as_ref();
-                if project_root.join("Cargo.lock").exists() {
-                    files_to_commit.push("Cargo.lock");
+
+                let cargo_toml = project_root.join("Cargo.toml");
+                files_to_commit.push(cargo_toml);
+
+                let cargo_lock = project_root.join("Cargo.lock");
+                if cargo_lock.exists() {
+                    files_to_commit.push(cargo_lock);
                 }
+
                 serde_json::to_value(files_to_commit)?
             }
             _other => return PluginResponse::from_error(FlowError::KeyNotSupported(key.to_owned()).into()),

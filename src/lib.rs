@@ -19,6 +19,7 @@ use crate::plugin_runtime::kernel::InjectionTarget;
 use crate::plugin_support::PluginStep;
 use plugin_runtime::Kernel;
 
+use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -33,6 +34,9 @@ pub struct Args {
     /// Silent mode: no logs
     #[structopt(short, long)]
     pub silent: bool,
+    /// Path to project root directory
+    #[structopt(short, long, parse(from_os_str), default_value = "./")]
+    pub path: PathBuf,
 }
 
 pub fn run(args: Args) -> Result<(), failure::Error> {
@@ -45,7 +49,7 @@ pub fn run(args: Args) -> Result<(), failure::Error> {
 
     log::info!("semanteecore 🚀");
 
-    let config = Config::from_toml("./releaserc.toml", args.dry)?;
+    let config = Config::from_toml(args.path.join("releaserc.toml"), args.dry)?;
 
     let kernel = Kernel::builder(config)
         .inject_plugin(

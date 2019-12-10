@@ -84,8 +84,9 @@ impl TestRunner<Prepared<'_>> {
 
         // Run semanteecore
         log::info!("testing {}::{}::{}", info.domain, info.test, info.subtest);
+
         let status = Command::new(semanteecore_path)
-            .current_dir(workdir.path())
+            .args(&["--path", workdir.path().to_str().unwrap()])
             .status()
             .context("failed to run semanteecore")?;
 

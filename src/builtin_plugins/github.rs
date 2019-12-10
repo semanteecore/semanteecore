@@ -65,11 +65,19 @@ impl Default for Config {
     }
 }
 
-fn globs_to_assets<'a>(globs: impl Iterator<Item = &'a str>) -> (Vec<Asset>, Vec<Error>) {
+fn globs_to_assets<'a>(globs: impl Iterator<Item = PathBuf>) -> (Vec<Asset>, Vec<Error>) {
     let (mut assets, mut errors) = (Vec::new(), Vec::new());
 
     for pattern in globs {
-        let paths = match glob::glob(pattern) {
+        let pattern_str = match pattern.to_str() {
+            Some(s) => s,
+            None => {
+                errors.push(failure::err_msg("cannot process non-utf8 path"));
+                continue;
+            }
+        };
+
+        let paths = match glob::glob(pattern_str) {
             Ok(paths) => paths,
             Err(err) => {
                 errors.push(err.into());
@@ -125,11 +133,18 @@ impl PluginInterface for GithubPlugin {
 
     fn pre_flight(&mut self) -> response::Null {
         let mut response = PluginResponse::builder();
-        // Try to parse config
         let config = &self.config;
 
+        let project_root = config.project_root.as_value();
+
         // Try to parse assets
-        let (assets, errors) = globs_to_assets(config.assets.as_value().iter().map(String::as_str));
+        let asset_globs = config
+            .assets
+            .as_value()
+            .iter()
+            .map(|glob| Path::new(project_root).join(glob));
+
+        let (assets, errors) = globs_to_assets(asset_globs);
         for asset in &assets {
             log::info!("Would upload {} ({})", asset.path().display(), asset.content_type());
         }
@@ -185,7 +200,15 @@ impl PluginInterface for GithubPlugin {
 
         let mut errored = false;
 
-        let (assets, mut errors) = globs_to_assets(cfg.assets.as_value().iter().map(String::as_str));
+        let project_root = Path::new(self.config.project_root.as_value());
+        let asset_globs = self
+            .config
+            .assets
+            .as_value()
+            .iter()
+            .map(|glob| Path::new(project_root).join(glob));
+
+        let (assets, mut errors) = globs_to_assets(asset_globs);
         if !errors.is_empty() {
             return PluginResponse::from_error(errors.swap_remove(0));
         }
