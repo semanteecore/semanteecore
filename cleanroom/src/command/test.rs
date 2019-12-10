@@ -10,6 +10,7 @@ use structopt::StructOpt;
 #[derive(StructOpt, Debug)]
 #[structopt(about = "run tests")]
 pub struct Test {
+    /// Whitelist tests that contain <pattern> in name or path
     pub pattern: Option<String>,
     #[structopt(short, long, env = "TEST_THREADS", default_value = "4")]
     // TODO: handle this option
