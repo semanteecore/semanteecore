@@ -14,12 +14,20 @@ pub struct Test {
     #[structopt(short, long, env = "TEST_THREADS", default_value = "4")]
     // TODO: handle this option
     pub threads: u32,
+    /// Verbose mode (-v, -vv, -vvv, etc.)
+    #[structopt(short, long, parse(from_occurrences))]
+    pub verbose: u8,
+    /// Silent mode: no logs
+    #[structopt(short, long)]
+    pub silent: bool,
 }
 
 impl CommandExecutor for Test {
     type Ctx = PathBuf;
 
     fn execute(self, ctx: &Self::Ctx) -> anyhow::Result<()> {
+        crate::init_logger(Some(self.verbose), Some(self.silent));
+
         // Use the drop-guard to pack repositories back when function returns
         let _pack_guard = PackGuard::unpack(ctx)?;
 
