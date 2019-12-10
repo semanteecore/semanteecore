@@ -1,5 +1,5 @@
 use std::ops::Try;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use failure::Fail;
 
@@ -25,6 +25,7 @@ impl DockerPlugin {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Config {
+    project_root: Value<String>,
     next_version: Value<semver::Version>,
     images: Value<Vec<Image>>,
     docker_user: Value<String>,
@@ -34,6 +35,7 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
+            project_root: Value::from_key("project_root"),
             next_version: Value::required_at(NEXT_VERSION, PluginStep::Publish),
             images: Value::with_default_value("images"),
             docker_user: Value::load_from_env("DOCKER_USER"),
@@ -145,6 +147,9 @@ impl PluginInterface for DockerPlugin {
         let version = config.next_version.as_value();
         let version = format!("{}", version);
 
+        let repo_path = self.config.project_root.as_value();
+        let repo_path = Path::new(repo_path);
+
         for image in config.images.as_value() {
             let registry_url = match image.registry {
                 Registry::Dockerhub => None,
@@ -152,7 +157,7 @@ impl PluginInterface for DockerPlugin {
 
             login(registry_url, &credentials)?;
 
-            build_image(image)?;
+            build_image(repo_path, image)?;
 
             // Tag as namespace/name/tag and namespace/name/version
             let from = format!("{}:{}", image.name, image.tag);
@@ -180,11 +185,13 @@ fn docker_info() -> Result<(), failure::Error> {
     PipedCommand::new("docker", &["info"]).join(log::Level::Debug)
 }
 
-fn build_image(image: &Image) -> Result<(), failure::Error> {
+fn build_image(repo_path: &Path, image: &Image) -> Result<(), failure::Error> {
+    let image_path = repo_path.join(&image.dockerfile);
+
     let args = &[
         "build",
         "-f",
-        &image.dockerfile.display().to_string(),
+        &image_path.display().to_string(),
         "-t",
         &format!("{}:{}", image.name, image.tag),
         ".",
