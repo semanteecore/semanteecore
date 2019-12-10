@@ -13,6 +13,7 @@ use structopt::StructOpt;
 #[structopt(about = "semanteecore test suite")]
 pub struct Cleanroom {
     #[structopt(parse(from_os_str), skip = "./test_subjects")]
+    /// Path to the tests directory
     pub test_subjects: PathBuf,
     #[structopt(subcommand)]
     pub cmd: Command,
