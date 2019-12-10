@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use failure::Fail;
 use linked_hash_map::LinkedHashMap;
