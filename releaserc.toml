@@ -22,7 +22,7 @@ generate_notes = "clog"
 # Prepare the release (pre-release step for intermediate artifacts generation)
 prepare = "discover"
 # Check the release before publishing
-verify_release = "discover"
+verify_release = []
 # Commit & push changes to the VCS
 commit = "git"
 # Publish to various platforms
