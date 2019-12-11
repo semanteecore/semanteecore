@@ -1,3 +1,4 @@
+status = ["Test", "Clippy", "Format"]
 block_labels = ["dependent"]
 delete_merged_branches = true
 timeout_sec = 1200
