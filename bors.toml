@@ -1,0 +1,5 @@
+status = ['Check / Test %', 'Check / Format %', 'Check / Clippy %', 'ci']
+block_labels = ["dependent"]
+required_approvals = 1
+delete_merged_branches = true
+timeout_sec = 3600

@@ -1,12 +1,9 @@
 name: Check
 on:
   push:
-    paths:
-      - 'grammar/**'
-      - 'src/**'
-      - '.docker/**'
-      - 'Cargo.*'
-      - 'rust-toolchain'
+    branches:
+      - staging
+      - trying
 
 jobs:
   test:
