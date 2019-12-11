@@ -281,7 +281,7 @@ mod tests {
         "#;
 
         let expected: PluginDefinitionMap = ["git", "clog", "github", "rust"]
-            .into_iter()
+            .iter()
             .map(|name| (name.to_string(), PluginDefinition::Short("builtin".to_string())))
             .collect();
 
