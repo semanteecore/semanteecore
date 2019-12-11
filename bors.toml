@@ -1,4 +1,4 @@
-status = ['Check / Test %', 'Check / Format %', 'Check / Clippy %', 'ci']
+status = ["Check%", "ci"]
 block_labels = ["dependent"]
 required_approvals = 1
 delete_merged_branches = true
