@@ -5,20 +5,20 @@ aliases:
   #      ALIASES: Caches
   # -------------------------
   - &restore-deps-cache-ubuntu
-    key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}
+    key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}-v2
 
   - &save-deps-cache-ubuntu
-    key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}
+    key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}-v2
     paths:
       - /usr/local/cargo/registry
       - /usr/local/rustup
       - ~/project/target/
 
   - &restore-deps-cache-rustup
-    key: rust-cache-musl-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}
+    key: rust-cache-musl-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}-v2
 
   - &save-deps-cache-rustup
-    key: rust-cache-musl-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}
+    key: rust-cache-musl-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}-v2
     paths:
       - ~/.rustup/
       - ~/.cargo/
