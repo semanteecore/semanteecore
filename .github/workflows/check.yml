@@ -5,87 +5,152 @@ on:
       - staging
       - trying
 
+env:
+  # Disable incremental builds for smaller caches
+  CARGO_INCREMENTAL: 0
+
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+        with:
+          lfs: true
+
       - name: cache cargo registry
         uses: actions/cache@v1
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-registry-
+          path: .cargo-registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}-test-v4
+
+      - name: copy cargo registry
+        run: sudo rm -rf $HOME/.cargo/registry; sudo cp -Rpa .cargo-registry $HOME/.cargo/registry || true
+
       - name: cache cargo index
         uses: actions/cache@v1
         with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-index-
-      - name: cache cargo build
+          path: .cargo-index
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}-test-v4
+
+      - name: copy cargo index
+        run: sudo rm -rf $HOME/.cargo/git; sudo cp -Rpa .cargo-index $HOME/.cargo/git || true
+
+      - name: cache build target directory
         uses: actions/cache@v1
         with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}-test
-          restore-keys: ${{ runner.os }}-cargo-build-target-
+          path: ./target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}-test-v4
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           profile: minimal
-          override: true
+
       - uses: actions-rs/cargo@v1
         with:
           command: test
           args: --all
+
+      - name: prepare cargo index cache
+        run: sudo rm -rf .cargo-index; sudo cp -Rpa $HOME/.cargo/git .cargo-index || true
+
+      - name: prepare cargo registry cache
+        run: sudo rm -rf .cargo-registry; sudo cp -Rpa $HOME/.cargo/registry .cargo-registry || true
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+
       - name: cache cargo registry
         uses: actions/cache@v1
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}-clippy
-          restore-keys: ${{ runner.os }}-cargo-registry-
+          path: .cargo-registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}-clippy-v4
+
+      - name: copy cargo registry
+        run: sudo rm -rf $HOME/.cargo/registry; sudo cp -Rpa .cargo-registry $HOME/.cargo/registry || true
+
       - name: cache cargo index
         uses: actions/cache@v1
         with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-index-
-      - name: cache cargo build
+          path: .cargo-index
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}-clippy-v4
+
+      - name: copy cargo index
+        run: sudo rm -rf $HOME/.cargo/git; sudo cp -Rpa .cargo-index $HOME/.cargo/git || true
+
+      - name: cache build target directory
         uses: actions/cache@v1
         with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-build-target-
+          path: ./target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}-clippy-v4
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           profile: minimal
           components: clippy
           override: true
+
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features
+
+      - name: prepare cargo index cache
+        run: sudo rm -rf .cargo-index; sudo cp -Rpa $HOME/.cargo/git .cargo-index || true
+
+      - name: prepare cargo registry cache
+        run: sudo rm -rf .cargo-registry; sudo cp -Rpa $HOME/.cargo/registry .cargo-registry || true
 
   rustfmt:
     name: Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
           components: rustfmt
           override: true
-      - run: rustup component add rustfmt
+
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
+
+  coverage:
+    name: Generate coverage report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@master
+        with:
+          lfs: true
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+
+      - name: Run cargo-tarpaulin
+        uses: garyttierney/tarpaulin@feat/draft-version
+        with:
+          args: --all --all-features -v --out Xml
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+          file: cobertura.xml
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v1
+        with:
+          name: code-coverage-report
+          path: cobertura.xml
