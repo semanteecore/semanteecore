@@ -151,11 +151,13 @@ workflows:
   ci:
     jobs:
       - codecov
-      - build
-      - release-dry:
+      - build:
           filters:
             branches:
-              ignore: master
+              only:
+                - staging
+                - trying
+      - release-dry:
           requires:
             - build
       - release:
