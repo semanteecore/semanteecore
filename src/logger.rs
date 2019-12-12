@@ -62,17 +62,18 @@ pub fn init_logger(v_count: u8, is_silent: bool) -> Result<(), failure::Error> {
                 // Write spans and prefix
                 accent_style.set_bold(true);
                 let spans = SPANS.read().unwrap();
-                if !spans.is_empty() {
-                    let mut span_colors = Colors(color);
+                if let Some((first_span, spans)) = spans.split_first() {
+                    let mut span_colors = Colors(color.next());
                     let mut span_accent = accent_style.clone();
                     span_accent.set_color(span_colors.next().unwrap());
 
                     write!(fmt, "[")?;
-                    write!(fmt, "{}", span_accent.value(&spans[0]))?;
-                    for (span, color) in spans[1..].iter().zip(span_colors) {
+                    write!(fmt, "{}", span_accent.value(first_span))?;
+                    for (span, color) in spans.iter().zip(span_colors) {
                         span_accent.set_color(color);
                         write!(fmt, "|{}", span_accent.value(span))?;
                     }
+
                     write!(fmt, "] ")?;
                 }
                 write!(fmt, "{}", accent_style.value(prefix))?;
@@ -124,11 +125,11 @@ mod seed_color {
     pub const DarkGrey: Color = Color::Ansi256(240);
 }
 
-trait NextColor {
+trait ColorExt {
     fn next(&self) -> Self;
 }
 
-impl NextColor for Color {
+impl ColorExt for Color {
     fn next(&self) -> Self {
         match self {
             Color::Green => Color::Cyan,
@@ -146,8 +147,8 @@ impl Iterator for Colors {
     type Item = Color;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let new_color = self.0.next();
-        self.0 = new_color.clone();
-        Some(new_color)
+        let color = self.0.clone();
+        self.0 = color.next();
+        Some(color)
     }
 }
