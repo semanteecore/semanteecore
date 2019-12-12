@@ -216,7 +216,7 @@ impl State {
 
                 log::trace!("file path = {}", file_path.display());
 
-                let git_path = file_path
+                file_path
                     .strip_prefix(&repo_path)
                     .map_err(|e| {
                         log::warn!(
@@ -226,13 +226,9 @@ impl State {
                         )
                     })
                     .map(ToOwned::to_owned)
-                    .ok();
-
-                git_path.map(|p| {
-                    log::trace!("git file path = {}", p.display());
-                    p
-                })
+                    .ok()
             })
+            .inspect(|p| log::trace!("git file path = {}", p.display()))
             // Then -- filter out gitignored files
             .filter(|path| {
                 let should_ignore = self
