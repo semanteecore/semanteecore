@@ -18,7 +18,6 @@ use crate::config::Config;
 use crate::plugin_runtime::kernel::InjectionTarget;
 use crate::plugin_support::PluginStep;
 use plugin_runtime::Kernel;
-use std::env;
 
 use structopt::StructOpt;
 
@@ -39,7 +38,10 @@ pub struct Args {
 pub fn run(args: Args) -> Result<(), failure::Error> {
     dotenv::dotenv().ok();
 
-    logger::init_logger(args.verbose, args.silent)?;
+    let _span = logger::span("core");
+    logger::init_logger(args.verbose, args.silent)
+        .map_err(|e| log::warn!("{}", e))
+        .ok();
 
     log::info!("semanteecore 🚀");
 
