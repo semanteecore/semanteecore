@@ -1,5 +1,9 @@
-name: Check
+name: Lint
 on:
+  pull_request:
+    branches:
+      - develop
+      - master
   push:
     branches:
       - staging
@@ -10,19 +14,17 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
-  test:
-    name: Test
+  clippy:
+    name: Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-        with:
-          lfs: true
 
       - name: cache cargo registry
         uses: actions/cache@v1
         with:
           path: .cargo-registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}-test-v4
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}-clippy-v4
 
       - name: copy cargo registry
         run: sudo rm -rf $HOME/.cargo/registry; sudo cp -Rpa .cargo-registry $HOME/.cargo/registry || true
@@ -31,7 +33,7 @@ jobs:
         uses: actions/cache@v1
         with:
           path: .cargo-index
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}-test-v4
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}-clippy-v4
 
       - name: copy cargo index
         run: sudo rm -rf $HOME/.cargo/git; sudo cp -Rpa .cargo-index $HOME/.cargo/git || true
@@ -40,38 +42,22 @@ jobs:
         uses: actions/cache@v1
         with:
           path: ./target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}-test-v4
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}-clippy-v4
 
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           profile: minimal
+          components: clippy
+          override: true
 
-      - uses: actions-rs/cargo@v1
+      - uses: actions-rs/clippy-check@v1
         with:
-          command: test
-          args: --all
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
 
       - name: prepare cargo index cache
         run: sudo rm -rf .cargo-index; sudo cp -Rpa $HOME/.cargo/git .cargo-index || true
 
       - name: prepare cargo registry cache
         run: sudo rm -rf .cargo-registry; sudo cp -Rpa $HOME/.cargo/registry .cargo-registry || true
-
-  rustfmt:
-    name: Format
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          components: rustfmt
-          override: true
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
