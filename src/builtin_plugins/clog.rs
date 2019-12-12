@@ -72,6 +72,7 @@ struct DryRunGuard {
 struct Config {
     changelog: Value<String>,
     ignore: Value<Vec<String>>,
+    skip_date: Value<bool>,
     project_root: Value<String>,
     dry_run: Value<bool>,
     current_version: Value<Version>,
@@ -83,6 +84,7 @@ impl Default for Config {
         Config {
             changelog: Value::with_value("changelog", "Changelog.md".into()),
             ignore: Value::with_default_value("ignore"),
+            skip_date: Value::with_value("skip_date", false),
             project_root: Value::protected(PROJECT_ROOT),
             dry_run: Value::protected(DRY_RUN),
             current_version: Value::required_at(CURRENT_VERSION, PluginStep::DeriveNextVersion),
@@ -236,6 +238,7 @@ impl PluginInterface for ClogPlugin {
         let is_dry_run = *cfg.dry_run.as_value();
         let current_version = cfg.current_version.as_value();
         let next_version = cfg.next_version.as_value();
+        let skip_date = *cfg.skip_date.as_value();
 
         // Safely store the original changelog for restoration after dry-run is finished
         if is_dry_run {
@@ -247,10 +250,14 @@ impl PluginInterface for ClogPlugin {
             });
         }
 
+        // TODO Set clog `minor release` flag when generating changelog
+        // BODY [clog](https://github.com/semanteecore/clog-lib) can be configured to format minor releases with smaller header font in changelogs
+
         let mut clog = Clog::with_dir(repo_path)?;
         clog.changelog(changelog_path)
             .from(&current_version.rev)
-            .version(format!("v{}", next_version));
+            .version(format!("v{}", next_version))
+            .date(!skip_date);
 
         log::info!("Writing updated changelog");
         clog.write_changelog()?;
