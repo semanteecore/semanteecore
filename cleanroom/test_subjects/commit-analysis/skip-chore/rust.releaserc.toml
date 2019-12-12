@@ -15,7 +15,7 @@ publish = []
 notify = []
 
 [cfg.clog]
-date = false
+skip_date = true
 
 [cfg.git]
 user_name = "John Doe"
