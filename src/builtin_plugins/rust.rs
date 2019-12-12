@@ -1,3 +1,4 @@
+use std::array;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::ops::Try;
@@ -11,6 +12,7 @@ use crate::plugin_support::flow::{FlowError, ProvisionCapability, Value};
 use crate::plugin_support::keys::{DRY_RUN, FILES_TO_COMMIT, NEXT_VERSION, PROJECT_ROOT};
 use crate::plugin_support::proto::response::{self, PluginResponse};
 use crate::plugin_support::{PluginInterface, PluginStep};
+use crate::utils::SerIter;
 
 pub struct RustPlugin {
     dry_run_guard: Option<DryRunGuard>,
@@ -83,13 +85,15 @@ impl PluginInterface for RustPlugin {
     fn get_value(&self, key: &str) -> response::GetValue {
         let value = match key {
             "files_to_commit" => {
-                let mut files_to_commit = vec!["Cargo.toml"];
                 let project_root = self.config.project_root.as_value();
                 let project_root: &Path = project_root.as_ref();
-                if project_root.join("Cargo.lock").exists() {
-                    files_to_commit.push("Cargo.lock");
-                }
-                serde_json::to_value(files_to_commit)?
+
+                let cargo_toml = project_root.join("Cargo.toml");
+                let cargo_lock = project_root.join("Cargo.lock");
+
+                let files_to_commit = array::IntoIter::new([cargo_toml, cargo_lock]).filter(|p| p.exists());
+
+                serde_json::to_value(SerIter::from(files_to_commit))?
             }
             _other => return PluginResponse::from_error(FlowError::KeyNotSupported(key.to_owned()).into()),
         };
