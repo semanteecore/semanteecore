@@ -238,7 +238,7 @@ impl State {
                 let should_ignore = self
                     .repo
                     .status_should_ignore(path)
-                    // TODO Is is correct to ignoring files if git-ignore check failed?
+                    // TODO Is is correct to ignore files if git-ignore check has failed?
                     .unwrap_or(true);
 
                 if should_ignore {
