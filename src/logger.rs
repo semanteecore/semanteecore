@@ -11,8 +11,11 @@ pub fn span(new: impl Into<String>) -> SpanGuard {
     SpanGuard
 }
 
-pub fn pop_span() -> Option<String> {
-    SPANS.write().unwrap().pop()
+// This method is private, 'cause if the user was allowed to
+// remove spans in any way other than dropping the SpanGuard,
+// that would break the order of dropping
+fn pop_span() {
+    SPANS.write().unwrap().pop();
 }
 
 pub fn empty_line() {
