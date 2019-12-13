@@ -122,7 +122,7 @@ impl TestRunner<Processed> {
             let contents = str::from_utf8(line.content()).unwrap();
 
             match line.origin() {
-                '+' | '-' | ' ' => new_diff.push(line.origin()),
+                orig @ '+' | orig @ '-' | orig @ ' ' => new_diff.push(orig),
                 _ => {}
             }
 
