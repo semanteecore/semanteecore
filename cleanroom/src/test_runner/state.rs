@@ -18,7 +18,7 @@ pub struct InitialToPrepared {
     pub index: Index,
 }
 
-impl<'a> Progress for Initial {
+impl Progress for Initial {
     type Target = Prepared;
     type Data = InitialToPrepared;
 
@@ -46,7 +46,7 @@ pub struct PreparedIntoProcessed {
     pub index: Index,
 }
 
-impl<'a> Progress for Prepared {
+impl Progress for Prepared {
     type Target = Processed;
     type Data = PreparedIntoProcessed;
 
