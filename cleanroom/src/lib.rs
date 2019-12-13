@@ -10,12 +10,12 @@ pub mod test_runner;
 pub use self::command::{Cleanroom, CommandExecutor};
 pub use command::Cleanroom as Args;
 
-pub fn init_logger(v_count: Option<u8>, silent: Option<bool>) {
-    // Reserved for possible future change of defaults
-    let v_count = v_count.unwrap_or_default();
-    let silent = silent.unwrap_or_default();
-
+pub fn init_logger_with(v_count: u8, silent: bool) {
     semanteecore::logger::init_logger(v_count, silent).ok();
+}
+
+pub fn init_logger() {
+    init_logger_with(0, false);
 }
 
 pub fn run(args: Args) -> anyhow::Result<()> {
