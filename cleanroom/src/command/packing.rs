@@ -6,29 +6,14 @@ use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 use tar::HeaderMode;
 
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Debug, Default)]
 #[structopt(about = "pack all test repositories")]
 // Note: this is not a tuple struct because StructOpt cannot process unit structs (duh)
 pub struct Pack {}
 
-// That's just for convenience of using the abomination right above
-impl Pack {
-    pub fn new() -> Self {
-        Pack {}
-    }
-}
-
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Debug, Default)]
 #[structopt(about = "unpack all test repositories")]
-// You again...
 pub struct Unpack {}
-
-// Duh
-impl Unpack {
-    pub fn new() -> Self {
-        Unpack {}
-    }
-}
 
 impl CommandExecutor for Pack {
     type Ctx = PathBuf;
@@ -122,13 +107,13 @@ pub struct PackGuard<'a>(&'a PathBuf);
 
 impl<'a> PackGuard<'a> {
     pub fn unpack(path: &'a PathBuf) -> anyhow::Result<Self> {
-        Unpack::new().execute(path).map(|_| PackGuard(path))
+        Unpack::default().execute(path).map(|_| PackGuard(path))
     }
 }
 
 impl<'a> Drop for PackGuard<'a> {
     fn drop(&mut self) {
-        if let Err(e) = Pack::new().execute(self.0) {
+        if let Err(e) = Pack::default().execute(self.0) {
             log::error!("Failed to pack the repositories: {}", e);
         }
     }
