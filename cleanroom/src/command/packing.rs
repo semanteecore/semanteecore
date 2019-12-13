@@ -18,7 +18,7 @@ pub struct Unpack {}
 impl CommandExecutor for Pack {
     type Ctx = PathBuf;
     fn execute(self, ctx: &Self::Ctx) -> anyhow::Result<()> {
-        crate::init_logger(None, None);
+        crate::init_logger();
         walkdir::WalkDir::new(ctx).into_iter().try_for_each(|entry| {
             let entry = entry?;
             let path = entry.path();
@@ -38,7 +38,7 @@ impl CommandExecutor for Pack {
 impl CommandExecutor for Unpack {
     type Ctx = PathBuf;
     fn execute(self, ctx: &Self::Ctx) -> anyhow::Result<()> {
-        crate::init_logger(None, None);
+        crate::init_logger();
         walkdir::WalkDir::new(ctx).into_iter().try_for_each(|entry| {
             let entry = entry?;
             let path = entry.path();

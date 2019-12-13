@@ -27,7 +27,7 @@ impl CommandExecutor for Test {
     type Ctx = PathBuf;
 
     fn execute(self, ctx: &Self::Ctx) -> anyhow::Result<()> {
-        crate::init_logger(Some(self.verbose), Some(self.silent));
+        crate::init_logger_with(self.verbose, self.silent);
 
         // Use the drop-guard to pack repositories back when function returns
         let _pack_guard = PackGuard::unpack(ctx)?;
