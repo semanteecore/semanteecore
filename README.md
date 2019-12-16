@@ -1,6 +1,7 @@
 # semanteecore
 
 [![codecov](https://codecov.io/gh/semanteecore/semanteecore/branch/master/graph/badge.svg)](https://codecov.io/gh/semanteecore/semanteecore)
+[![Bors enabled](https://bors.tech/images/badge_small.svg)](https://bors-semanteecore.herokuapp.com/repositories/1)
 
 This tool helps people to publish crates following the [semver](http://semver.org/) specification.
 
@@ -35,7 +36,7 @@ docker run -v $(pwd):/home/semantic/workdir semanteecore/semanteecore:latest
 
 Ubuntu:
 
-```
+```bash
 $ sudo apt-get install -y cmake libssl-dev pkg-config zlib1g-dev
 $ cargo install --git https://github.com/semanteecore/semanteecore --tag VERSION
 ```

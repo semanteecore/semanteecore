@@ -72,6 +72,7 @@ struct DryRunGuard {
 struct Config {
     changelog: Value<String>,
     ignore: Value<Vec<String>>,
+    skip_date: Value<bool>,
     project_root: Value<String>,
     dry_run: Value<bool>,
     current_version: Value<Version>,
@@ -83,6 +84,7 @@ impl Default for Config {
         Config {
             changelog: Value::with_value("changelog", "Changelog.md".into()),
             ignore: Value::with_default_value("ignore"),
+            skip_date: Value::with_value("skip_date", false),
             project_root: Value::protected(PROJECT_ROOT),
             dry_run: Value::protected(DRY_RUN),
             current_version: Value::required_at(CURRENT_VERSION, PluginStep::DeriveNextVersion),
@@ -133,8 +135,10 @@ impl PluginInterface for ClogPlugin {
                 PluginResponse::from_ok(serde_json::to_value(next_version)?)
             }
             "files_to_commit" => {
+                let project_root = self.config.project_root.as_value();
                 let changelog_path = self.config.changelog.as_value();
-                PluginResponse::from_ok(serde_json::to_value(vec![changelog_path])?)
+                let changelog_abs_path = Path::new(project_root).join(changelog_path);
+                PluginResponse::from_ok(serde_json::to_value(vec![changelog_abs_path])?)
             }
             other => PluginResponse::from_error(FlowError::KeyNotSupported(other.to_owned()).into()),
         }
@@ -231,26 +235,36 @@ impl PluginInterface for ClogPlugin {
 
     fn prepare(&mut self) -> response::Null {
         let cfg = &self.config;
-        let changelog_path = cfg.changelog.as_value();
+        let changelog_relative_path = cfg.changelog.as_value();
         let repo_path = cfg.project_root.as_value();
+        let changelog_path = Path::new(repo_path).join(changelog_relative_path);
         let is_dry_run = *cfg.dry_run.as_value();
         let current_version = cfg.current_version.as_value();
         let next_version = cfg.next_version.as_value();
+        let skip_date = *cfg.skip_date.as_value();
 
         // Safely store the original changelog for restoration after dry-run is finished
         if is_dry_run {
             log::info!("clog(dry-run): saving original state of changelog file");
             let original_changelog = std::fs::read(&changelog_path).ok();
             self.dry_run_guard.replace(DryRunGuard {
-                changelog_path: Path::new(changelog_path).to_owned(),
+                changelog_path: changelog_path.clone(),
                 original_changelog,
             });
         }
 
+        // TODO Set clog `minor release` flag when generating changelog
+        // BODY [clog](https://github.com/semanteecore/clog-lib) can be configured to format minor releases with smaller header font in changelogs
+
+        let changelog_path_str = changelog_path
+            .to_str()
+            .ok_or_else(|| failure::format_err!("cannot process non-utf8 path"))?;
+
         let mut clog = Clog::with_dir(repo_path)?;
-        clog.changelog(changelog_path)
+        clog.changelog(changelog_path_str)
             .from(&current_version.rev)
-            .version(format!("v{}", next_version));
+            .version(format!("v{}", next_version))
+            .date(!skip_date);
 
         log::info!("Writing updated changelog");
         clog.write_changelog()?;

@@ -5,20 +5,20 @@ aliases:
   #      ALIASES: Caches
   # -------------------------
   - &restore-deps-cache-ubuntu
-    key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}
+    key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}-v2
 
   - &save-deps-cache-ubuntu
-    key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}
+    key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}-v2
     paths:
       - /usr/local/cargo/registry
       - /usr/local/rustup
       - ~/project/target/
 
   - &restore-deps-cache-rustup
-    key: rust-cache-musl-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}
+    key: rust-cache-musl-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}-v2
 
   - &save-deps-cache-rustup
-    key: rust-cache-musl-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}
+    key: rust-cache-musl-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ .Environment.CIRCLE_JOB }}-v2
     paths:
       - ~/.rustup/
       - ~/.cargo/
@@ -41,30 +41,6 @@ defaults: &defaults
     RUST_BACKTRACE: 1
 
 jobs:
-  codecov:
-    <<: *defaults
-    machine: true
-    steps:
-      - checkout
-      - restore_cache: *restore-deps-cache-rustup
-      - run:
-          name: Install Rust
-          command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
-            echo 'export PATH=$HOME/.cargo/bin:$PATH' >> $BASH_ENV
-      - run:
-          name: Install Tarpaulin
-          command: cargo tarpaulin --version || cargo install cargo-tarpaulin
-          environment:
-            RUSTFLAGS: --cfg procmacro2_semver_exempt
-      - run:
-          name: Generate coverage report
-          command: cargo tarpaulin --out Xml --all-features
-      - save_cache: *save-deps-cache-rustup
-      - run:
-          name: Upload to codecov.io
-          command: bash <(curl -s https://codecov.io/bash) -Z -f cobertura.xml
-
   build:
     <<: *defaults
     docker:
@@ -150,12 +126,13 @@ workflows:
   version: 2
   ci:
     jobs:
-      - codecov
-      - build
-      - release-dry:
+      - build:
           filters:
             branches:
-              ignore: master
+              only:
+                - staging
+                - trying
+      - release-dry:
           requires:
             - build
       - release:

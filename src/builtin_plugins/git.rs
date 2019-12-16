@@ -32,6 +32,7 @@ struct Config {
     branch: Value<String>,
     remote: Value<String>,
     force_https: Value<bool>,
+    push: Value<bool>,
     project_root: Value<String>,
     next_version: Value<semver::Version>,
     files_to_commit: Value<Vec<String>>,
@@ -46,6 +47,7 @@ impl Default for Config {
             branch: Value::with_value("branch", default_branch()),
             remote: Value::with_value("remote", default_remote()),
             force_https: Value::with_default_value("force_https"),
+            push: Value::with_value("push", true),
             project_root: Value::protected(PROJECT_ROOT),
             next_version: Value::builder(NEXT_VERSION)
                 .protected()
@@ -184,13 +186,67 @@ impl State {
     }
 
     fn commit_files(&self, config: &Config, files: &[String], commit_msg: &str) -> Result<(), failure::Error> {
-        let files = files.iter().filter(|filename| {
-            let path = Path::new(filename);
-            !self
-                .repo
-                .status_should_ignore(path)
-                .expect("Determining ignore status of file failed")
-        });
+        let _span = crate::logger::span("commit");
+
+        let repo_path = self
+            .repo
+            .path()
+            .parent()
+            .ok_or(failure::err_msg("cannot find repository path"))?
+            .canonicalize()?;
+
+        log::trace!("converting project paths to git repo paths");
+        log::trace!("project path = {}", repo_path.display());
+
+        let files = files
+            .iter()
+            // First -- convert paths relative to project root to paths relative to git repository
+            .filter_map(|path| {
+                let file_path = Path::new(path);
+                let file_path = file_path
+                    .canonicalize()
+                    .map_err(|e| {
+                        log::warn!(
+                            "failed to canonicalize file path {}, skipping it: {}",
+                            file_path.display(),
+                            e
+                        )
+                    })
+                    .ok()?;
+
+                log::trace!("file path = {}", file_path.display());
+
+                file_path
+                    .strip_prefix(&repo_path)
+                    .map_err(|e| {
+                        log::warn!(
+                            "failed to convert {} to relative git path, skipping it: {}",
+                            file_path.display(),
+                            e
+                        )
+                    })
+                    .map(ToOwned::to_owned)
+                    .ok()
+            })
+            .inspect(|p| log::trace!("git file path = {}", p.display()))
+            // Then -- filter out gitignored files
+            .filter(|path| {
+                let should_ignore = self
+                    .repo
+                    .status_should_ignore(path)
+                    // TODO Is is correct to ignore files if git-ignore check has failed?
+                    .unwrap_or(true);
+
+                if should_ignore {
+                    log::warn!(
+                        "failed to check if {} should be gitignored => ignoring the file",
+                        path.display()
+                    );
+                }
+
+                !should_ignore
+            })
+            .inspect(|p| log::info!("Adding file {}", p.display()));
 
         self.add(files)?;
 
@@ -382,7 +438,7 @@ impl PluginInterface for GitPlugin {
 
         let mut data = {
             let path = config.project_root.as_value();
-            let repo = Repository::open(path)?;
+            let repo = Repository::discover(path)?;
             State::new(config, repo)?
         };
 
@@ -429,12 +485,14 @@ impl PluginInterface for GitPlugin {
         let commit_msg = format!("chore(release): Version {} [skip ci]", next_version);
         let tag_name = format!("v{}", next_version);
 
-        log::info!("Committing files {:?}", files_to_commit);
         state.commit_files(config, &files_to_commit, &commit_msg)?;
         log::info!("Creating tag {:?}", tag_name);
         state.create_tag(config, &tag_name, &changelog)?;
-        log::info!("Pushing changes, please wait...");
-        state.push(config, &tag_name)?;
+
+        if *self.config.push.as_value() {
+            log::info!("Pushing changes, please wait...");
+            state.push(config, &tag_name)?;
+        }
 
         PluginResponse::from_ok(())
     }

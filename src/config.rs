@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use failure::Fail;
 use linked_hash_map::LinkedHashMap;
@@ -32,27 +32,14 @@ pub struct Config {
     pub cfg: ValueDefinitionMap,
 }
 
-fn default_project_root() -> ValueDefinition {
-    let root = PathBuf::from("./");
-    let root = root.canonicalize().ok();
-    let root = root.and_then(|p| p.to_str().map(String::from));
-
-    if let Some(path) = root {
-        ValueDefinition::Value(serde_json::Value::String(path))
-    } else {
-        panic!(
-            "failed to derive project_root from environment, please set cfg.project_root manually in releaserc.toml"
-        );
-    }
-}
-
 fn default_dry_run() -> ValueDefinition {
     ValueDefinition::Value(serde_json::Value::Bool(false))
 }
 
 impl Config {
     pub fn from_toml<P: AsRef<Path>>(path: P, is_dry_run: bool) -> Result<Self, failure::Error> {
-        let mut file = File::open(path).map_err(|err| match err.kind() {
+        let config_path = path.as_ref();
+        let mut file = File::open(config_path).map_err(|err| match err.kind() {
             std::io::ErrorKind::NotFound => ConfigError::FileNotFound.into(),
             _other => failure::Error::from(err),
         })?;
@@ -72,10 +59,14 @@ impl Config {
             }
         });
 
-        config
-            .cfg
-            .entry("project_root".into())
-            .or_insert_with(default_project_root);
+        let workspace_path = config_path.parent().ok_or_else(|| {
+            failure::format_err!(
+                "couldn't find workspace directory; try using an absolute path to config with --path option"
+            )
+        })?;
+        let workspace_path_value = ValueDefinition::Value(serde_json::to_value(workspace_path.to_owned())?);
+
+        config.cfg.entry("project_root".into()).or_insert(workspace_path_value);
 
         Ok(config)
     }
@@ -281,7 +272,7 @@ mod tests {
         "#;
 
         let expected: PluginDefinitionMap = ["git", "clog", "github", "rust"]
-            .into_iter()
+            .iter()
             .map(|name| (name.to_string(), PluginDefinition::Short("builtin".to_string())))
             .collect();
 
