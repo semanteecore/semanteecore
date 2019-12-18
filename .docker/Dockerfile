@@ -3,17 +3,9 @@ FROM rust:latest as builder
 # Install dependencies
 RUN apt-get update && apt-get install -y cmake
 
-# Install dependency builder for cargo
-RUN cargo install cargo-build-deps
-
-# That would be cached if Cargo.lock haven't been changed
-RUN cd /tmp && USER=root cargo new --bin project
-WORKDIR /tmp/project
-COPY Cargo.toml Cargo.lock rust-toolchain ./
-RUN cargo build-deps --release
-
 # Copy the rest of sources & build
 COPY src/ ./src
+COPY cleanroom/ ./cleanroom
 COPY grammar/ ./grammar
 COPY README.md README.md
 RUN cargo build --release
