@@ -4,11 +4,7 @@ FROM rust:latest as builder
 RUN apt-get update && apt-get install -y cmake
 
 # Copy the rest of sources & build
-COPY Cargo.toml Cargo.lock rust-toolchain ./
-COPY src/ ./src
-COPY cleanroom/ ./cleanroom
-COPY grammar/ ./grammar
-COPY README.md README.md
+COPY . .
 RUN cargo build --release
 RUN mkdir /build -p && cp ./target/release/semanteecore /build/
 
