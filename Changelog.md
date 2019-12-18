@@ -1,3 +1,14 @@
+<a name="v2.14.1"></a>
+## v2.14.1(2019-12-18)
+
+
+#### Bug Fixes
+
+* **ci:**  add cleanroom/ to .dockerignore whitelist ([02b2b138](02b2b138))
+* **rust:**  generate lockfile at `prepare` stage ([ff119930](ff119930))
+
+
+
 <a name="v2.14.0"></a>
 ## v2.14.0(2019-12-18)
 
