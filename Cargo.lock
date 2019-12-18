@@ -1601,7 +1601,7 @@ dependencies = [
 
 [[package]]
 name = "semanteecore"
-version = "2.14.2"
+version = "2.14.3"
 dependencies = [
  "clog",
  "dotenv",

@@ -1,3 +1,14 @@
+<a name="v2.14.3"></a>
+## v2.14.3(2019-12-18)
+
+
+#### Bug Fixes
+
+* **ci:**  fix test failure caused by recent fix in `rust` plugin ([b4dc920a](b4dc920a))
+* **release/docker:**  copy Cargo files in docker build env ([e42c27f1](e42c27f1))
+
+
+
 <a name="v2.14.2"></a>
 ## v2.14.2(2019-12-18)
 

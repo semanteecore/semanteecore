@@ -19,7 +19,7 @@ authors = [
 description = 'Automatic crate publishing'
 license = 'MIT'
 edition = '2018'
-version = '2.14.2'
+version = '2.14.3'
 
 [lib]
 path = 'src/lib.rs'
