@@ -50,9 +50,12 @@ impl Default for Config {
     }
 }
 
+// TODO: Implement Drop for DryRunGuard, not Plugin
+// BODY: It will simplify code and make a manual Option-check unnecessary
 impl Drop for RustPlugin {
     fn drop(&mut self) {
         if let Some(guard) = self.dry_run_guard.as_ref() {
+            // TODO: Use existing span logging for plugin Drop-guards.
             log::info!("rust(dry-run): restoring original state of Cargo.toml");
             if let Err(err) = guard.cargo.write_manifest_raw(&guard.original_manifest) {
                 log::error!("rust(dry-run): failed to restore original manifest, sorry x_x");
@@ -61,6 +64,11 @@ impl Drop for RustPlugin {
                     "\nOriginal Cargo.toml: \n{}",
                     String::from_utf8_lossy(&guard.original_manifest)
                 );
+            }
+
+            if let Err(err) = guard.cargo.generate_lockfile() {
+                log::error!("rust(dry-run): failed to generate lockfile");
+                log::error!("{}", err);
             }
         }
     }
@@ -146,6 +154,7 @@ impl PluginInterface for RustPlugin {
 
         let next_version = self.config.next_version.as_value();
         cargo.set_version(next_version)?;
+        cargo.generate_lockfile()?;
 
         PluginResponse::from_ok(())
     }
@@ -199,6 +208,16 @@ impl Cargo {
             manifest_path,
             token: token.to_owned(),
         })
+    }
+
+    pub fn generate_lockfile(&self) -> Result<(), failure::Error> {
+        let args = &[
+            "generate-lockfile",
+            "--manifest-path",
+            &self.manifest_path.display().to_string(),
+        ];
+
+        PipedCommand::new("cargo", args).join(log::Level::Info)
     }
 
     pub fn package(&self) -> Result<(), failure::Error> {
