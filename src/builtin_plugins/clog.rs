@@ -39,6 +39,8 @@ struct State {
     next_version: Option<semver::Version>,
 }
 
+// TODO: implement Drop for DryRunGuard, not Plugin
+// BODY: It will simplify code and make a manual Option-check unnecessary
 impl Drop for ClogPlugin {
     fn drop(&mut self) {
         if let Some(guard) = self.dry_run_guard.as_ref() {
