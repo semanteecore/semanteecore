@@ -50,9 +50,12 @@ impl Default for Config {
     }
 }
 
+// TODO: Implement Drop for DryRunGuard, not Plugin
+// BODY: It will simplify code and make a manual Option-check unnecessary
 impl Drop for RustPlugin {
     fn drop(&mut self) {
         if let Some(guard) = self.dry_run_guard.as_ref() {
+            // TODO: Use existing span logging for plugin Drop-guards.
             log::info!("rust(dry-run): restoring original state of Cargo.toml");
             if let Err(err) = guard.cargo.write_manifest_raw(&guard.original_manifest) {
                 log::error!("rust(dry-run): failed to restore original manifest, sorry x_x");
