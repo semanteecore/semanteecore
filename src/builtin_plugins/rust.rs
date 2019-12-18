@@ -62,6 +62,11 @@ impl Drop for RustPlugin {
                     String::from_utf8_lossy(&guard.original_manifest)
                 );
             }
+
+            if let Err(err) = guard.cargo.generate_lockfile() {
+                log::error!("rust(dry-run): failed to generate lockfile");
+                log::error!("{}", err);
+            }
         }
     }
 }
@@ -146,6 +151,7 @@ impl PluginInterface for RustPlugin {
 
         let next_version = self.config.next_version.as_value();
         cargo.set_version(next_version)?;
+        cargo.generate_lockfile()?;
 
         PluginResponse::from_ok(())
     }
@@ -199,6 +205,16 @@ impl Cargo {
             manifest_path,
             token: token.to_owned(),
         })
+    }
+
+    pub fn generate_lockfile(&self) -> Result<(), failure::Error> {
+        let args = &[
+            "generate-lockfile",
+            "--manifest-path",
+            &self.manifest_path.display().to_string(),
+        ];
+
+        PipedCommand::new("cargo", args).join(log::Level::Info)
     }
 
     pub fn package(&self) -> Result<(), failure::Error> {
