@@ -1,3 +1,23 @@
+<a name="v2.14.0"></a>
+## v2.14.0(2019-12-18)
+
+
+#### Features
+
+* **cleanroom:**  minimal usable regression testing utility for semanteecore ([f17efa5e](f17efa5e))
+* **clog:**  flag to optionally skip release date in changelog ([811a7a38](811a7a38))
+* **core:**
+  *  CLI option for setting the workdir path ([bed5e577](bed5e577))
+  *  lib.rs exporting all modules and the `run` function ([b4e297de](b4e297de))
+* **git:**  optionally disable push with config flag ([e592d536](e592d536))
+* **logger:**  span nesting and improved color coding ([b8fddd1c](b8fddd1c))
+
+#### Bug Fixes
+
+* **rust:**  advertize Cargo.lock for commit only if it exists ([e2e026d2](e2e026d2))
+
+
+
 <a name="v2.13.1"></a>
 ## v2.13.1 (2019-11-26)
 

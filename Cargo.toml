@@ -1,6 +1,13 @@
+[[bin]]
+path = 'src/main.rs'
+name = 'semanteecore'
+
 [workspace]
-members = ["./", "cleanroom"]
-exclude = ["cleanroom/test_subjects"]
+members = [
+    './',
+    'cleanroom',
+]
+exclude = ['cleanroom/test_subjects']
 
 [package]
 name = 'semanteecore'
@@ -12,19 +19,14 @@ authors = [
 description = 'Automatic crate publishing'
 license = 'MIT'
 edition = '2018'
-version = '2.13.1'
+version = '2.14.0'
 
 [lib]
-path = "src/lib.rs"
-name = "semanteecore"
-
-[[bin]]
-path = "src/main.rs"
-name = "semanteecore"
+path = 'src/lib.rs'
+name = 'semanteecore'
 
 [dependencies]
 git2 = '0.9'
-clog = { git = 'https://github.com/semanteecore/clog-lib.git', tag = "v0.9.4" }
 hubcaps = '0.5'
 url = '2.0'
 env_logger = '0.7'
@@ -44,7 +46,11 @@ pest = '2.1.1'
 pest_derive = '2.1.0'
 lazy_static = '1.4.0'
 subprocess = '0.1.18'
-structopt = "0.3.5"
+structopt = '0.3.5'
+
+[dependencies.clog]
+git = 'https://github.com/semanteecore/clog-lib.git'
+tag = 'v0.9.4'
 
 [dependencies.semver]
 version = '0.9'
