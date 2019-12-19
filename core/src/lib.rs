@@ -45,7 +45,13 @@ pub fn run(args: Args) -> Result<(), failure::Error> {
 
     log::info!("semanteecore 🚀");
 
-    let config = Config::from_toml(args.path.join("releaserc.toml"), args.dry)?;
+    let config = Config::from_path(args.path.join("releaserc.toml"), args.dry)?;
+    let config = match config {
+        Config::Monoproject(cfg) => cfg,
+        Config::Workspace(_) => {
+            return Err(failure::err_msg("Workspace projects are not yet supported"));
+        }
+    };
 
     let kernel = Kernel::builder(config)
         .inject(

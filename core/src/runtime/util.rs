@@ -1,17 +1,17 @@
 use failure::Fail;
 
-use crate::config::{Config, PluginDefinitionMap};
+use crate::config::{Monoproject, PluginDefinitionMap};
 use crate::runtime::plugin::{Plugin, RawPlugin, RawPluginState};
 use crate::runtime::resolver::PluginResolver;
 use crate::runtime::starter::PluginStarter;
 use crate::runtime::Injection;
 
-pub fn load_plugins(config: &Config) -> Result<Vec<Plugin>, failure::Error> {
+pub fn load_plugins(config: &Monoproject) -> Result<Vec<Plugin>, failure::Error> {
     load_plugins_with_injections(config, vec![])
 }
 
 pub fn load_plugins_with_injections(
-    config: &Config,
+    config: &Monoproject,
     injections: Vec<Injection>,
 ) -> Result<Vec<Plugin>, failure::Error> {
     // Move PluginDefinitions out of config and convert them to Plugins

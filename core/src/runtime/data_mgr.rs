@@ -1,6 +1,6 @@
 use failure::Fail;
 
-use crate::config::{Config, Map};
+use crate::config::{Map, Monoproject};
 use plugin_api::flow::Value;
 
 pub struct DataManager {
@@ -8,7 +8,7 @@ pub struct DataManager {
 }
 
 impl DataManager {
-    pub fn new(releaserc: &Config) -> Self {
+    pub fn new(releaserc: &Monoproject) -> Self {
         DataManager {
             global: releaserc
                 .cfg
