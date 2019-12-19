@@ -14,9 +14,16 @@ use crate::plugin_support::proto::{GitRevision, Version};
 use crate::plugin_support::{PluginInterface, PluginStep};
 use std::path::Path;
 
+#[derive(Default)]
 pub struct GitPlugin {
     config: Config,
     state: Option<State>,
+}
+
+impl GitPlugin {
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 struct State {
@@ -347,15 +354,6 @@ impl State {
         let earliest_commit = revwalk.last().expect("failed to find the earliest revision")?;
 
         Ok(earliest_commit)
-    }
-}
-
-impl GitPlugin {
-    pub fn new() -> Self {
-        GitPlugin {
-            config: Config::default(),
-            state: None,
-        }
     }
 }
 

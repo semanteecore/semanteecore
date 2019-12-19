@@ -14,6 +14,7 @@ use crate::plugin_support::proto::response::{self, PluginResponse};
 use crate::plugin_support::{PluginInterface, PluginStep};
 use crate::utils::SerIter;
 
+#[derive(Default)]
 pub struct RustPlugin {
     dry_run_guard: Option<DryRunGuard>,
     config: Config,
@@ -21,10 +22,7 @@ pub struct RustPlugin {
 
 impl RustPlugin {
     pub fn new() -> Self {
-        RustPlugin {
-            dry_run_guard: None,
-            config: Config::default(),
-        }
+        Self::default()
     }
 }
 

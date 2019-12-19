@@ -18,15 +18,14 @@ use crate::utils::ResultExt;
 
 const USERAGENT: &str = concat!("semanteecore/", env!("CARGO_PKG_VERSION"));
 
+#[derive(Default)]
 pub struct GithubPlugin {
     config: Config,
 }
 
 impl GithubPlugin {
     pub fn new() -> Self {
-        GithubPlugin {
-            config: Config::default(),
-        }
+        Self::default()
     }
 }
 
