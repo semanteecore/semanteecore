@@ -164,7 +164,7 @@ impl PluginStep {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PluginStepKind {
     Singleton,
     Shared,
