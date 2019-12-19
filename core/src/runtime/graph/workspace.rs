@@ -41,10 +41,27 @@ fn dependency_forest(releaserc_graph: ReleaseRcGraph) -> Result<DependencyForest
 
 fn subforest(root: impl AsRef<Path>) -> Result<Vec<DependencyTree>, failure::Error> {
     let releaserc_path = root.as_ref().join("releaserc.toml");
-    let config = Config::from_toml(&releaserc_path, true)?;
+    let config = Config::from_path(&releaserc_path, true)?;
+
+    log::debug!("building subforest for path {}", releaserc_path.display());
+
+    // TODO: sort out this fuckery
+    //
+    // SURPRISE: we skip the workspace projects here!
+    // That's what the long rebases give you, kids.
+    let config = match config {
+        Config::Workspace(_) => return Ok(vec![]),
+        Config::Monoproject(cfg) => cfg,
+    };
 
     let mut plugins = load_plugins_for_config(&config, None)?;
     let plugins = filter_usable_plugins(&mut plugins)?;
+
+    if plugins.is_empty() {
+        return Err(failure::format_err!(
+            "no plugin supports monorepo projects, cannot proceed"
+        ));
+    }
 
     let project_root = Value::with_value(PROJECT_ROOT, serde_json::to_value(root.as_ref())?);
 
