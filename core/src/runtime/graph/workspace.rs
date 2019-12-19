@@ -19,6 +19,7 @@ use crate::plugin_support::{Plugin, PluginInterface};
 //    Ok(())
 //}
 
+#[derive(Debug)]
 struct DependencyTree {
     root: NodeIndex<u32>,
     tree: Graph<Project, ()>,

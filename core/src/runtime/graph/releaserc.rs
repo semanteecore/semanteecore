@@ -149,7 +149,7 @@ mod tests {
         assert_eq!(
             rendered,
             r#"digraph {
-    0 [label="\".\""]
+    0 [label="\"./\""]
 }
 "#
         );
@@ -193,7 +193,7 @@ mod tests {
         assert_eq!(
             rendered,
             r#"digraph {
-    0 [label="\".\""]
+    0 [label="\"./\""]
     1 [label="\"./one\""]
     2 [label="\"./two\""]
     0 -> 1
@@ -239,7 +239,7 @@ mod tests {
         assert_eq!(
             rendered,
             r#"digraph {
-    0 [label="\".\""]
+    0 [label="\"./\""]
     1 [label="\"./one\""]
     2 [label="\"./two\""]
     0 -> 1
