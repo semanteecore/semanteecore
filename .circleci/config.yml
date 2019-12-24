@@ -134,18 +134,18 @@ workflows:
                 - trying
                 - master
                 - develop
-      - release-dry:
-          requires:
-            - build
-      - release:
-          filters:
-            branches:
-              only: master
-          requires:
-            - build
-      - rebase_develop_onto_master:
-          filters:
-            branches:
-              only: master
-          requires:
-            - release
+#      - release-dry:
+#          requires:
+#            - build
+#      - release:
+#          filters:
+#            branches:
+#              only: master
+#          requires:
+#            - build
+#      - rebase_develop_onto_master:
+#          filters:
+#            branches:
+#              only: master
+#          requires:
+#            - release
