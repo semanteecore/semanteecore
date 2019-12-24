@@ -1,72 +1,16 @@
-[[bin]]
-path = 'src/main.rs'
-name = 'semanteecore'
-
 [workspace]
+exclude = ["cleanroom/test_subjects"]
 members = [
-    './',
-    'cleanroom',
+    "core",
+    "plugin_api",
+    "plugins/clog",
+    "plugins/docker",
+    "plugins/git",
+    "plugins/github",
+    "plugins/rust",
+    "cleanroom/"
 ]
-exclude = ['cleanroom/test_subjects']
 
-[package]
-name = 'semanteecore'
-authors = [
-    'Jan Schulte <hello@unexpected-co.de>',
-    'Jan-Erik Rediger <janerik@fnordig.de>',
-    'Mike Lubinets <me@mkl.dev>',
-]
-description = 'Automatic crate publishing'
-license = 'MIT'
-edition = '2018'
-version = '2.14.3'
-
-[lib]
-path = 'src/lib.rs'
-name = 'semanteecore'
-
-[dependencies]
-git2 = '0.9'
-hubcaps = '0.5'
-url = '2.0'
-env_logger = '0.7'
-log = '0.4'
-serde_json = '1.0'
-tree_magic = '0.2'
-http = '0.1'
-reqwest = '0.9'
-failure = '0.1'
-dotenv = '0.15'
-strum = '0.15'
-strum_macros = '0.15'
-glob = '0.3'
-futures = '0.1'
-tokio = '0.1'
-pest = '2.1.1'
-pest_derive = '2.1.0'
-lazy_static = '1.4.0'
-subprocess = '0.1.18'
-structopt = '0.3.5'
-
-[dependencies.clog]
-git = 'https://github.com/semanteecore/clog-lib.git'
-tag = 'v0.9.4'
-
-[dependencies.semver]
-version = '0.9'
-features = ['serde']
-
-[dependencies.toml]
-version = '0.5'
-features = ['preserve_order']
-
-[dependencies.serde]
-version = '1.0'
-features = ['derive']
-
-[dependencies.linked-hash-map]
-version = '0.5'
-features = ['serde_impl']
 [profile.release]
 debug = true
 overflow-checks = true

@@ -1603,32 +1603,148 @@ dependencies = [
 name = "semanteecore"
 version = "2.14.3"
 dependencies = [
- "clog",
  "dotenv",
  "env_logger",
  "failure",
- "futures",
- "git2",
- "glob",
- "http",
- "hubcaps",
  "lazy_static 1.4.0",
  "linked-hash-map",
  "log",
  "pest",
  "pest_derive",
- "reqwest",
+ "petgraph",
+ "semanteecore_plugin_api",
+ "semanteecore_plugin_clog",
+ "semanteecore_plugin_docker",
+ "semanteecore_plugin_git",
+ "semanteecore_plugin_github",
+ "semanteecore_plugin_rust",
  "semver",
  "serde",
  "serde_json",
+ "serial_test",
+ "serial_test_derive",
  "structopt",
+ "strum",
+ "symlink",
+ "tempfile",
+ "toml",
+ "walkdir",
+]
+
+[[package]]
+name = "semanteecore_plugin_api"
+version = "2.14.3"
+dependencies = [
+ "failure",
+ "log",
+ "semver",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "serial_test_derive",
  "strum",
  "strum_macros",
  "subprocess",
- "tokio",
+ "symlink",
+ "tempfile",
+]
+
+[[package]]
+name = "semanteecore_plugin_clog"
+version = "2.14.3"
+dependencies = [
+ "clog",
+ "failure",
+ "git2",
+ "log",
+ "semanteecore_plugin_api",
+ "semver",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "serial_test_derive",
+ "symlink",
+ "tempfile",
  "toml",
+ "url 2.1.0",
+]
+
+[[package]]
+name = "semanteecore_plugin_docker"
+version = "2.14.3"
+dependencies = [
+ "failure",
+ "log",
+ "semanteecore_plugin_api",
+ "semver",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "serial_test_derive",
+ "symlink",
+ "tempfile",
+]
+
+[[package]]
+name = "semanteecore_plugin_git"
+version = "2.14.3"
+dependencies = [
+ "failure",
+ "git2",
+ "log",
+ "semanteecore_plugin_api",
+ "semver",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "serial_test_derive",
+ "symlink",
+ "tempfile",
+ "url 2.1.0",
+]
+
+[[package]]
+name = "semanteecore_plugin_github"
+version = "2.14.3"
+dependencies = [
+ "failure",
+ "futures",
+ "glob",
+ "http",
+ "hubcaps",
+ "lazy_static 1.4.0",
+ "log",
+ "petgraph",
+ "reqwest",
+ "semanteecore_plugin_api",
+ "semver",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "serial_test_derive",
+ "symlink",
+ "tempfile",
+ "tokio",
  "tree_magic",
  "url 2.1.0",
+]
+
+[[package]]
+name = "semanteecore_plugin_rust"
+version = "2.14.3"
+dependencies = [
+ "failure",
+ "linked-hash-map",
+ "log",
+ "semanteecore_plugin_api",
+ "semver",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "serial_test_derive",
+ "symlink",
+ "tempfile",
+ "toml",
 ]
 
 [[package]]
@@ -1697,6 +1813,25 @@ dependencies = [
  "itoa",
  "serde",
  "url 1.7.2",
+]
+
+[[package]]
+name = "serial_test"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50bfbc39343545618d97869d77f38ed43e48dd77432717dbc7ed39d797f3ecbe"
+dependencies = [
+ "lazy_static 1.4.0",
+]
+
+[[package]]
+name = "serial_test_derive"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89dd85be2e2ad75b041c9df2892ac078fa6e0b90024028b2b9fb4125b7530f01"
+dependencies = [
+ "quote 0.6.13",
+ "syn 0.15.44",
 ]
 
 [[package]]
@@ -1804,6 +1939,12 @@ dependencies = [
  "libc",
  "winapi 0.3.8",
 ]
+
+[[package]]
+name = "symlink"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7973cce6668464ea31f176d85b13c7ab3bba2cb3b77a2ed26abd7801688010a"
 
 [[package]]
 name = "syn"
