@@ -2,7 +2,6 @@ use failure::Fail;
 use strum::IntoEnumIterator;
 
 use crate::config::{Config, Map};
-use crate::logger;
 use crate::plugin_runtime::data_mgr::DataManager;
 use crate::plugin_runtime::graph::{ActionKind, PluginSequence};
 use crate::plugin_runtime::util::load_plugins;
@@ -30,27 +29,23 @@ impl Kernel {
             let id = action.id();
             match action.into_kind() {
                 ActionKind::Call(step) => {
-                    let plugin = &self.plugins[id];
+                    let plugin = &mut self.plugins[id];
                     log::debug!("call {}::{}", plugin.name, step.as_str());
-                    let _span = logger::span(&plugin.name);
-                    let mut callable = plugin.as_interface();
                     match step {
-                        PluginStep::PreFlight => callable.pre_flight()?,
-                        PluginStep::GetLastRelease => callable.get_last_release()?,
-                        PluginStep::DeriveNextVersion => callable.derive_next_version()?,
-                        PluginStep::GenerateNotes => callable.generate_notes()?,
-                        PluginStep::Prepare => callable.prepare()?,
-                        PluginStep::VerifyRelease => callable.verify_release()?,
-                        PluginStep::Commit => callable.commit()?,
-                        PluginStep::Publish => callable.publish()?,
-                        PluginStep::Notify => callable.notify()?,
+                        PluginStep::PreFlight => plugin.pre_flight()?,
+                        PluginStep::GetLastRelease => plugin.get_last_release()?,
+                        PluginStep::DeriveNextVersion => plugin.derive_next_version()?,
+                        PluginStep::GenerateNotes => plugin.generate_notes()?,
+                        PluginStep::Prepare => plugin.prepare()?,
+                        PluginStep::VerifyRelease => plugin.verify_release()?,
+                        PluginStep::Commit => plugin.commit()?,
+                        PluginStep::Publish => plugin.publish()?,
+                        PluginStep::Notify => plugin.notify()?,
                     }
                 }
                 ActionKind::Get(src_key) => {
                     let plugin = &self.plugins[id];
-                    let span = logger::span(&plugin.name);
-                    let value = plugin.as_interface().get_value(&src_key)?;
-                    drop(span);
+                    let value = plugin.get_value(&src_key)?;
                     log::debug!("get {}::{} ==> {:?}", self.plugins[id].name, src_key, value);
                     let value = Value::builder(&src_key).value(value).build();
                     self.data_mgr.insert_global(src_key, value);
@@ -58,23 +53,18 @@ impl Kernel {
                 ActionKind::Set(dst_key, src_key) => {
                     let value = self.data_mgr.prepare_value(id, &dst_key, &src_key)?;
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
-                    let plugin = &self.plugins[id];
-                    let _span = logger::span(&plugin.name);
-                    plugin.as_interface().set_value(&dst_key, value)?;
+                    let plugin = &mut self.plugins[id];
+                    plugin.set_value(&dst_key, value)?;
                 }
                 ActionKind::SetValue(dst_key, value) => {
                     let value = Value::builder(&dst_key).value(value).build();
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
-                    let plugin = &self.plugins[id];
-                    let _span = logger::span(&plugin.name);
-                    self.plugins[id].as_interface().set_value(&dst_key, value)?;
+                    self.plugins[id].set_value(&dst_key, value)?;
                 }
                 ActionKind::RequireConfigEntry(dst_key) => {
                     let value = self.data_mgr.prepare_value_same_key(id, &dst_key)?;
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
-                    let plugin = &self.plugins[id];
-                    let _span = logger::span(&plugin.name);
-                    self.plugins[id].as_interface().set_value(&dst_key, value)?;
+                    self.plugins[id].set_value(&dst_key, value)?;
                 }
                 ActionKind::RequireEnvValue(dst_key, src_key) => {
                     let value = self
@@ -83,9 +73,7 @@ impl Kernel {
                         .ok_or_else(|| Error::EnvValueUndefined(src_key.clone()))?;
                     let value = Value::builder(&src_key).value(serde_json::to_value(value)?).build();
                     log::debug!("set {}::{} <== {:?}", self.plugins[id].name, dst_key, value);
-                    let plugin = &self.plugins[id];
-                    let _span = logger::span(&plugin.name);
-                    self.plugins[id].as_interface().set_value(&dst_key, value)?;
+                    self.plugins[id].set_value(&dst_key, value)?;
                 }
             }
         }
@@ -99,11 +87,15 @@ impl Kernel {
 
         Ok(())
     }
+
+    pub fn plugins(&self) -> &[Plugin] {
+        &self.plugins[..]
+    }
 }
 
 pub struct KernelBuilder {
     config: Config,
-    injections: Vec<(Box<dyn PluginInterface>, InjectionTarget)>,
+    injections: Vec<(Plugin, InjectionTarget)>,
 }
 
 impl KernelBuilder {
@@ -114,8 +106,7 @@ impl KernelBuilder {
         }
     }
 
-    pub fn inject_plugin<P: PluginInterface + 'static>(&mut self, plugin: P, target: InjectionTarget) -> &mut Self {
-        let plugin = Box::new(plugin);
+    pub fn inject(&mut self, plugin: Plugin, target: InjectionTarget) -> &mut Self {
         self.injections.push((plugin, target));
         self
     }
@@ -138,7 +129,6 @@ impl KernelBuilder {
         let mut injection_defs = Vec::new();
         let mut injected_plugins = Vec::new();
         for (id, (plugin, target)) in injections.into_iter().enumerate() {
-            let plugin = Plugin::new(plugin)?;
             injected_plugins.push(plugin);
             injection_defs.push((id, target));
         }

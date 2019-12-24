@@ -16,7 +16,7 @@ pub mod utils;
 use crate::builtin_plugins::{early_exit, EarlyExitPlugin};
 use crate::config::Config;
 use crate::plugin_runtime::InjectionTarget;
-use crate::plugin_support::PluginStep;
+use crate::plugin_support::{Plugin, PluginStep};
 use plugin_runtime::Kernel;
 
 use std::path::PathBuf;
@@ -52,8 +52,8 @@ pub fn run(args: Args) -> Result<(), failure::Error> {
     let config = Config::from_toml(args.path.join("releaserc.toml"), args.dry)?;
 
     let kernel = Kernel::builder(config)
-        .inject_plugin(
-            EarlyExitPlugin::new(),
+        .inject(
+            Plugin::new(EarlyExitPlugin::new())?,
             InjectionTarget::AfterStep(PluginStep::DeriveNextVersion),
         )
         .build()?;
