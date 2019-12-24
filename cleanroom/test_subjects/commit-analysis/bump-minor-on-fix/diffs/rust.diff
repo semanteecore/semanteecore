@@ -11,22 +11,15 @@ new file mode 100644
 diff --git a/Cargo.toml b/Cargo.toml
 --- a/Cargo.toml
 +++ b/Cargo.toml
-@@ -2,11 +2,9 @@
- members = []
+@@ -3,7 +3,7 @@ members = []
  
  [package]
--name = "repository"
+ name = "repository"
 -version = "0.1.0"
--authors = ["mersinvald <me@mkl.dev>"]
--edition = "2018"
--
--# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-+name = 'repository'
-+version = '0.1.1'
-+authors = ['mersinvald <me@mkl.dev>']
-+edition = '2018'
++version = "0.1.1"
+ authors = ["mersinvald <me@mkl.dev>"]
+ edition = "2018"
  
- [dependencies]
 diff --git a/Changelog.md b/Changelog.md
 new file mode 100644
 --- /dev/null
