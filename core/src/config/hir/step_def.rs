@@ -46,7 +46,7 @@ impl<'de> Deserialize<'de> for StepDefinition {
 }
 
 /// Map [PluginStep](crate::plugin::PluginStep) -> [PluginStep](self::StepDefinition)
-#[derive(Serialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Serialize, Debug, Clone, Eq, PartialEq, Default)]
 pub struct StepsDefinitionMap(Map<PluginStep, StepDefinition>);
 
 impl<'de> Deserialize<'de> for StepsDefinitionMap {

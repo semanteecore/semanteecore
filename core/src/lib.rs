@@ -1,4 +1,4 @@
-#![feature(try_trait, external_doc, array_value_iter)]
+#![feature(try_trait, external_doc, array_value_iter, specialization, is_sorted)]
 #![doc(include = "../../README.md")]
 
 #[macro_use]
@@ -9,6 +9,9 @@ pub mod builtin_plugins;
 pub mod config;
 pub mod logger;
 pub mod runtime;
+
+#[cfg(test)]
+pub mod test_utils;
 
 use crate::builtin_plugins::{early_exit, EarlyExitPlugin};
 use crate::config::Config;
@@ -45,7 +48,13 @@ pub fn run(args: Args) -> Result<(), failure::Error> {
 
     log::info!("semanteecore 🚀");
 
-    let config = Config::from_toml(args.path.join("releaserc.toml"), args.dry)?;
+    let config = Config::from_path(args.path.join("releaserc.toml"), args.dry)?;
+    let config = match config {
+        Config::Monoproject(cfg) => cfg,
+        Config::Workspace(_) => {
+            return Err(failure::err_msg("Workspace projects are not yet supported"));
+        }
+    };
 
     let kernel = Kernel::builder(config)
         .inject(

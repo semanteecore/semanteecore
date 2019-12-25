@@ -6,6 +6,7 @@ pub mod resolver;
 pub mod sequence;
 pub mod starter;
 pub mod util;
+pub mod graph;
 
 pub use self::kernel::{Error, Kernel};
 

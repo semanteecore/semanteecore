@@ -1,4 +1,4 @@
-use crate::config::{Config, Map, StepDefinition, ValueDefinition, ValueDefinitionMap};
+use crate::config::{Map, Monoproject, StepDefinition, ValueDefinition, ValueDefinitionMap};
 use crate::runtime::discovery::discover;
 use crate::runtime::{InjectionTarget, Plugin, PluginId};
 use failure::Fail;
@@ -72,7 +72,7 @@ pub struct PluginSequence {
 impl PluginSequence {
     pub fn new(
         plugins: &[Plugin],
-        releaserc: &Config,
+        releaserc: &Monoproject,
         injections: Vec<(PluginId, InjectionTarget)>,
         is_dry_run: bool,
     ) -> Result<Self, failure::Error> {
@@ -560,7 +560,7 @@ fn collect_plugins_methods_capabilities(plugins: &[Plugin]) -> Result<Map<Plugin
 }
 
 fn build_steps_to_plugins_map(
-    config: &Config,
+    config: &Monoproject,
     plugins: &[Plugin],
     injections: Vec<(PluginId, InjectionTarget)>,
     capabilities: Map<PluginStep, Vec<String>>,
@@ -656,11 +656,13 @@ enum Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::hir::Config;
     use plugin_api::flow::{FlowError, ProvisionRequest};
     use plugin_api::{
         proto::response::{self, PluginResponse},
         PluginInterface,
     };
+    use std::convert::TryFrom;
     use std::ops::Try;
     use strum::IntoEnumIterator;
 
@@ -728,7 +730,8 @@ mod tests {
             pre_flight = [ "dependent", "provider" ]
         "#;
 
-        let config = toml::from_str(toml).unwrap();
+        let config: Config = toml::from_str(toml).unwrap();
+        let config = Monoproject::try_from(config).unwrap();
         let plugins = dependent_provider_plugins();
         let caps = collect_plugins_methods_capabilities(&plugins).unwrap();
 
@@ -752,7 +755,8 @@ mod tests {
             pre_flight = [ "provider", "dependent" ]
         "#;
 
-        let config = toml::from_str(toml).unwrap();
+        let config: Config = toml::from_str(toml).unwrap();
+        let config = Monoproject::try_from(config).unwrap();
         let plugins = dependent_provider_plugins();
         let caps = collect_plugins_methods_capabilities(&plugins).unwrap();
 
@@ -776,7 +780,8 @@ mod tests {
             pre_flight = "discover"
         "#;
 
-        let config = toml::from_str(toml).unwrap();
+        let config: Config = toml::from_str(toml).unwrap();
+        let config = Monoproject::try_from(config).unwrap();
         let plugins = dependent_provider_plugins();
         let caps = collect_plugins_methods_capabilities(&plugins).unwrap();
 
@@ -800,7 +805,8 @@ mod tests {
             pre_flight = [ "provider", "dependent" ]
         "#;
 
-        let config = toml::from_str(toml).unwrap();
+        let config: Config = toml::from_str(toml).unwrap();
+        let config = Monoproject::try_from(config).unwrap();
         let mut plugins = dependent_provider_plugins();
         plugins.push(Plugin::new(test_plugins::Injected).unwrap());
 
@@ -827,7 +833,8 @@ mod tests {
             pre_flight = "discover"
         "#;
 
-        let config = toml::from_str(toml).unwrap();
+        let config: Config = toml::from_str(toml).unwrap();
+        let config = Monoproject::try_from(config).unwrap();
         let mut plugins = dependent_provider_plugins();
         plugins.push(Plugin::new(test_plugins::Injected).unwrap());
 
@@ -854,7 +861,8 @@ mod tests {
             pre_flight = "discover"
         "#;
 
-        let config = toml::from_str(toml).unwrap();
+        let config: Config = toml::from_str(toml).unwrap();
+        let config = Monoproject::try_from(config).unwrap();
         let mut plugins = dependent_provider_plugins();
         plugins.push(Plugin::new(test_plugins::Injected).unwrap());
 
@@ -888,7 +896,8 @@ mod tests {
             pre_flight = [ "dependent", "provider" ]
         "#;
 
-        let config = toml::from_str(toml).unwrap();
+        let config: Config = toml::from_str(toml).unwrap();
+        let config = Monoproject::try_from(config).unwrap();
         let PluginSequence { seq } =
             PluginSequence::new(&dependent_provider_plugins(), &config, vec![], false).unwrap();
 
@@ -926,7 +935,8 @@ mod tests {
             dest_key = "value"
         "#;
 
-        let config = toml::from_str(toml).unwrap();
+        let config: Config = toml::from_str(toml).unwrap();
+        let config = Monoproject::try_from(config).unwrap();
         let PluginSequence { seq } =
             PluginSequence::new(&dependent_provider_plugins(), &config, vec![], false).unwrap();
 
@@ -1408,6 +1418,11 @@ mod tests {
                 self.config = serde_json::from_value(config)?;
                 PluginResponse::from_ok(())
             }
+
+            fn reset(&mut self) -> response::Null {
+                *self = Self::default();
+                PluginResponse::from_ok(())
+            }
         }
 
         pub struct Provider;
@@ -1440,6 +1455,10 @@ mod tests {
             fn set_config(&mut self, _config: serde_json::Value) -> response::Null {
                 unimplemented!()
             }
+
+            fn reset(&mut self) -> response::Null {
+                PluginResponse::from_ok(())
+            }
         }
 
         pub struct Injected;
@@ -1463,6 +1482,10 @@ mod tests {
             }
 
             fn set_config(&mut self, _config: serde_json::Value) -> response::Null {
+                unimplemented!()
+            }
+
+            fn reset(&mut self) -> PluginResponse<()> {
                 unimplemented!()
             }
         }

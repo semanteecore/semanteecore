@@ -154,6 +154,11 @@ impl PluginInterface for ClogPlugin {
         PluginResponse::from_ok(())
     }
 
+    fn reset(&mut self) -> response::Null {
+        *self = Self::default();
+        PluginResponse::from_ok(())
+    }
+
     fn methods(&self) -> response::Methods {
         let methods = vec![
             PluginStep::PreFlight,
