@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 use crate::config::Config;
 use crate::plugin_support::proto::ProjectAndDependencies;
 use petgraph::prelude::NodeIndex;
@@ -6,8 +5,6 @@ use petgraph::Graph;
 use super::{Graph, Id};
 use std::fs;
 use std::ops::Deref;
-=======
->>>>>>> 51a6483... feat(core): bottom-to-top dependency graph processing
 use std::path::{Path, PathBuf};
 
 use derive_more::{Deref, DerefMut};
@@ -194,20 +191,7 @@ mod tests_with_pg {
 
     #[test]
     #[serial(current_dir)]
-<<<<<<< HEAD
-    #[should_panic]
-    fn find_roots_no_releaserc_in_root() {
-        let dir = tempfile::tempdir().unwrap();
-        let _g = pushd(dir.path());
-        let tree = ConfigTree::build(dir.path(), true);
-        assert!(tree.is_err())
-    }
-
-    #[test]
-    #[serial(current_dir)]
-=======
     #[cfg(feature = "emit-graphviz")]
->>>>>>> 51a6483... feat(core): bottom-to-top dependency graph processing
     fn find_roots_symlink() {
         let dir = tempfile::tempdir().unwrap();
         let _g = pushd(dir.path());
