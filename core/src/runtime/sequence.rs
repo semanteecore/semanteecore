@@ -1,4 +1,4 @@
-use crate::config::{Map, Monoproject, StepDefinition, ValueDefinition, ValueDefinitionMap};
+use crate::config::{self, Map, Monoproject};
 use crate::runtime::discovery::discover;
 use crate::runtime::{InjectionTarget, Plugin, PluginId};
 use failure::Fail;
@@ -113,7 +113,7 @@ struct PluginSequenceBuilder<'a> {
     names: Vec<String>,
     configs: Vec<Map<String, Value<serde_json::Value>>>,
     caps: Vec<Vec<ProvisionCapability>>,
-    releaserc: &'a ValueDefinitionMap,
+    releaserc: &'a config::ValueMap,
     step_map: Map<PluginStep, Vec<PluginId>>,
 }
 
@@ -150,8 +150,8 @@ impl<'a> PluginSequenceBuilder<'a> {
                 None => continue,
             };
 
-            let subtable: ValueDefinitionMap = match value {
-                ValueDefinition::Value(value) => match serde_json::from_value(value.clone()) {
+            let subtable: config::ValueMap = match value {
+                config::Value::Value(value) => match serde_json::from_value(value.clone()) {
                     Ok(st) => st,
                     Err(err) => {
                         log::warn!("Failed to deserialize a table of key-value definitions: {}", err);
@@ -159,7 +159,7 @@ impl<'a> PluginSequenceBuilder<'a> {
                         continue;
                     }
                 },
-                ValueDefinition::From { .. } => {
+                config::Value::From { .. } => {
                     log::warn!("'from' statements are not supported for top-level plugin configuration tables");
                     log::warn!("Configuration entry cfg.{} will be ignored", name);
                     continue;
@@ -179,11 +179,11 @@ impl<'a> PluginSequenceBuilder<'a> {
                 }
 
                 match value_def {
-                    ValueDefinition::Value(value) => {
+                    config::Value::Value(value) => {
                         let new = Value::builder(&dest_key).value(value.clone()).build();
                         cfg.insert(dest_key.clone(), new);
                     }
-                    ValueDefinition::From {
+                    config::Value::From {
                         required_at,
                         from_env,
                         key,
@@ -576,7 +576,7 @@ fn build_steps_to_plugins_map(
 
     for (step, step_def) in config.steps.iter() {
         match step_def {
-            StepDefinition::Discover => {
+            config::Step::Discover => {
                 let names = capabilities.get(&step);
 
                 let ids = if let Some(names) = names {
@@ -600,7 +600,7 @@ fn build_steps_to_plugins_map(
 
                 map.insert(*step, ids);
             }
-            StepDefinition::Singleton(plugin) => {
+            config::Step::Singleton(plugin) => {
                 let names = capabilities.get(&step).ok_or(Error::NoPluginsForStep(*step))?;
 
                 if !names.contains(&plugin) {
@@ -612,7 +612,7 @@ fn build_steps_to_plugins_map(
 
                 map.insert(*step, ids);
             }
-            StepDefinition::Shared(list) => {
+            config::Step::Shared(list) => {
                 if list.is_empty() {
                     continue;
                 };

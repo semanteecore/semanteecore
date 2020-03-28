@@ -1,10 +1,6 @@
-pub mod plugin_def;
-pub mod step_def;
-pub mod value_def;
-
-pub use self::plugin_def::{PluginDefinition, PluginDefinitionMap};
-pub use self::step_def::{StepDefinition, StepsDefinitionMap};
-pub use self::value_def::{ValueDefinition, ValueDefinitionMap};
+pub mod plugin;
+pub mod step;
+pub mod value;
 
 use std::fs::File;
 use std::io::Read;
@@ -35,13 +31,13 @@ pub struct Workspace {
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
     #[serde(default)]
-    pub cfg: ValueDefinitionMap,
+    pub cfg: value::DefinitionMap,
     #[serde(default)]
     pub workspace: Option<Workspace>,
     #[serde(default)]
-    pub plugins: PluginDefinitionMap,
+    pub plugins: plugin::DefinitionMap,
     #[serde(default)]
-    pub steps: StepsDefinitionMap,
+    pub steps: step::DefinitionMap,
 }
 
 impl Config {

@@ -1,6 +1,6 @@
 use failure::Fail;
 
-use crate::config::{Monoproject, PluginDefinitionMap};
+use crate::config::{Monoproject, PluginMap};
 use crate::runtime::plugin::{Plugin, RawPlugin, RawPluginState};
 use crate::runtime::resolver::PluginResolver;
 use crate::runtime::starter::PluginStarter;
@@ -34,7 +34,7 @@ pub fn load_plugins_with_injections(
     Ok(plugins)
 }
 
-fn plugin_def_map_to_vec(plugins: PluginDefinitionMap) -> Vec<RawPlugin> {
+fn plugin_def_map_to_vec(plugins: PluginMap) -> Vec<RawPlugin> {
     plugins
         .into_iter()
         .map(|(name, def)| RawPlugin::new(name, RawPluginState::Unresolved(def.into_full())))
