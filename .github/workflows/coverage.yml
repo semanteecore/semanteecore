@@ -22,7 +22,7 @@ jobs:
           toolchain: nightly
 
       - name: Run cargo-tarpaulin
-        uses: garyttierney/tarpaulin@feat/draft-version
+        uses: actions-rs/tarpaulin@v0.1
         with:
           args: --all --all-features -v --out Xml
 
