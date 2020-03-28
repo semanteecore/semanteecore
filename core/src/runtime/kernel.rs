@@ -1,7 +1,7 @@
 use failure::Fail;
 use strum::IntoEnumIterator;
 
-use crate::config::{Config, Map};
+use crate::config::{Map, Monoproject};
 use crate::runtime::data_mgr::DataManager;
 use crate::runtime::sequence::{ActionKind, PluginSequence};
 use crate::runtime::util::load_plugins;
@@ -20,7 +20,7 @@ pub struct Kernel {
 }
 
 impl Kernel {
-    pub fn builder(config: Config) -> KernelBuilder {
+    pub fn builder(config: Monoproject) -> KernelBuilder {
         KernelBuilder::new(config)
     }
 
@@ -95,12 +95,12 @@ impl Kernel {
 }
 
 pub struct KernelBuilder {
-    config: Config,
+    config: Monoproject,
     injections: Vec<(Plugin, InjectionTarget)>,
 }
 
 impl KernelBuilder {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Monoproject) -> Self {
         KernelBuilder {
             config,
             injections: Vec::new(),
