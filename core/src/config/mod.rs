@@ -135,7 +135,7 @@ impl TryFrom<hir::Config> for Workspace {
 
         let workspace = if workspace.auto {
             Workspace::Unresolved(UnresolvedWorkspace {
-                known_members: vec![],
+                known_members,
                 ignore_by,
                 plugins,
                 cfg,
