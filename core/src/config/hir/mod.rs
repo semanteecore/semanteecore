@@ -2,9 +2,10 @@ pub mod plugin;
 pub mod step;
 pub mod value;
 
-use std::fs::File;
-use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 use failure::Fail;
 use linked_hash_map::LinkedHashMap;
@@ -48,16 +49,13 @@ pub struct Config {
 impl Config {
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, failure::Error> {
         let config_path = path.as_ref();
-        let mut file = File::open(config_path).map_err(|err| match err.kind() {
-            std::io::ErrorKind::NotFound => Error::FileNotFound.into(),
+
+        let contents = fs::read_to_string(config_path).map_err(|err| match err.kind() {
+            io::ErrorKind::NotFound => Error::FileNotFound.into(),
             _other => failure::Error::from(err),
         })?;
 
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        let contents = contents.trim();
-
-        toml::from_str(contents).map_err(failure::Error::from)
+        toml::from_str(contents.trim()).map_err(failure::Error::from)
     }
 }
 
