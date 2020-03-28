@@ -41,7 +41,7 @@ pub enum Workspace {
 #[derive(Debug, Clone)]
 pub struct UnresolvedWorkspace {
     pub known_members: Vec<PathBuf>,
-    pub ignore_patterns: Vec<glob::Pattern>,
+    pub ignore_by: Vec<glob::Pattern>,
     pub plugins: hir::plugin::DefinitionMap,
     pub cfg: hir::value::DefinitionMap,
 }
@@ -122,7 +122,7 @@ impl TryFrom<hir::Config> for Workspace {
         }
 
         // Convert ignore patterns to glob::Pattern
-        let ignore_patterns: Vec<glob::Pattern> = workspace
+        let ignore_by: Vec<glob::Pattern> = workspace
             .ignore
             .iter()
             .map(|pat| glob::Pattern::new(&pat))
@@ -136,7 +136,7 @@ impl TryFrom<hir::Config> for Workspace {
         let workspace = if workspace.auto {
             Workspace::Unresolved(UnresolvedWorkspace {
                 known_members: vec![],
-                ignore_patterns,
+                ignore_by,
                 plugins,
                 cfg,
             })
