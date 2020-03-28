@@ -122,7 +122,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_full_config() {
+    fn smoke_parse_full_config() {
         let toml = r#"
             [plugins]
             # Fully qualified definition
@@ -178,7 +178,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_layer_config() {
+    fn smoke_parse_layer_config() {
         let toml = r#"
             [cfg]
             # Global configuration
@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_full_config_with_data_flow_queries() {
+    fn smoke_parse_full_config_with_data_flow_queries() {
         let toml = r#"
         [plugins]
         # Fully qualified definition
