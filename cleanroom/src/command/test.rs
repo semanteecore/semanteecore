@@ -34,7 +34,7 @@ impl CommandExecutor for Test {
 
         let mut tests_generator = self.read_tests(&ctx);
         loop {
-            match Pin::new(&mut tests_generator).resume() {
+            match Pin::new(&mut tests_generator).resume(()) {
                 GeneratorState::Yielded(info) => {
                     // Insert empty line before every test
                     semanteecore::logger::empty_line();
