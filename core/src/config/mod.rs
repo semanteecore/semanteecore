@@ -63,13 +63,7 @@ impl Config {
             Monoproject::try_from(hir).map(Config::Monoproject)?
         };
 
-        let cfg_map = match &mut config {
-            Config::Monoproject(monoproject) => &mut monoproject.cfg,
-            Config::Workspace(workspace) => match workspace {
-                Workspace::Resolved(resolved) => &mut resolved.cfg,
-                Workspace::Unresolved(unresolved) => &mut unresolved.cfg,
-            },
-        };
+        let cfg_map = config.values_mut();
 
         // Set a dry run flag to the passed state, if it wasn't defined explicitly in releaserc.toml
         cfg_map
@@ -88,6 +82,22 @@ impl Config {
         cfg_map.entry("project_root".into()).or_insert(workspace_path_value);
 
         Ok(config)
+    }
+
+    fn values_mut(&mut self) -> &mut hir::value::DefinitionMap {
+        match self {
+            Config::Monoproject(monoproject) => &mut monoproject.cfg,
+            Config::Workspace(workspace) => workspace.values_mut(),
+        }
+    }
+}
+
+impl Workspace {
+    fn values_mut(&mut self) -> &mut hir::value::DefinitionMap {
+        match self {
+            Workspace::Resolved(resolved) => &mut resolved.cfg,
+            Workspace::Unresolved(unresolved) => &mut unresolved.cfg,
+        }
     }
 }
 
