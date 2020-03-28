@@ -19,12 +19,17 @@ pub type Map<K, V> = LinkedHashMap<K, V>;
 /// Workspace definition table
 #[derive(Deserialize, Clone, Debug, Default)]
 pub struct Workspace {
-    #[serde(default)]
+    /// Whether to perform automatic discovery of project members
+    #[serde(default = "default_auto_value")]
     pub auto: bool,
     #[serde(default)]
     pub members: Vec<PathBuf>,
     #[serde(default)]
     pub ignore: Vec<String>,
+}
+
+fn default_auto_value() -> bool {
+    true
 }
 
 /// Base structure to parse `releaserc.toml` into
