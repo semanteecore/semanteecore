@@ -10,29 +10,29 @@ use plugin_api::PluginStep;
 pub type Key = String;
 
 #[derive(Debug, Clone, Default)]
-pub struct ValueDefinitionMap(Map<String, ValueDefinition>);
+pub struct DefinitionMap(Map<String, Definition>);
 
-impl Deref for ValueDefinitionMap {
-    type Target = Map<String, ValueDefinition>;
+impl Deref for DefinitionMap {
+    type Target = Map<String, Definition>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for ValueDefinitionMap {
+impl DerefMut for DefinitionMap {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl Into<Map<String, Value<serde_json::Value>>> for ValueDefinitionMap {
+impl Into<Map<String, Value<serde_json::Value>>> for DefinitionMap {
     fn into(self) -> Map<String, Value<serde_json::Value>> {
         let mut map = Map::new();
         for (key, value) in self.0 {
             let kv = match value {
-                ValueDefinition::Value(v) => Value::builder(&key).value(v).build(),
-                ValueDefinition::From {
+                Definition::Value(v) => Value::builder(&key).value(v).build(),
+                Definition::From {
                     required_at,
                     from_env,
                     key,
@@ -54,7 +54,7 @@ impl Into<Map<String, Value<serde_json::Value>>> for ValueDefinitionMap {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ValueDefinition {
+pub enum Definition {
     From {
         required_at: Option<PluginStep>,
         from_env: bool,
@@ -63,23 +63,23 @@ pub enum ValueDefinition {
     Value(serde_json::Value),
 }
 
-impl ValueDefinition {
+impl Definition {
     pub fn is_value(&self) -> bool {
         match self {
-            ValueDefinition::Value(_) => true,
-            ValueDefinition::From { .. } => false,
+            Definition::Value(_) => true,
+            Definition::From { .. } => false,
         }
     }
 
     pub fn as_value(&self) -> &serde_json::Value {
         match self {
-            ValueDefinition::Value(v) => &v,
-            ValueDefinition::From { .. } => panic!("ValueDefinition is not in Value state."),
+            Definition::Value(v) => &v,
+            Definition::From { .. } => panic!("ValueDefinition is not in Value state."),
         }
     }
 }
 
-impl<'de> Deserialize<'de> for ValueDefinitionMap {
+impl<'de> Deserialize<'de> for DefinitionMap {
     fn deserialize<D>(de: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -92,22 +92,22 @@ impl<'de> Deserialize<'de> for ValueDefinitionMap {
                 let parsed = parse_value_definition(value).map_err(D::Error::custom)?;
                 map.insert(key, parsed);
             } else {
-                map.insert(key, ValueDefinition::Value(value));
+                map.insert(key, Definition::Value(value));
             }
         }
 
-        Ok(ValueDefinitionMap(map))
+        Ok(DefinitionMap(map))
     }
 }
 
 #[derive(Parser)]
 #[grammar = "../grammar/dataflow.pest"]
-struct ValueDefinitionParser;
+struct DefinitionParser;
 
-fn parse_value_definition(value: &str) -> Result<ValueDefinition, failure::Error> {
+fn parse_value_definition(value: &str) -> Result<Definition, failure::Error> {
     use std::str::FromStr;
 
-    let pairs = ValueDefinitionParser::parse(Rule::value_def, value)
+    let pairs = DefinitionParser::parse(Rule::value_def, value)
         .map_err(|e| failure::err_msg(format!("{}", e)))?
         .next()
         .unwrap();
@@ -119,7 +119,7 @@ fn parse_value_definition(value: &str) -> Result<ValueDefinition, failure::Error
     for pair in pairs.into_inner() {
         log::trace!("{:#?}", pair);
         match pair.as_rule() {
-            Rule::value => return Ok(ValueDefinition::Value(serde_json::Value::String(pair.as_str().into()))),
+            Rule::value => return Ok(Definition::Value(serde_json::Value::String(pair.as_str().into()))),
             Rule::required_at_step => {
                 required_at = Some(PluginStep::from_str(pair.as_str())?);
             }
@@ -133,7 +133,7 @@ fn parse_value_definition(value: &str) -> Result<ValueDefinition, failure::Error
         }
     }
 
-    Ok(ValueDefinition::From {
+    Ok(Definition::From {
         required_at,
         from_env,
         key,
@@ -271,22 +271,22 @@ mod tests {
 
     #[test]
     fn parse_value_definition_value() {
-        let v: ValueDefinition = parse_value_definition(r#"false"#)
+        let v: Definition = parse_value_definition(r#"false"#)
             .map_err(pretty_print_error_and_panic)
             .unwrap();
 
-        assert_eq!(v, ValueDefinition::Value(serde_json::Value::String("false".into())));
+        assert_eq!(v, Definition::Value(serde_json::Value::String("false".into())));
     }
 
     #[test]
     fn parse_value_definition_from_key() {
-        let v: ValueDefinition = parse_value_definition(r#"from:key"#)
+        let v: Definition = parse_value_definition(r#"from:key"#)
             .map_err(pretty_print_error_and_panic)
             .unwrap();
 
         assert_eq!(
             v,
-            ValueDefinition::From {
+            Definition::From {
                 required_at: None,
                 from_env: false,
                 key: "key".into()
@@ -296,13 +296,13 @@ mod tests {
 
     #[test]
     fn parse_value_definition_from_env() {
-        let v: ValueDefinition = parse_value_definition(r#"from:env:key"#)
+        let v: Definition = parse_value_definition(r#"from:env:key"#)
             .map_err(pretty_print_error_and_panic)
             .unwrap();
 
         assert_eq!(
             v,
-            ValueDefinition::From {
+            Definition::From {
                 required_at: None,
                 from_env: true,
                 key: "key".into()
@@ -312,13 +312,13 @@ mod tests {
 
     #[test]
     fn parse_value_definition_from_env_required_at() {
-        let v: ValueDefinition = parse_value_definition(r#"from:env:required_at=commit:key"#)
+        let v: Definition = parse_value_definition(r#"from:env:required_at=commit:key"#)
             .map_err(pretty_print_error_and_panic)
             .unwrap();
 
         assert_eq!(
             v,
-            ValueDefinition::From {
+            Definition::From {
                 required_at: Some(PluginStep::Commit),
                 from_env: true,
                 key: "key".into()
@@ -328,13 +328,13 @@ mod tests {
 
     #[test]
     fn parse_value_definition_from_full() {
-        let v: ValueDefinition = parse_value_definition(r#"from:required_at=commit:key"#)
+        let v: Definition = parse_value_definition(r#"from:required_at=commit:key"#)
             .map_err(pretty_print_error_and_panic)
             .unwrap();
 
         assert_eq!(
             v,
-            ValueDefinition::From {
+            Definition::From {
                 required_at: Some(PluginStep::Commit),
                 from_env: false,
                 key: "key".into()
@@ -345,7 +345,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn parse_value_definition_unknown_meta_keys() {
-        let _v: ValueDefinition = parse_value_definition(r#"from:required_at=commit:unknown_meta:key"#)
+        let _v: Definition = parse_value_definition(r#"from:required_at=commit:unknown_meta:key"#)
             .map_err(pretty_print_error_and_panic)
             .unwrap();
     }
@@ -353,21 +353,21 @@ mod tests {
     #[test]
     fn deserialize_value_definition_string() {
         let toml = r#"key = "false""#;
-        let kvmap: ValueDefinitionMap = toml::from_str(toml).unwrap();
+        let kvmap: DefinitionMap = toml::from_str(toml).unwrap();
         assert_eq!(kvmap.0.len(), 1);
         let v = kvmap.0.values().next().unwrap();
 
-        assert_eq!(v, &ValueDefinition::Value(serde_json::Value::String("false".into())));
+        assert_eq!(v, &Definition::Value(serde_json::Value::String("false".into())));
     }
 
     #[test]
     fn deserialize_value_definition_not_string() {
         let toml = r#"key = false"#;
-        let kvmap: ValueDefinitionMap = toml::from_str(toml).unwrap();
+        let kvmap: DefinitionMap = toml::from_str(toml).unwrap();
         assert_eq!(kvmap.0.len(), 1);
         let v = kvmap.0.values().next().unwrap();
 
-        assert_eq!(v, &ValueDefinition::Value(serde_json::Value::Bool(false)));
+        assert_eq!(v, &Definition::Value(serde_json::Value::Bool(false)));
     }
 
     #[test]
@@ -389,13 +389,13 @@ mod tests {
 
         let value_toml = r#"key = { one = 1, two = true, three = "three", four = [1, 2, 3, 4] }"#;
 
-        let kvmap: ValueDefinitionMap = toml::from_str(value_toml).unwrap();
+        let kvmap: DefinitionMap = toml::from_str(value_toml).unwrap();
         assert_eq!(kvmap.0.len(), 1);
         let v = kvmap.0.values().next().unwrap();
 
         let parsed: Value = match v {
-            ValueDefinition::From { .. } => panic!("expected Value, got From"),
-            ValueDefinition::Value(value) => serde_json::from_value(value.clone()).unwrap(),
+            Definition::From { .. } => panic!("expected Value, got From"),
+            Definition::Value(value) => serde_json::from_value(value.clone()).unwrap(),
         };
 
         assert_eq!(value, parsed);
