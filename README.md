@@ -1,4 +1,4 @@
-# semanteecore
+# semanteecore (abandoned) 
 
 [![codecov](https://codecov.io/gh/semanteecore/semanteecore/branch/master/graph/badge.svg)](https://codecov.io/gh/semanteecore/semanteecore)
 [![Bors enabled](https://bors.tech/images/badge_small.svg)](https://bors-semanteecore.herokuapp.com/repositories/1)
